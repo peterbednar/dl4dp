@@ -8,7 +8,7 @@ import numpy as np
 def max_branching(weights):
     nr, nc = weights.shape
 
-    roots = range(nr)
+    roots = list(range(nr))
     rset = []
 
     q = np.empty(nr, dtype=np.object)
@@ -20,14 +20,12 @@ def max_branching(weights):
 
     h = defaultdict(list)
 
-    for i in range(nr):
-        q[i] = EdgeQueue()
-        if i == 0:
-            # skip root = 0 node
-            continue
-        for j in range(nr):
-            if i != j:
-                q[i].push(Edge(i, j, weights[i, j]))
+    q[0] = EdgeQueue()
+    for node in range(1, nr):
+        q[node] = EdgeQueue()
+        for i in range(nr):
+            if i != node:
+                q[node].push(Edge(i, node, weights[i, node]))
 
     while roots:
         scc_to = roots.pop()
@@ -38,6 +36,7 @@ def max_branching(weights):
             continue
 
         scc_from = _find_disjoint_sets(s, max_in_edge.start)
+
         if scc_from == scc_to:
             roots.append(scc_to)
             continue
@@ -66,6 +65,7 @@ def max_branching(weights):
             e.weight += inc
 
         min[scc_to] = min[min_scc]
+
         tmp = enter[scc_from]
         while tmp is not None:
             tmp_scc_to = _find_disjoint_sets(s, tmp.end)
@@ -75,7 +75,7 @@ def max_branching(weights):
                 e.weight += inc
                 q[scc_to].push(e)
 
-            enter[tmp_scc_to] = None
+            q[tmp_scc_to] = None
             _union_disjoint_sets(s, scc_to, tmp_scc_to)
 
             tmp = enter[_find_disjoint_sets(s, tmp.start)]
@@ -88,7 +88,6 @@ def max_branching(weights):
         _invert_max_branching(min[scc], h, visited, inverted)
 
     return inverted
-
 
 def _invert_max_branching(node, h, visited, inverted):
     visited[node] = True
@@ -115,7 +114,6 @@ class Edge(object):
     def __repr__(self):
         return str((self.start, self.end, self.weight))
 
-
 class EdgeQueue(object):
 
     def __init__(self):
@@ -132,13 +130,16 @@ class EdgeQueue(object):
     def __iter__(self):
         return iter(self._queue)
 
+    def __repr__(self):
+        return str(self._queue)
+
 def _find_disjoint_sets(trees, elm):
     if trees[elm] != elm:
         trees[elm] = _find_disjoint_sets(trees, trees[elm])
     return trees[elm]
 
 def _union_disjoint_sets(trees, set1, set2):
-    trees[set1] = set2
+    trees[set2] = set1
 
 if __name__ == "__main__":
     weights = np.zeros((4, 4), dtype=np.float)
