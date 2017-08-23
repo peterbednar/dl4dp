@@ -8,8 +8,8 @@ import numpy as np
 def max_branching(weights):
     nr, nc = weights.shape
 
-    roots = list(range(nr))
-    rset = []
+    roots = list(range(1, nr))
+    rset = [0]
 
     q = np.empty(nr, dtype=np.object)
     enter = np.empty(nr, dtype=np.object)
@@ -20,12 +20,11 @@ def max_branching(weights):
 
     h = defaultdict(list)
 
-    q[0] = EdgeQueue()
     for node in range(1, nr):
-        q[node] = EdgeQueue()
+        q[node] = _EdgeQueue()
         for i in range(nr):
             if i != node:
-                q[node].push(Edge(i, node, weights[i, node]))
+                q[node].push(_Edge(i, node, weights[i, node]))
 
     while roots:
         scc_to = roots.pop()
@@ -36,7 +35,6 @@ def max_branching(weights):
             continue
 
         scc_from = _find_disjoint_sets(s, max_in_edge.start)
-
         if scc_from == scc_to:
             roots.append(scc_to)
             continue
@@ -45,7 +43,6 @@ def max_branching(weights):
 
         wss_from = _find_disjoint_sets(w, max_in_edge.start)
         wss_to = _find_disjoint_sets(w, max_in_edge.end)
-
         if wss_from != wss_to:
             _union_disjoint_sets(w, wss_from, wss_to)
             enter[scc_to] = max_in_edge
@@ -68,15 +65,14 @@ def max_branching(weights):
 
         tmp = enter[scc_from]
         while tmp is not None:
-            tmp_scc_to = _find_disjoint_sets(s, tmp.end)
-
             inc = min_weight - tmp.weight
+            tmp_scc_to = _find_disjoint_sets(s, tmp.end)
             for e in q[tmp_scc_to]:
                 e.weight += inc
                 q[scc_to].push(e)
 
-            q[tmp_scc_to] = None
             _union_disjoint_sets(s, scc_to, tmp_scc_to)
+            q[tmp_scc_to] = None
 
             tmp = enter[_find_disjoint_sets(s, tmp.start)]
 
@@ -98,7 +94,7 @@ def _invert_max_branching(node, h, visited, inverted):
         _invert_max_branching(v, h, visited, inverted)
 
 @total_ordering
-class Edge(object):
+class _Edge(object):
 
     def __init__(self, start, end, weight):
         self.start = start
@@ -114,7 +110,7 @@ class Edge(object):
     def __repr__(self):
         return str((self.start, self.end, self.weight))
 
-class EdgeQueue(object):
+class _EdgeQueue(object):
 
     def __init__(self):
         self._queue = []
