@@ -18,9 +18,20 @@ def ismultiword(token):
         token = token[ID]
     return token[2] == MULTIWORD if isinstance(token, tuple) else False
 
-def read_conllu(filename, skip_empty=True, skip_multiword=True):
+def read_conllu(filename, skip_empty=True, skip_multiword=True, parse_feats=False, parse_deps=False):
 
-    def parse_token(line):
+    def _parse_sentence(lines):
+        sentence = []
+        for line in lines:
+            token = _parse_token(line)
+            if skip_empty and isempty(token):
+                continue
+            if skip_multiword and ismultiword(token):
+                    continue
+            sentence.append(token)
+        return sentence
+
+    def _parse_token(line):
         fields = line.split("\t")
 
         if "." in fields[ID]:
@@ -37,18 +48,18 @@ def read_conllu(filename, skip_empty=True, skip_multiword=True):
             if fields[f] == "_":
                 fields[f] = None
 
-        if fields[FEATS]:
-            fields[FEATS] = parse_feats(fields[FEATS])
+        if parse_feats and fields[FEATS]:
+            fields[FEATS] = _parse_feats(fields[FEATS])
 
         if fields[HEAD]:
             fields[HEAD] = int(fields[HEAD])
 
-        if fields[DEPS]:
-            fields[DEPS] = parse_deps(fields[DEPS])
+        if parse_deps and fields[DEPS]:
+            fields[DEPS] = _parse_deps(fields[DEPS])
 
         return fields
 
-    def parse_feats(str):
+    def _parse_feats(str):
         feats = OrderedDict()
         for key, value in [feat.split("=") for feat in str.split("|")]:
             if "," in value:
@@ -56,19 +67,8 @@ def read_conllu(filename, skip_empty=True, skip_multiword=True):
             feats[key] = value
         return feats
 
-    def parse_deps(str):
+    def _parse_deps(str):
         return list(map(lambda rel: (int(rel[0]), rel[1]), [rel.split(":") for rel in str.split("|")]))
-
-    def parse_sentence(lines):
-        sentence = []
-        for line in lines:
-            token = parse_token(line)
-            if skip_empty and isempty(token):
-                continue
-            if skip_multiword and ismultiword(token):
-                continue
-            sentence.append(token)
-        return sentence
 
     lines = []
     with codecs.open(filename, "r", "utf-8") as fp:
@@ -78,12 +78,12 @@ def read_conllu(filename, skip_empty=True, skip_multiword=True):
                 continue
             if not line:
                 if len(lines) != 0:
-                    yield parse_sentence(lines)
+                    yield _parse_sentence(lines)
                     lines = []
                 continue
             lines.append(line)
         if len(lines) != 0:
-            yield parse_sentence(lines)
+            yield _parse_sentence(lines)
 
 if __name__ == "__main__":
     for s in read_conllu("../../test/test1.conllu"):
