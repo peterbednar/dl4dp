@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import codecs
+from collections import Counter
 from collections import OrderedDict
 
 ID, FORM, LEMMA, UPOS, XPOS, FEATS, HEAD, DEPREL, DEPS, MISC = range(10)
@@ -85,6 +86,36 @@ def read_conllu(filename, skip_empty=True, skip_multiword=True, parse_feats=Fals
         if len(lines) != 0:
             yield _parse_sentence(lines)
 
+def normalize_lower(field, value):
+    return value.lower() if field == FORM else value
+
+def create_dictionary(sentences, fields={FORM, LEMMA, UPOS, XPOS, FEATS, DEPREL}, normalize=normalize_lower):
+    dic = [Counter() for _ in range(10)]
+
+    for sentence in sentences:
+        for token in sentence:
+            for f in fields:
+                s = token[f]
+                if normalize:
+                    s = normalize(f, s)
+                dic[f][s] += 1
+
+    return tuple(dic)
+
+def create_index(dic, min_frequency=1):
+
+    def _min_frequency(f):
+        return min_frequency[f] if isinstance(min_frequency, list) else min_frequency
+
+    for c in dic:
+        ordered = c.most_common()
+        for i, (s, f) in enumerate(ordered):
+            if f < _min_frequency(f):
+                del c[s]
+            c[s] = i + 1
+
+    return dic
+
 if __name__ == "__main__":
-    for s in read_conllu("../../test/test1.conllu"):
-        print(s)
+    index = create_index(create_dictionary(read_conllu("../../test/test1.conllu"), fields={UPOS}), min_frequency=3)
+    print(index) 
