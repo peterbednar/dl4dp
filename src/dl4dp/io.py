@@ -90,7 +90,9 @@ def normalize_lower(field, value):
     return value.lower() if field == FORM else value
 
 def create_dictionary(sentences, fields={FORM, LEMMA, UPOS, XPOS, FEATS, DEPREL}, normalize=normalize_lower):
-    dic = [Counter() for _ in range(10)]
+    dic = [None for _ in range(10)]
+    for f in fields:
+        dic[f] = Counter()
 
     for sentence in sentences:
         for token in sentence:
@@ -107,15 +109,28 @@ def create_index(dic, min_frequency=1):
     def _min_frequency(f):
         return min_frequency[f] if isinstance(min_frequency, list) else min_frequency
 
-    for c in dic:
+    for f, c in enumerate(dic):
+        if not c:
+            continue
         ordered = c.most_common()
-        for i, (s, f) in enumerate(ordered):
-            if f < _min_frequency(f):
+        for i, (s, fq) in enumerate(ordered):
+            if fq < _min_frequency(f):
                 del c[s]
             c[s] = i + 1
 
     return dic
 
+def create_inverse_index(index):
+    inverse = []
+    for c in index:
+        inverse.append({v: k for k, v in c.items()} if c is not None else None)
+    return tuple(inverse)
+
+def map_to_instance(sentences, index, fields=[FORM, UPOS, FEATS]):
+    pass
+
 if __name__ == "__main__":
     index = create_index(create_dictionary(read_conllu("../../test/test1.conllu"), fields={UPOS}), min_frequency=3)
-    print(index) 
+    inverse_index = create_inverse_index(index)
+    print(index)
+    print(inverse_index)
