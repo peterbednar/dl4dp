@@ -106,18 +106,16 @@ def create_dictionary(sentences, fields={FORM, LEMMA, UPOS, XPOS, FEATS, DEPREL}
 
 def create_index(dic, min_frequency=1):
 
-    def _min_frequency(f):
-        return min_frequency[f] if isinstance(min_frequency, list) else min_frequency
-
     for f, c in enumerate(dic):
         if not c:
             continue
         ordered = c.most_common()
+        min_fq = min_frequency[f] if isinstance(min_frequency, list) else min_frequency
         for i, (s, fq) in enumerate(ordered):
-            if fq < _min_frequency(f):
-                del c[s]
-            else:
+            if fq >= min_fq:
                 c[s] = i + 1
+            else:
+                del c[s]
 
     return dic
 
