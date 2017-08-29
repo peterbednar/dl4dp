@@ -116,7 +116,8 @@ def create_index(dic, min_frequency=1):
         for i, (s, fq) in enumerate(ordered):
             if fq < _min_frequency(f):
                 del c[s]
-            c[s] = i + 1
+            else:
+                c[s] = i + 1
 
     return dic
 
@@ -130,7 +131,11 @@ def map_to_instance(sentences, index, fields=[FORM, UPOS, FEATS]):
     pass
 
 if __name__ == "__main__":
-    index = create_index(create_dictionary(read_conllu("../../test/test1.conllu"), fields={UPOS}), min_frequency=3)
-    inverse_index = create_inverse_index(index)
+    dic = create_dictionary(read_conllu("../../test/test1.conllu"), fields={UPOS})
+    print(dic)
+
+    index = create_index(dic, min_frequency=3)
     print(index)
+
+    inverse_index = create_inverse_index(index)
     print(inverse_index)
