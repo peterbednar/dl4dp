@@ -90,10 +90,7 @@ def normalize_lower(field, value):
     return value.lower() if field == FORM else value
 
 def create_dictionary(sentences, fields={FORM, LEMMA, UPOS, XPOS, FEATS, DEPREL}, normalize=normalize_lower):
-    dic = [None for _ in range(10)]
-    for f in fields:
-        dic[f] = Counter()
-
+    dic = {f: Counter() for f in fields}
     for sentence in sentences:
         for token in sentence:
             for f in fields:
@@ -101,14 +98,10 @@ def create_dictionary(sentences, fields={FORM, LEMMA, UPOS, XPOS, FEATS, DEPREL}
                 if normalize:
                     s = normalize(f, s)
                 dic[f][s] += 1
-
-    return tuple(dic)
+    return dic
 
 def create_index(dic, min_frequency=1):
-
-    for f, c in enumerate(dic):
-        if not c:
-            continue
+    for f, c in dic.items():
         ordered = c.most_common()
         min_fq = min_frequency[f] if isinstance(min_frequency, list) else min_frequency
         for i, (s, fq) in enumerate(ordered):
@@ -116,14 +109,10 @@ def create_index(dic, min_frequency=1):
                 c[s] = i + 1
             else:
                 del c[s]
-
     return dic
 
 def create_inverse_index(index):
-    inverse = []
-    for c in index:
-        inverse.append({v: k for k, v in c.items()} if c is not None else None)
-    return tuple(inverse)
+    return {f: {v: k for k, v in c.items()} for f, c in index.items()}
 
 def map_to_instance(sentences, index, fields=[FORM, UPOS, FEATS]):
     pass
