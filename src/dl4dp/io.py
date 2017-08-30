@@ -1,8 +1,7 @@
 from __future__ import print_function
 
 import codecs
-from collections import Counter
-from collections import OrderedDict
+from collections import Counter, OrderedDict
 from data_types import isempty, ismultiword, ID, FORM, LEMMA, UPOS, XPOS, FEATS, HEAD, DEPREL, DEPS, MISC
 
 def normalize_lower(field, value):
@@ -102,11 +101,11 @@ def create_index(dic, min_frequency=1):
 def create_inverse_index(index):
     return {f: {v: k for k, v in c.items()} for f, c in index.items()}
 
-from data_types import map_to_instance
+from data_types import map_to_instances
 
 if __name__ == "__main__":
     dic = create_dictionary(read_conllu("../../test/test1.conllu"), fields={FORM, UPOS, FEATS, DEPREL})
     index = create_index(dic)
     print(index)
-    for tree in map_to_instance(read_conllu("../../test/test1.conllu"), index):
+    for tree in map_to_instances(read_conllu("../../test/test1.conllu"), index):
         print(tree)
