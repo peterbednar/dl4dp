@@ -26,19 +26,19 @@ class DepTree(namedtuple("DepTree", "feats, heads, labels")):
                 np.full(shape[0], -1, dtype=np.int),
                 np.full(shape[0], -1, dtype=np.int))
 
-def map_to_instance(sentences, index, fields=[FORM, UPOS, FEATS]):
+def map_to_instance(sentence, index, fields=[FORM, UPOS, FEATS]):
+    l = len(sentence)
     f_num = len(fields)
+    tree = DepTree((l, f_num))
+
+    for i, token in enumerate(sentence):
+        for j, f in enumerate(fields):
+            tree.feats[i][j] = index[f][token[f]]
+        tree.heads[i] = token[HEAD]
+        tree.labels[i] = index[DEPREL][token[DEPREL]]
+
+    return tree
+
+def map_to_instances(sentences, index, fields=[FORM, UPOS, FEATS]):
     for sentence in sentences:
-        l = len(sentence)
-        tree = DepTree((l, f_num))
-
-        for i, token in enumerate(sentence):
-            for j, f in enumerate(fields):
-                tree.feats[i][j] = index[f][token[f]]
-                if tree.feats[i][j] == 0:
-                    print(token[f])
-                    
-            tree.heads[i] = token[HEAD]
-            tree.labels[i] = index[DEPREL][token[DEPREL]]
-
-        yield tree
+        yield map_to_instance(sentence, index, fields)
