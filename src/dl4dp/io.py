@@ -2,7 +2,7 @@ from __future__ import print_function
 
 import codecs
 from collections import Counter, OrderedDict
-from data_types import isempty, ismultiword, ID, FORM, LEMMA, UPOS, XPOS, FEATS, HEAD, DEPREL, DEPS, MISC
+from data_types import isempty, ismultiword, ID, FORM, LEMMA, UPOS, XPOS, FEATS, HEAD, DEPREL, DEPS, MISC, EMPTY, MULTIWORD
 
 def normalize_lower(field, value):
     return value.lower() if field == FORM else value
