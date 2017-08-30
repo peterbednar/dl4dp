@@ -3,23 +3,12 @@ from __future__ import print_function
 import codecs
 from collections import Counter
 from collections import OrderedDict
+from data_types import isempty, ismultiword, ID, FORM, LEMMA, UPOS, XPOS, FEATS, HEAD, DEPREL, DEPS, MISC
 
-ID, FORM, LEMMA, UPOS, XPOS, FEATS, HEAD, DEPREL, DEPS, MISC = range(10)
+def normalize_lower(field, value):
+    return value.lower() if field == FORM else value
 
-EMPTY = 0
-MULTIWORD = 1
-
-def isempty(token):
-    if isinstance(token, list):
-        token = token[ID]
-    return token[2] == EMPTY if isinstance(token, tuple) else False
-
-def ismultiword(token):
-    if isinstance(token, list):
-        token = token[ID]
-    return token[2] == MULTIWORD if isinstance(token, tuple) else False
-
-def read_conllu(filename, skip_empty=True, skip_multiword=True, parse_feats=False, parse_deps=False):
+def read_conllu(filename, skip_empty=True, skip_multiword=True, parse_feats=False, parse_deps=False, normalize=normalize_lower):
 
     def _parse_sentence(lines):
         sentence = []
@@ -58,6 +47,10 @@ def read_conllu(filename, skip_empty=True, skip_multiword=True, parse_feats=Fals
         if parse_deps and fields[DEPS]:
             fields[DEPS] = _parse_deps(fields[DEPS])
 
+        if normalize:
+            for f in [FORM, LEMMA]:
+                fields[f] = normalize(f, fields[f])
+        
         return fields
 
     def _parse_feats(str):
@@ -86,24 +79,19 @@ def read_conllu(filename, skip_empty=True, skip_multiword=True, parse_feats=Fals
         if len(lines) != 0:
             yield _parse_sentence(lines)
 
-def normalize_lower(field, value):
-    return value.lower() if field == FORM else value
-
-def create_dictionary(sentences, fields={FORM, LEMMA, UPOS, XPOS, FEATS, DEPREL}, normalize=normalize_lower):
+def create_dictionary(sentences, fields={FORM, LEMMA, UPOS, XPOS, FEATS, DEPREL}):
     dic = {f: Counter() for f in fields}
     for sentence in sentences:
         for token in sentence:
             for f in fields:
                 s = token[f]
-                if normalize:
-                    s = normalize(f, s)
                 dic[f][s] += 1
     return dic
 
 def create_index(dic, min_frequency=1):
     for f, c in dic.items():
         ordered = c.most_common()
-        min_fq = min_frequency[f] if isinstance(min_frequency, list) else min_frequency
+        min_fq = min_frequency[f] if isinstance(min_frequency, (list, dict)) else min_frequency
         for i, (s, fq) in enumerate(ordered):
             if fq >= min_fq:
                 c[s] = i + 1
@@ -114,15 +102,11 @@ def create_index(dic, min_frequency=1):
 def create_inverse_index(index):
     return {f: {v: k for k, v in c.items()} for f, c in index.items()}
 
-def map_to_instance(sentences, index, fields=[FORM, UPOS, FEATS]):
-    pass
+from data_types import map_to_instance
 
 if __name__ == "__main__":
-    dic = create_dictionary(read_conllu("../../test/test1.conllu"), fields={UPOS})
-    print(dic)
-
-    index = create_index(dic, min_frequency=3)
+    dic = create_dictionary(read_conllu("../../test/test1.conllu"), fields={FORM, UPOS, FEATS, DEPREL})
+    index = create_index(dic)
     print(index)
-
-    inverse_index = create_inverse_index(index)
-    print(inverse_index)
+    for tree in map_to_instance(read_conllu("../../test/test1.conllu"), index):
+        print(tree)
