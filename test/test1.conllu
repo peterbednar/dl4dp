@@ -1,0 +1,198 @@
+# newdoc id = cmpr9406-001
+# newpar id = cmpr9406-001-p2
+# sent_id = cmpr9406-001-p2s1
+# text = Třikrát rychlejší než slovo
+# orig_file_sentence cmpr9406_001#1
+1	Třikrát	třikrát	ADV	Cv-------------	NumType=Mult	2	obl	_	LNumValue=3
+2	rychlejší	rychlý	ADJ	AAFS1----2A----	Case=Nom|Degree=Cmp|Gender=Fem|Number=Sing|Polarity=Pos	0	root	_	_
+3	než	než	SCONJ	J,-------------	_	4	mark	_	LId=než-2
+4	slovo	slovo	NOUN	NNNS1-----A----	Case=Nom|Gender=Neut|Number=Sing|Polarity=Pos	2	advcl	_	_
+
+# newpar id = cmpr9406-001-p3
+# sent_id = cmpr9406-001-p3s1A
+# text = Faxu škodí především přetížené telefonní linky *
+# orig_file_sentence cmpr9406_001#2
+1	Faxu	fax	NOUN	NNIS3-----A----	Animacy=Inan|Case=Dat|Gender=Masc|Number=Sing|Polarity=Pos	2	obj	_	_
+2	škodí	škodit	VERB	VB-P---3P-AA---	Aspect=Imp|Mood=Ind|Number=Plur|Person=3|Polarity=Pos|Tense=Pres|VerbForm=Fin|Voice=Act	0	root	_	_
+3	především	především	ADV	Db-------------	_	6	advmod:emph	_	_
+4	přetížené	přetížený	ADJ	AAFP1----1A----	Case=Nom|Degree=Pos|Gender=Fem|Number=Plur|Polarity=Pos	6	amod	_	LDeriv=přetížit
+5	telefonní	telefonní	ADJ	AAFP1----1A----	Case=Nom|Degree=Pos|Gender=Fem|Number=Plur|Polarity=Pos	6	amod	_	_
+6	linky	linka	NOUN	NNFP1-----A----	Case=Nom|Gender=Fem|Number=Plur|Polarity=Pos	2	nsubj	_	_
+7	*	*	PUNCT	Z:-------------	_	2	punct	_	_
+
+# sent_id = cmpr9406-001-p3s1B
+# text = Pomocí může být systém ECM
+# orig_file_sentence cmpr9406_001#3
+1	Pomocí	pomoc	NOUN	NNFS7-----A----	Case=Ins|Gender=Fem|Number=Sing|Polarity=Pos	2	xcomp	_	_
+2	může	moci	VERB	VB-S---3P-AA---	Mood=Ind|Number=Sing|Person=3|Polarity=Pos|Tense=Pres|VerbForm=Fin|Voice=Act	0	root	_	LGloss=(mít_možnost_[něco_dělat])
+3	být	být	AUX	Vf--------A----	Polarity=Pos|VerbForm=Inf	1	cop	_	_
+4	systém	systém	NOUN	NNIS1-----A----	Animacy=Inan|Case=Nom|Gender=Masc|Number=Sing|Polarity=Pos	2	nsubj	_	_
+5	ECM	ECM	NOUN	NNIXX-----A---8	Abbr=Yes|Animacy=Inan|Foreign=Yes|Gender=Masc|Polarity=Pos	4	nmod	_	LId=ECM-3|LGloss=(Error_Correction_Mode,_mód_u_faxů)
+
+# newpar id = cmpr9406-001-p4
+# sent_id = cmpr9406-001-p4s1
+# text = Šetřete peníze, netelefonujte, faxujte!
+# orig_file_sentence cmpr9406_001#4
+1	Šetřete	šetřit	VERB	Vi-P---2--A----	Mood=Imp|Number=Plur|Person=2|Polarity=Pos|VerbForm=Fin	0	root	_	_
+2	peníze	peníze	NOUN	NNIP4-----A----	Animacy=Inan|Case=Acc|Gender=Masc|Number=Plur|Polarity=Pos	1	obj	_	SpaceAfter=No|LGloss=(jako_platidlo)
+3	,	,	PUNCT	Z:-------------	_	4	punct	_	_
+4	netelefonujte	telefonovat	VERB	Vi-P---2--N----	Aspect=Imp|Mood=Imp|Number=Plur|Person=2|Polarity=Neg|VerbForm=Fin	1	conj	_	SpaceAfter=No
+5	,	,	PUNCT	Z:-------------	_	6	punct	_	_
+6	faxujte	faxovat	VERB	Vi-P---2--A----	Aspect=Imp|Mood=Imp|Number=Plur|Person=2|Polarity=Pos|VerbForm=Fin	4	conj	_	SpaceAfter=No
+7	!	!	PUNCT	Z:-------------	_	1	punct	_	_
+
+# sent_id = cmpr9406-001-p4s2
+# text = Je tento reklamní slogan pravdivý?
+# orig_file_sentence cmpr9406_001#5
+1	Je	být	AUX	VB-S---3P-AA---	Mood=Ind|Number=Sing|Person=3|Polarity=Pos|Tense=Pres|VerbForm=Fin|Voice=Act	5	cop	_	_
+2	tento	tento	DET	PDYS1----------	Case=Nom|Gender=Masc|Number=Sing|PronType=Dem	4	det	_	_
+3	reklamní	reklamní	ADJ	AAIS1----1A----	Animacy=Inan|Case=Nom|Degree=Pos|Gender=Masc|Number=Sing|Polarity=Pos	4	amod	_	_
+4	slogan	slogan	NOUN	NNIS1-----A----	Animacy=Inan|Case=Nom|Gender=Masc|Number=Sing|Polarity=Pos	5	nsubj	_	_
+5	pravdivý	pravdivý	ADJ	AAIS1----1A----	Animacy=Inan|Case=Nom|Degree=Pos|Gender=Masc|Number=Sing|Polarity=Pos	0	root	_	SpaceAfter=No
+6	?	?	PUNCT	Z:-------------	_	5	punct	_	_
+
+# sent_id = cmpr9406-001-p4s3
+# text = Hlasité přečtení dobře čitelného textu na stránce A4 , při řádkování 1.5, trvá zhruba 3 minuty.
+# orig_file_sentence cmpr9406_001#6
+1	Hlasité	hlasitý	ADJ	AANS1----1A----	Case=Nom|Degree=Pos|Gender=Neut|Number=Sing|Polarity=Pos	2	amod	_	_
+2	přečtení	přečtení	NOUN	NNNS1-----A----	Case=Nom|Gender=Neut|Number=Sing|Polarity=Pos	15	nsubj	_	LDeriv=přečíst
+3	dobře	dobře	ADV	Dg-------1A----	Degree=Pos|Polarity=Pos	4	advmod	_	_
+4	čitelného	čitelný	ADJ	AAIS2----1A----	Animacy=Inan|Case=Gen|Degree=Pos|Gender=Masc|Number=Sing|Polarity=Pos	5	amod	_	LDeriv=číst
+5	textu	text	NOUN	NNIS2-----A----	Animacy=Inan|Case=Gen|Gender=Masc|Number=Sing|Polarity=Pos	2	nmod	_	_
+6	na	na	ADP	RR--6----------	AdpType=Prep|Case=Loc	7	case	_	LId=na-1
+7	stránce	stránka	NOUN	NNFS6-----A----	Case=Loc|Gender=Fem|Number=Sing|Polarity=Pos	5	nmod	_	_
+8	A	A	PROPN	NNFXX-----A---8	Abbr=Yes|Gender=Fem|NameType=Giv|Polarity=Pos	7	nmod	_	SpaceAfter=No|LId=A-0
+9	4	4	NUM	C=-------------	NumForm=Digit|NumType=Card	8	nummod	_	_
+10	,	,	PUNCT	Z:-------------	_	12	punct	_	_
+11	při	při	ADP	RR--6----------	AdpType=Prep|Case=Loc	12	case	_	LId=při-1
+12	řádkování	řádkování	NOUN	NNNS6-----A----	Case=Loc|Gender=Neut|Number=Sing|Polarity=Pos	5	nmod	_	LDeriv=řádkovat
+13	1.5	1.5	NUM	C=-------------	NumForm=Digit|NumType=Card	12	nummod	_	SpaceAfter=No
+14	,	,	PUNCT	Z:-------------	_	12	punct	_	_
+15	trvá	trvat	VERB	VB-S---3P-AA---	Aspect=Imp|Mood=Ind|Number=Sing|Person=3|Polarity=Pos|Tense=Pres|VerbForm=Fin|Voice=Act	0	root	_	_
+16	zhruba	zhruba	ADV	Db-------------	_	17	advmod:emph	_	_
+17	3	3	NUM	C=-------------	NumForm=Digit|NumType=Card	18	nummod	_	_
+18	minuty	minuta	NOUN	NNFP4-----A----	Case=Acc|Gender=Fem|Number=Plur|Polarity=Pos	15	obl	_	SpaceAfter=No
+19	.	.	PUNCT	Z:-------------	_	15	punct	_	_
+
+# sent_id = cmpr9406-001-p4s4
+# text = Podle prospektů se faxem přenese normalizovaný obsah jedné stránky A4 za 10 až 30 sekund.
+# orig_file_sentence cmpr9406_001#7
+1	Podle	podle	ADP	RR--2----------	AdpType=Prep|Case=Gen	2	case	_	LId=podle-2
+2	prospektů	prospekt	NOUN	NNIP2-----A----	Animacy=Inan|Case=Gen|Gender=Masc|Number=Plur|Polarity=Pos	5	obl	_	_
+3	se	se	PRON	P7-X4----------	Case=Acc|PronType=Prs|Reflex=Yes|Variant=Short	5	expl:pass	_	LGloss=(zvr._zájmeno/částice)
+4	faxem	fax	NOUN	NNIS7-----A----	Animacy=Inan|Case=Ins|Gender=Masc|Number=Sing|Polarity=Pos	5	obl	_	_
+5	přenese	přenést	VERB	VB-S---3P-AA---	Mood=Ind|Number=Sing|Person=3|Polarity=Pos|Tense=Pres|VerbForm=Fin|Voice=Act	0	root	_	_
+6	normalizovaný	normalizovaný	ADJ	AAIS1----1A----	Animacy=Inan|Case=Nom|Degree=Pos|Gender=Masc|Number=Sing|Polarity=Pos	7	amod	_	LDeriv=normalizovat
+7	obsah	obsah	NOUN	NNIS1-----A----	Animacy=Inan|Case=Nom|Gender=Masc|Number=Sing|Polarity=Pos	5	nsubj:pass	_	_
+8	jedné	jeden	NUM	ClFS2----------	Case=Gen|Gender=Fem|Number=Sing|NumForm=Word|NumType=Card|NumValue=1,2,3	9	nummod	_	LNumValue=1
+9	stránky	stránka	NOUN	NNFS2-----A----	Case=Gen|Gender=Fem|Number=Sing|Polarity=Pos	7	nmod	_	_
+10	A	A	PROPN	NNFXX-----A---8	Abbr=Yes|Gender=Fem|NameType=Giv|Polarity=Pos	9	nmod	_	SpaceAfter=No|LId=A-0
+11	4	4	NUM	C=-------------	NumForm=Digit|NumType=Card	10	nummod	_	_
+12	za	za	ADP	RR--4----------	AdpType=Prep|Case=Acc	16	case	_	LId=za-1
+13	10	10	NUM	C=-------------	NumForm=Digit|NumType=Card	16	nummod:gov	_	_
+14	až	až	CCONJ	J^-------------	_	15	cc	_	LId=až-1|LGloss=(2_až_3)
+15	30	30	NUM	C=-------------	NumForm=Digit|NumType=Card	13	conj	_	_
+16	sekund	sekunda	NOUN	NNFP2-----A----	Case=Gen|Gender=Fem|Number=Plur|Polarity=Pos	5	obl	_	SpaceAfter=No
+17	.	.	PUNCT	Z:-------------	_	5	punct	_	_
+
+# sent_id = cmpr9406-001-p4s5
+# text = Ve skutečnosti to sice trvá zhruba minutu, protože doba přenosu více závisí na stavu telefonní linky než na rychlosti přístroje, ale i tak je přenos informace faxem zhruba třikrát rychlejší než řeč.
+# orig_file_sentence cmpr9406_001#8
+1	Ve	v	ADP	RV--6----------	AdpType=Voc|Case=Loc	2	case	_	LId=v-1
+2	skutečnosti	skutečnost	NOUN	NNFS6-----A----	Case=Loc|Gender=Fem|Number=Sing|Polarity=Pos	5	obl	_	LDeriv=skutečný
+3	to	ten	DET	PDNS1----------	Case=Nom|Gender=Neut|Number=Sing|PronType=Dem	5	nsubj	_	_
+4	sice	sice	ADV	Db-------------	_	5	cc	_	LGloss=(spojka/příslovce;_připouští_se_určitá_fakta)
+5	trvá	trvat	VERB	VB-S---3P-AA---	Aspect=Imp|Mood=Ind|Number=Sing|Person=3|Polarity=Pos|Tense=Pres|VerbForm=Fin|Voice=Act	0	root	_	_
+6	zhruba	zhruba	ADV	Db-------------	_	7	advmod:emph	_	_
+7	minutu	minuta	NOUN	NNFS4-----A----	Case=Acc|Gender=Fem|Number=Sing|Polarity=Pos	5	obl	_	SpaceAfter=No
+8	,	,	PUNCT	Z:-------------	_	13	punct	_	_
+9	protože	protože	SCONJ	J,-------------	_	13	mark	_	_
+10	doba	doba	NOUN	NNFS1-----A----	Case=Nom|Gender=Fem|Number=Sing|Polarity=Pos	13	nsubj	_	_
+11	přenosu	přenos	NOUN	NNIS2-----A----	Animacy=Inan|Case=Gen|Gender=Masc|Number=Sing|Polarity=Pos	10	nmod	_	_
+12	více	hodně	ADV	Dg-------2A----	Degree=Cmp|Polarity=Pos	13	advmod	_	_
+13	závisí	záviset	VERB	VB-S---3P-AA---	Aspect=Imp|Mood=Ind|Number=Sing|Person=3|Polarity=Pos|Tense=Pres|VerbForm=Fin|Voice=Act	5	advcl	_	_
+14	na	na	ADP	RR--6----------	AdpType=Prep|Case=Loc	15	case	_	LId=na-1
+15	stavu	stav	NOUN	NNIS6-----A----	Animacy=Inan|Case=Loc|Gender=Masc|Number=Sing|Polarity=Pos	13	obj	_	_
+16	telefonní	telefonní	ADJ	AAFS2----1A----	Case=Gen|Degree=Pos|Gender=Fem|Number=Sing|Polarity=Pos	17	amod	_	_
+17	linky	linka	NOUN	NNFS2-----A----	Case=Gen|Gender=Fem|Number=Sing|Polarity=Pos	15	nmod	_	_
+18	než	než	SCONJ	J,-------------	_	20	mark	_	LId=než-2
+19	na	na	ADP	RR--6----------	AdpType=Prep|Case=Loc	20	case	_	LId=na-1
+20	rychlosti	rychlost	NOUN	NNFS6-----A----	Case=Loc|Gender=Fem|Number=Sing|Polarity=Pos	12	dep	_	LDeriv=rychlý
+21	přístroje	přístroj	NOUN	NNIS2-----A----	Animacy=Inan|Case=Gen|Gender=Masc|Number=Sing|Polarity=Pos	20	nmod	_	SpaceAfter=No
+22	,	,	PUNCT	Z:-------------	_	32	punct	_	_
+23	ale	ale	CCONJ	J^-------------	_	32	cc	_	_
+24	i	i	CCONJ	J^-------------	_	25	advmod:emph	_	LId=i-1
+25	tak	tak	ADV	Db-------------	PronType=Dem	32	advmod	_	LId=tak-3
+26	je	být	AUX	VB-S---3P-AA---	Mood=Ind|Number=Sing|Person=3|Polarity=Pos|Tense=Pres|VerbForm=Fin|Voice=Act	32	cop	_	_
+27	přenos	přenos	NOUN	NNIS1-----A----	Animacy=Inan|Case=Nom|Gender=Masc|Number=Sing|Polarity=Pos	32	nsubj	_	_
+28	informace	informace	NOUN	NNFS2-----A----	Case=Gen|Gender=Fem|Number=Sing|Polarity=Pos	27	nmod	_	_
+29	faxem	fax	NOUN	NNIS7-----A----	Animacy=Inan|Case=Ins|Gender=Masc|Number=Sing|Polarity=Pos	27	nmod	_	_
+30	zhruba	zhruba	ADV	Db-------------	_	31	advmod:emph	_	_
+31	třikrát	třikrát	ADV	Cv-------------	NumType=Mult	32	obl	_	LNumValue=3
+32	rychlejší	rychlý	ADJ	AAIS1----2A----	Animacy=Inan|Case=Nom|Degree=Cmp|Gender=Masc|Number=Sing|Polarity=Pos	5	conj	_	_
+33	než	než	SCONJ	J,-------------	_	34	mark	_	LId=než-2
+34	řeč	řeč	NOUN	NNFS1-----A----	Case=Nom|Gender=Fem|Number=Sing|Polarity=Pos	32	advcl	_	SpaceAfter=No
+35	.	.	PUNCT	Z:-------------	_	5	punct	_	_
+
+# sent_id = cmpr9406-001-p4s6
+# text = Navíc současně vznikne písemný doklad, lze přenášet obrázky, grafy, fotografie, rukou psané texty apod.
+# orig_file_sentence cmpr9406_001#9
+1	Navíc	navíc	ADV	Db-------------	_	3	advmod	_	_
+2	současně	současně	ADV	Dg-------1A----	Degree=Pos|Polarity=Pos	3	advmod	_	LDeriv=současný
+3	vznikne	vzniknout	VERB	VB-S---3P-AA---	Aspect=Perf|Mood=Ind|Number=Sing|Person=3|Polarity=Pos|Tense=Pres|VerbForm=Fin|Voice=Act	0	root	_	_
+4	písemný	písemný	ADJ	AAIS1----1A----	Animacy=Inan|Case=Nom|Degree=Pos|Gender=Masc|Number=Sing|Polarity=Pos	5	amod	_	_
+5	doklad	doklad	NOUN	NNIS1-----A----	Animacy=Inan|Case=Nom|Gender=Masc|Number=Sing|Polarity=Pos	3	nsubj	_	SpaceAfter=No
+6	,	,	PUNCT	Z:-------------	_	7	punct	_	_
+7	lze	lze	VERB	VB-S---3P-AA---	Mood=Ind|Number=Sing|Person=3|Polarity=Pos|Tense=Pres|VerbForm=Fin|Voice=Act	3	conj	_	_
+8	přenášet	přenášet	VERB	Vf--------A----	Aspect=Imp|Polarity=Pos|VerbForm=Inf	7	csubj	_	_
+9	obrázky	obrázek	NOUN	NNIP4-----A----	Animacy=Inan|Case=Acc|Gender=Masc|Number=Plur|Polarity=Pos	8	obj	_	SpaceAfter=No
+10	,	,	PUNCT	Z:-------------	_	11	punct	_	_
+11	grafy	graf	NOUN	NNIP4-----A----	Animacy=Inan|Case=Acc|Gender=Masc|Number=Plur|Polarity=Pos	9	conj	_	SpaceAfter=No
+12	,	,	PUNCT	Z:-------------	_	13	punct	_	_
+13	fotografie	fotografie	NOUN	NNFP4-----A----	Case=Acc|Gender=Fem|Number=Plur|Polarity=Pos	9	conj	_	SpaceAfter=No
+14	,	,	PUNCT	Z:-------------	_	17	punct	_	_
+15	rukou	ruka	NOUN	NNFS7-----A----	Case=Ins|Gender=Fem|Number=Sing|Polarity=Pos	16	obj	_	_
+16	psané	psaný	ADJ	AAIP4----1A----	Animacy=Inan|Case=Acc|Degree=Pos|Gender=Masc|Number=Plur|Polarity=Pos	17	amod	_	LDeriv=psát
+17	texty	text	NOUN	NNIP4-----A----	Animacy=Inan|Case=Acc|Gender=Masc|Number=Plur|Polarity=Pos	9	conj	_	_
+18	apod	apod	ADV	Db------------8	Abbr=Yes	17	cc	_	SpaceAfter=No|LId=apod-1|LGloss=(a_podobně)
+19	.	.	PUNCT	Z:-------------	_	3	punct	_	_
+
+# newpar id = cmpr9406-001-p5
+# sent_id = cmpr9406-001-p5s1
+# text = Přenosová rychlost přístroje pro telefonní faksimile, tak se správně nazývá zařízení, o kterém dnes píšeme, je sice zajímavý parametr pro posouzení jeho vlastností, ale má z uživatelského hlediska omezený význam.
+# orig_file_sentence cmpr9406_001#10
+1	Přenosová	přenosový	ADJ	AAFS1----1A----	Case=Nom|Degree=Pos|Gender=Fem|Number=Sing|Polarity=Pos	2	amod	_	_
+2	rychlost	rychlost	NOUN	NNFS1-----A----	Case=Nom|Gender=Fem|Number=Sing|Polarity=Pos	22	nsubj	_	LDeriv=rychlý
+3	přístroje	přístroj	NOUN	NNIS2-----A----	Animacy=Inan|Case=Gen|Gender=Masc|Number=Sing|Polarity=Pos	2	nmod	_	_
+4	pro	pro	ADP	RR--4----------	AdpType=Prep|Case=Acc	6	case	_	LId=pro-1
+5	telefonní	telefonní	ADJ	AANS4----1A----	Case=Acc|Degree=Pos|Gender=Neut|Number=Sing|Polarity=Pos	6	amod	_	_
+6	faksimile	faksimile	NOUN	NNNS4-----A----	Case=Acc|Gender=Neut|Number=Sing|Polarity=Pos	3	nmod	_	SpaceAfter=No
+7	,	,	PUNCT	Z:-------------	_	11	punct	_	_
+8	tak	tak	ADV	Db-------------	PronType=Dem	11	advmod	_	LId=tak-3
+9	se	se	PRON	P7-X4----------	Case=Acc|PronType=Prs|Reflex=Yes|Variant=Short	11	expl:pv	_	LGloss=(zvr._zájmeno/částice)
+10	správně	správně	ADV	Dg-------1A----	Degree=Pos|Polarity=Pos	11	advmod	_	LGloss=(podle_něj._měřítek;_př._chlap,_míra,...)|LDeriv=správný
+11	nazývá	nazývat	VERB	VB-S---3P-AA---	Aspect=Imp|Mood=Ind|Number=Sing|Person=3|Polarity=Pos|Tense=Pres|VerbForm=Fin|Voice=Act	22	parataxis	_	_
+12	zařízení	zařízení	NOUN	NNNS1-----A----	Case=Nom|Gender=Neut|Number=Sing|Polarity=Pos	11	nsubj	_	SpaceAfter=No|LDeriv=zařídit
+13	,	,	PUNCT	Z:-------------	_	17	punct	_	_
+14	o	o	ADP	RR--6----------	AdpType=Prep|Case=Loc	15	case	_	LId=o-1
+15	kterém	který	DET	P4ZS6----------	Case=Loc|Gender=Masc,Neut|Number=Sing|PronType=Int,Rel	17	obj	_	_
+16	dnes	dnes	ADV	Db-------------	_	17	advmod	_	_
+17	píšeme	psát	VERB	VB-P---1P-AA---	Mood=Ind|Number=Plur|Person=1|Polarity=Pos|Tense=Pres|VerbForm=Fin|Voice=Act	12	acl	_	SpaceAfter=No
+18	,	,	PUNCT	Z:-------------	_	11	punct	_	_
+19	je	být	AUX	VB-S---3P-AA---	Mood=Ind|Number=Sing|Person=3|Polarity=Pos|Tense=Pres|VerbForm=Fin|Voice=Act	22	cop	_	_
+20	sice	sice	ADV	Db-------------	_	22	cc	_	LGloss=(spojka/příslovce;_připouští_se_určitá_fakta)
+21	zajímavý	zajímavý	ADJ	AAIS1----1A----	Animacy=Inan|Case=Nom|Degree=Pos|Gender=Masc|Number=Sing|Polarity=Pos	22	amod	_	_
+22	parametr	parametr	NOUN	NNIS1-----A----	Animacy=Inan|Case=Nom|Gender=Masc|Number=Sing|Polarity=Pos	0	root	_	_
+23	pro	pro	ADP	RR--4----------	AdpType=Prep|Case=Acc	24	case	_	LId=pro-1
+24	posouzení	posouzení	NOUN	NNNS4-----A----	Case=Acc|Gender=Neut|Number=Sing|Polarity=Pos	22	nmod	_	LDeriv=posoudit
+25	jeho	jeho	DET	PSXXXZS3-------	Gender[psor]=Masc,Neut|Number[psor]=Sing|Person=3|Poss=Yes|PronType=Prs	26	det	_	LGloss=(přivlast.)
+26	vlastností	vlastnost	NOUN	NNFP2-----A----	Case=Gen|Gender=Fem|Number=Plur|Polarity=Pos	24	nmod	_	SpaceAfter=No
+27	,	,	PUNCT	Z:-------------	_	29	punct	_	_
+28	ale	ale	CCONJ	J^-------------	_	29	cc	_	_
+29	má	mít	VERB	VB-S---3P-AA---	Mood=Ind|Number=Sing|Person=3|Polarity=Pos|Tense=Pres|VerbForm=Fin|Voice=Act	22	conj	_	_
+30	z	z	ADP	RR--2----------	AdpType=Prep|Case=Gen	32	case	_	LId=z-1
+31	uživatelského	uživatelský	ADJ	AANS2----1A----	Case=Gen|Degree=Pos|Gender=Neut|Number=Sing|Polarity=Pos	32	amod	_	_
+32	hlediska	hledisko	NOUN	NNNS2-----A----	Case=Gen|Gender=Neut|Number=Sing|Polarity=Pos	29	obl	_	_
+33	omezený	omezený	ADJ	AAIS4----1A----	Animacy=Inan|Case=Acc|Degree=Pos|Gender=Masc|Number=Sing|Polarity=Pos	34	amod	_	LDeriv=omezit
+34	význam	význam	NOUN	NNIS4-----A----	Animacy=Inan|Case=Acc|Gender=Masc|Number=Sing|Polarity=Pos	29	obj	_	SpaceAfter=No
+35	.	.	PUNCT	Z:-------------	_	22	punct	_	_
