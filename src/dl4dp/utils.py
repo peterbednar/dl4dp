@@ -39,7 +39,7 @@ def read_conllu(filename, skip_empty=True, skip_multiword=True, parse_feats=Fals
             if skip_empty and isempty(token):
                 continue
             if skip_multiword and ismultiword(token):
-                    continue
+                continue
             sentence.append(token)
         return sentence
 
