@@ -1,7 +1,8 @@
 from __future__ import print_function
 
 import codecs
-from collections import Counter, OrderedDict
+import numpy as np
+from collections import Counter, OrderedDict, namedtuple
 
 ID, FORM, LEMMA, UPOS, XPOS, FEATS, HEAD, DEPREL, DEPS, MISC = range(10)
 
