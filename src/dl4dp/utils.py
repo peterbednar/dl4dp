@@ -2,8 +2,30 @@ from __future__ import print_function
 
 import codecs
 from collections import Counter, OrderedDict
-from data_types import isempty, ismultiword, ID, FORM, LEMMA, UPOS, XPOS, FEATS, HEAD, DEPREL, DEPS, MISC, EMPTY, MULTIWORD
 
+ID, FORM, LEMMA, UPOS, XPOS, FEATS, HEAD, DEPREL, DEPS, MISC = range(10)
+
+EMPTY = 0
+MULTIWORD = 1
+
+class DepTree(namedtuple("DepTree", "feats, heads, labels")):
+
+    def __new__(cls, shape):
+        return super(cls, DepTree).__new__(cls,
+                np.empty(shape, dtype=np.int),
+                np.full(shape[0], -1, dtype=np.int),
+                np.full(shape[0], -1, dtype=np.int))
+
+def isempty(token):
+    if isinstance(token, list):
+        token = token[ID]
+    return token[2] == EMPTY if isinstance(token, tuple) else False
+
+def ismultiword(token):
+    if isinstance(token, list):
+        token = token[ID]
+    return token[2] == MULTIWORD if isinstance(token, tuple) else False
+    
 def normalize_lower(field, value):
     return value.lower() if field == FORM else value
 
@@ -101,7 +123,22 @@ def create_index(dic, min_frequency=1):
 def create_inverse_index(index):
     return {f: {v: k for k, v in c.items()} for f, c in index.items()}
 
-from data_types import map_to_instances
+def map_to_instance(sentence, index, fields=[FORM, UPOS, FEATS]):
+    l = len(sentence)
+    f_num = len(fields)
+    tree = DepTree((l, f_num))
+
+    for i, token in enumerate(sentence):
+        for j, f in enumerate(fields):
+            tree.feats[i][j] = index[f][token[f]]
+        tree.heads[i] = token[HEAD]
+        tree.labels[i] = index[DEPREL][token[DEPREL]]
+
+    return tree
+
+def map_to_instances(sentences, index, fields=[FORM, UPOS, FEATS]):
+    for sentence in sentences:
+        yield map_to_instance(sentence, index, fields)
 
 if __name__ == "__main__":
     dic = create_dictionary(read_conllu("../../test/test1.conllu"), fields={FORM, UPOS, FEATS, DEPREL})
