@@ -11,11 +11,11 @@ MULTIWORD = 1
 
 class DepTree(namedtuple("DepTree", "feats, heads, labels")):
 
-    def __new__(cls, shape):
+    def __new__(cls, num_tokens, num_feats=0):
         return super(cls, DepTree).__new__(cls,
-                np.empty(shape, dtype=np.int),
-                np.full(shape[0], -1, dtype=np.int),
-                np.full(shape[0], -1, dtype=np.int))
+                np.empty((num_tokens, num_feats), dtype=np.int) if num_feats > 0 else None,
+                np.full(num_tokens, -1, dtype=np.int),
+                np.full(num_tokens, -1, dtype=np.int))
 
 def isempty(token):
     if isinstance(token, list):
@@ -113,7 +113,7 @@ def create_dictionary(sentences, fields={FORM, LEMMA, UPOS, XPOS, FEATS, DEPREL}
 def create_index(dic, min_frequency=1):
     for f, c in dic.items():
         ordered = c.most_common()
-        min_fq = min_frequency[f] if isinstance(min_frequency, (list, dict)) else min_frequency
+        min_fq = min_frequency[f] if isinstance(min_frequency, (list, tuple, dict)) else min_frequency
         for i, (s, fq) in enumerate(ordered):
             if fq >= min_fq:
                 c[s] = i + 1
@@ -124,10 +124,10 @@ def create_index(dic, min_frequency=1):
 def create_inverse_index(index):
     return {f: {v: k for k, v in c.items()} for f, c in index.items()}
 
-def map_to_instance(sentence, index, fields=[FORM, UPOS, FEATS]):
-    l = len(sentence)
-    f_num = len(fields)
-    tree = DepTree((l, f_num))
+def map_to_instance(sentence, index, fields=(FORM, UPOS, FEATS)):
+    num_tokens = len(sentence)
+    num_feats = len(fields)
+    tree = DepTree(num_tokens, num_feats)
 
     for i, token in enumerate(sentence):
         for j, f in enumerate(fields):
@@ -137,13 +137,13 @@ def map_to_instance(sentence, index, fields=[FORM, UPOS, FEATS]):
 
     return tree
 
-def map_to_instances(sentences, index, fields=[FORM, UPOS, FEATS]):
+def map_to_instances(sentences, index, fields=(FORM, UPOS, FEATS)):
     for sentence in sentences:
         yield map_to_instance(sentence, index, fields)
 
 if __name__ == "__main__":
-    dic = create_dictionary(read_conllu("../../test/test1.conllu"), fields={FORM, UPOS, FEATS, DEPREL})
+    dic = create_dictionary(read_conllu("../test/test1.conllu"), fields={FORM, UPOS, FEATS, DEPREL})
     index = create_index(dic)
     print(index)
-    for tree in map_to_instances(read_conllu("../../test/test1.conllu"), index):
+    for tree in map_to_instances(read_conllu("../test/test1.conllu"), index):
         print(tree)
