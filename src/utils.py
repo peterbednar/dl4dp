@@ -11,6 +11,9 @@ ID, FORM, LEMMA, UPOS, XPOS, FEATS, HEAD, DEPREL, DEPS, MISC = range(10)
 EMPTY = 0
 MULTIWORD = 1
 
+field_to_str = ["id", "form", "lemma", "upos", "xpos", "feats", "head", "deprel", "deps", "misc"]
+str_to_field = {k : v for v, k in enumerate(field_to_str)} 
+
 def isempty(token):
     if isinstance(token, list):
         token = token[ID]
