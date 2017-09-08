@@ -144,6 +144,23 @@ def map_to_instances(sentences, index, fields=(FORM, UPOS, FEATS)):
         yield map_to_instance(sentence, index, fields)
 
 def max_branching(weights, branching=None):
+
+    def _find_disjoint_sets(trees, elm):
+        if trees[elm] != elm:
+            trees[elm] = _find_disjoint_sets(trees, trees[elm])
+        return trees[elm]
+
+    def _union_disjoint_sets(trees, set1, set2):
+        trees[set2] = set1
+
+    def _invert_max_branching(node, h, visited, inverted):
+        visited[node] = True
+        for v in h[node]:
+            if visited[v]:
+                continue
+            inverted[v - 1] = node
+            _invert_max_branching(v, h, visited, inverted)
+
     nr, nc = weights.shape
 
     roots = list(range(1, nr))
@@ -224,13 +241,6 @@ def max_branching(weights, branching=None):
 
     return branching
 
-def _invert_max_branching(node, h, visited, inverted):
-    visited[node] = True
-    for v in h[node]:
-        if visited[v]:
-            continue
-        inverted[v - 1] = node
-        _invert_max_branching(v, h, visited, inverted)
 
 @total_ordering
 class _Edge(object):
@@ -267,14 +277,6 @@ class _EdgeQueue(object):
 
     def __repr__(self):
         return str(self._queue)
-
-def _find_disjoint_sets(trees, elm):
-    if trees[elm] != elm:
-        trees[elm] = _find_disjoint_sets(trees, trees[elm])
-    return trees[elm]
-
-def _union_disjoint_sets(trees, set1, set2):
-    trees[set2] = set1
 
 if __name__ == "__main__":
     dic = create_dictionary(read_conllu("../test/test1.conllu"), fields={FORM, UPOS, FEATS, DEPREL})
