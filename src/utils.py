@@ -145,6 +145,14 @@ def map_to_instances(sentences, index, fields=(FORM, UPOS, FEATS)):
 
 def max_branching(weights, branching=None):
 
+    def _push(queue, elm):
+        heapq.heappush(queue, elm)
+    
+    def _pop(queue):
+        if len(queue) == 0:
+            return None
+        return heapq.heappop(queue)
+
     def _find_disjoint_sets(trees, elm):
         if trees[elm] != elm:
             trees[elm] = _find_disjoint_sets(trees, trees[elm])
@@ -176,14 +184,14 @@ def max_branching(weights, branching=None):
     h = defaultdict(list)
 
     for node in range(1, nr):
-        q[node] = _EdgeQueue()
+        q[node] = []
         for i in range(nr):
             if i != node:
-                q[node].push(_Edge(i, node, weights[i, node]))
+                _push(q[node], _Edge(i, node, weights[i, node]))
 
     while roots:
         scc_to = roots.pop()
-        max_in_edge = q[scc_to].pop()
+        max_in_edge = _pop(q[scc_to])
 
         if max_in_edge is None:
             rset.append(scc_to)
@@ -224,7 +232,7 @@ def max_branching(weights, branching=None):
             tmp_scc_to = _find_disjoint_sets(s, tmp.end)
             for e in q[tmp_scc_to]:
                 e.weight += inc
-                q[scc_to].push(e)
+                _push(q[scc_to], e)
 
             _union_disjoint_sets(s, scc_to, tmp_scc_to)
             q[tmp_scc_to] = None
@@ -240,7 +248,6 @@ def max_branching(weights, branching=None):
         _invert_max_branching(min[scc], h, visited, branching)
 
     return branching
-
 
 @total_ordering
 class _Edge(object):
@@ -258,25 +265,6 @@ class _Edge(object):
 
     def __repr__(self):
         return str((self.start, self.end, self.weight))
-
-class _EdgeQueue(object):
-
-    def __init__(self):
-        self._queue = []
-
-    def push(self, edge):
-        heapq.heappush(self._queue, edge)
-
-    def pop(self):
-        if len(self._queue) == 0:
-            return None
-        return heapq.heappop(self._queue)
-
-    def __iter__(self):
-        return iter(self._queue)
-
-    def __repr__(self):
-        return str(self._queue)
 
 if __name__ == "__main__":
     dic = create_dictionary(read_conllu("../test/test1.conllu"), fields={FORM, UPOS, FEATS, DEPREL})
