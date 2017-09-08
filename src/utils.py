@@ -11,14 +11,6 @@ ID, FORM, LEMMA, UPOS, XPOS, FEATS, HEAD, DEPREL, DEPS, MISC = range(10)
 EMPTY = 0
 MULTIWORD = 1
 
-class DepTree(namedtuple("DepTree", "feats, heads, labels")):
-
-    def __new__(cls, num_tokens, num_feats=0):
-        return super(cls, DepTree).__new__(cls,
-                np.empty((num_tokens, num_feats), dtype=np.int) if num_feats > 0 else None,
-                np.full(num_tokens, -1, dtype=np.int),
-                np.full(num_tokens, -1, dtype=np.int))
-
 def isempty(token):
     if isinstance(token, list):
         token = token[ID]
@@ -125,6 +117,14 @@ def create_index(dic, min_frequency=1):
 
 def create_inverse_index(index):
     return {f: {v: k for k, v in c.items()} for f, c in index.items()}
+
+class DepTree(namedtuple("DepTree", "feats, heads, labels")):
+
+    def __new__(cls, num_tokens, num_feats=0):
+        return super(cls, DepTree).__new__(cls,
+                np.empty((num_tokens, num_feats), dtype=np.int) if num_feats > 0 else None,
+                np.full(num_tokens, -1, dtype=np.int),
+                np.full(num_tokens, -1, dtype=np.int))
 
 def map_to_instance(sentence, index, fields=(FORM, UPOS, FEATS)):
     num_tokens = len(sentence)
