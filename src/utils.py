@@ -123,13 +123,18 @@ def create_inverse_index(index):
 
 INDEX_FILENAME = "{0}_{1}_index.txt"
 
+_NONE_TOKEN = u"__none__"
+
 def write_index(basename, index, fields={FORM, UPOS, FEATS, DEPREL}):
     index = create_inverse_index(index)
     for f in fields:
         c = index[f]
         with codecs.open(INDEX_FILENAME.format(basename, field_to_str[f]), "w", "utf-8") as fp:
             for i in range(1, len(c) + 1):
-                print(c[i], file=fp)
+                token = c[i]
+                if token is None:
+                    token = _NONE_TOKEN
+                print(token, file=fp)
 
 def read_index(basename, fields={FORM, UPOS, FEATS, DEPREL}):
     index = {}
@@ -139,6 +144,8 @@ def read_index(basename, fields={FORM, UPOS, FEATS, DEPREL}):
             i = 1
             for line in fp:
                 token = line.rstrip("\r\n")
+                if token == _NONE_TOKEN:
+                    token = None
                 index[f][token] = i
                 i += 1
     return index
@@ -293,8 +300,9 @@ class _Edge(object):
 
 if __name__ == "__main__":
     dic = create_dictionary(read_conllu("../test/test1.conllu"), fields={FORM, UPOS, FEATS, DEPREL})
-    index = create_index(dic)
-    print(index)
-    write_index("../build/test1", index)
-    index = read_index("../build/test1")
-    print(index)
+    index1 = create_index(dic)
+    print(index1)
+    write_index("../build/test1", index1)
+    index2 = read_index("../build/test1")
+    print(index2)
+    write_index("../build/test1_index2", index2)
