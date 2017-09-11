@@ -48,7 +48,6 @@ def parse_args():
     parser.add_argument("--min_frequency", default=5, type=int)
     parser.add_argument("--window", default=5, type=int)
     parser.add_argument("--sg")
-    parser.add_argument("--write_index", default=True)
     parser.add_argument("--seed", default=1, type=int)
 
     args = parser.parse_args()
@@ -62,7 +61,6 @@ if __name__ == "__main__":
     dic = create_dictionary(read_conllu(args.inputfile), fields=args.fields)
     index = create_index(dic, min_frequency=args.min_frequency)
     print("done")
-    if args.write_index:
-        write_index(args.outbasename, index, args.fields)
+    write_index(args.outbasename, index, args.fields)
 
     word2vec(index, args)
