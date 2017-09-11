@@ -132,6 +132,7 @@ def write_index(basename, index, fields={FORM, UPOS, FEATS, DEPREL}):
                 print(c[i], file=fp)
 
 def read_index(basename, fields={FORM, UPOS, FEATS, DEPREL}):
+    index = {}
     for f in fields:
         index[f] = Counter()
         with codecs.open(INDEX_FILENAME.format(basename, field_to_str[f]), "r", "utf-8") as fp:
