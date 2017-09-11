@@ -297,12 +297,3 @@ class _Edge(object):
 
     def __repr__(self):
         return str((self.start, self.end, self.weight))
-
-if __name__ == "__main__":
-    dic = create_dictionary(read_conllu("../test/test1.conllu"), fields={FORM, UPOS, FEATS, DEPREL})
-    index1 = create_index(dic)
-    print(index1)
-    write_index("../build/test1", index1)
-    index2 = read_index("../build/test1")
-    print(index2)
-    write_index("../build/test1_index2", index2)
