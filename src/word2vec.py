@@ -17,15 +17,17 @@ class Tokens(object):
         self.index = index
  
     def __iter__(self):
+
+        def map_token(token):
+            token = token[self.field]
+            if self.index[self.field][token] == 0:
+                token = UNKNOWN_TOKEN
+            elif token is None:
+                token = NONE_TOKEN
+            return token
+
         for sentence in read_conllu(self.filename):
-            tokens = []
-            for token in sentence:
-                token = token[self.field]
-                if self.index[self.field][token] == 0:
-                    token = UNKNOWN_TOKEN
-                elif token is None:
-                    token = NONE_TOKEN
-                tokens.append(token)
+            tokens = map(map_token, sentence)
             yield tokens
 
 def word2vec(index, args):
