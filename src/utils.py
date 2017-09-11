@@ -121,6 +121,27 @@ def create_index(dic, min_frequency=1):
 def create_inverse_index(index):
     return {f: {v: k for k, v in c.items()} for f, c in index.items()}
 
+INDEX_FILENAME = "{0}_{1}_index.txt"
+
+def write_index(basename, index, fields={FORM, UPOS, FEATS, DEPREL}):
+    index = create_inverse_index(index)
+    for f in fields:
+        c = index[f]
+        with codecs.open(INDEX_FILENAME.format(basename, field_to_str[f]), "w", "utf-8") as fp:
+            for i in range(1, len(c) + 1):
+                print(c[i], file=fp)
+
+def read_index(basename, fields={FORM, UPOS, FEATS, DEPREL}):
+    for f in fields:
+        index[f] = Counter()
+        with codecs.open(INDEX_FILENAME.format(basename, field_to_str[f]), "r", "utf-8") as fp:
+            i = 1
+            for line in fp:
+                token = line.rstrip("\r\n")
+                index[f][token] = i
+                i += 1
+    return index
+
 class DepTree(namedtuple("DepTree", "feats, heads, labels")):
 
     def __new__(cls, num_tokens, num_feats=0):
@@ -273,13 +294,6 @@ if __name__ == "__main__":
     dic = create_dictionary(read_conllu("../test/test1.conllu"), fields={FORM, UPOS, FEATS, DEPREL})
     index = create_index(dic)
     print(index)
-    for tree in map_to_instances(read_conllu("../test/test1.conllu"), index):
-        print(tree)
-
-    weights = np.zeros((4, 4), dtype=np.float)
-    weights[0, 1] = 0.5
-    weights[0, 2] = 0.2
-    weights[1, 3] = 0.5
-    weights[0, 3] = 0.9
-    heads = max_branching(weights)
-    print(heads)
+    write_index("../build/test1", index)
+    index = read_index("../build/test1")
+    print(index)
