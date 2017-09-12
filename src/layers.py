@@ -14,9 +14,7 @@ class Embeddings(object):
 
     def __call__(self, tree):
         num_tokens, num_feats = tree.feats.shape
-        x = []
-        for i in range(num_tokens):
-            x.append(dy.concatenate([self.lookup[f][tree.feats[i,f]] for f in range(num_feats)]))
+        x = [dy.concatenate([self.lookup[f][tree.feats[i,f]] for f in range(num_feats)]) for i in range(num_tokens)]
         return x
 
     def param_collection(self):
