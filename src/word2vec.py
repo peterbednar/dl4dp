@@ -28,7 +28,7 @@ class Tokens(object):
 
         for sentence in read_conllu(self.filename):
             tokens = map(map_token, sentence)
-            yield tokens
+            yield list(tokens)
 
 def word2vec(index, args):
     for i, f in enumerate(args.fields):
