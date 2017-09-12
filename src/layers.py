@@ -3,10 +3,11 @@ from __future__ import print_function
 import dynet as dy
 import numpy as np
 from utils import FORM, UPOS, FEATS
+from word2vec import read_word2vec
 
 class Embeddings(object):
 
-    def __init__(self, dims, model):
+    def __init__(self, model, dims):
         self.pc = model.add_subcollection()
         self.lookup = [self.pc.add_lookup_parameters(dim) for dim in dims]
         self.spec = tuple(dims)
@@ -17,16 +18,17 @@ class Embeddings(object):
     def param_collection(self):
         return self.pc
 
-    def init_from_array(self, embeddings):
-        for param, emb in zip(self.lookup, embeddings):
-            param.init_from_array(emb)
-        return self
+    @staticmethod
+    def init_from_array(model, arrays):
+        embeddings = Embeddings(model, [a.shape for a in arrays])
+        for param, a in zip(embeddings.lookup, arrays):
+            param.init_from_array(a)
+        return embeddings
 
     @staticmethod
-    def init_from_word2vec(basename, model, fields=(FORM, UPOS, FEATS)):
+    def init_from_word2vec(model, basename, fields=(FORM, UPOS, FEATS)):
         wv = read_word2vec(basename, fields)
-        embeddings = Embeddings([v.shape for v in wv], model).init_from_array(wv)
-        return embeddings
+        return Embeddings.init_from_array(model, wv)
 
     @staticmethod
     def from_spec(spec, model):
@@ -35,10 +37,5 @@ class Embeddings(object):
 
 if __name__ == "__main__":
     m = dy.ParameterCollection()
-    vectors = [np.random.rand(5, i * 5) for i in range(1, 5)]
-
-    embeddings = Embeddings([v.shape for v in vectors], m)
-    embeddings.init_from_array(vectors)
-
+    embeddings = Embeddings.init_from_word2vec(m, "../build/cs")
     dy.save("../build/model", [embeddings])
-    
