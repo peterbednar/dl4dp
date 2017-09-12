@@ -40,9 +40,12 @@ class Embeddings(object):
 from utils import DepTree
 
 if __name__ == "__main__":
-    m = dy.ParameterCollection()
-    embeddings = Embeddings.init_from_word2vec(m, "../build/cs")
+    m1 = dy.ParameterCollection()
+    embeddings = Embeddings.init_from_word2vec(m1, "../build/cs")
     dy.save("../build/model", [embeddings])
+
+    m2 = dy.ParameterCollection()
+    embeddings, = dy.load("../build/model", m2)
 
     tree = DepTree(2, 3)
     tree.feats[:,:] = [[1,2,3],[4,5,6]]
