@@ -53,7 +53,6 @@ def read_word2vec(basename, fields=(FORM, UPOS, FEATS), index=None):
         with codecs.open(VECTORS_FILENAME.format(basename, field_to_str[f]), "r", "utf-8") as fp:
             num_tokens, size = (int(num) for num in fp.readline().split(" "))
             num_tokens = len(index[f]) + 1
-
             a = np.zeros((num_tokens, size))
             for line in fp:
                 line = line.rstrip("\r\n").split(" ")
@@ -61,7 +60,6 @@ def read_word2vec(basename, fields=(FORM, UPOS, FEATS), index=None):
                 i = index[f][token]
                 if i > 0 or token == UNKNOWN_TOKEN:
                     a[i] = [float(num) for num in line[1:]]
-
             vectors.append(a)
     
     return vectors
