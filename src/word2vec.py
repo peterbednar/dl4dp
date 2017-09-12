@@ -1,8 +1,14 @@
 from __future__ import print_function
 
+import codecs
+import numpy as np
 from argparse import ArgumentParser
-from utils import FORM, UPOS, FEATS, field_to_str, str_to_field, read_conllu, create_dictionary, create_index, write_index
-from gensim.models import Word2Vec
+from utils import FORM, UPOS, FEATS, field_to_str, str_to_field, read_conllu, create_dictionary, create_index, write_index, read_index
+
+try:
+    from gensim.models import Word2Vec
+except ImportError:
+    pass
 
 UNKNOWN_TOKEN = u"__unknown__"
 NONE_TOKEN = u"__none__"
@@ -37,6 +43,28 @@ def word2vec(index, args):
         model = Word2Vec(tokens, sg=1 if args.sg else 0, size=args.size[i], window=args.window, min_count=1, workers=4, seed=args.seed)
         model.wv.save_word2vec_format(VECTORS_FILENAME.format(args.outbasename, field_to_str[f]))
         print("done")
+
+def read_word2vec(basename, fields=(FORM, UPOS, FEATS), index=None):
+    if index is None:
+        index = read_index(basename, fields)
+    
+    vectors = []
+    for f in fields:
+        with codecs.open(VECTORS_FILENAME.format(basename, field_to_str[f]), "r", "utf-8") as fp:
+            num_tokens, size = (int(num) for num in fp.readline().split(" "))
+            num_tokens = len(index[f]) + 1
+
+            a = np.zeros((num_tokens, size))
+            for line in fp:
+                line = line.rstrip("\r\n").split(" ")
+                token = line[0]
+                i = index[f][token]
+                if i > 0 or token == UNKNOWN_TOKEN:
+                    a[i] = [float(num) for num in line[1:]]
+
+            vectors.append(a)
+    
+    return vectors
 
 def parse_args():
     parser = ArgumentParser()
