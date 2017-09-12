@@ -35,7 +35,7 @@ class Embeddings(object):
     @staticmethod
     def from_spec(spec, model):
         dims = spec
-        return Embeddings(dims, model)
+        return Embeddings(model, dims)
 
 from utils import DepTree
 
