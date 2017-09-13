@@ -5,11 +5,6 @@ import numpy as np
 from argparse import ArgumentParser
 from utils import FORM, UPOS, FEATS, field_to_str, str_to_field, read_conllu, create_dictionary, create_index, write_index, read_index
 
-try:
-    from gensim.models import Word2Vec
-except ImportError:
-    pass
-
 UNKNOWN_TOKEN = u"__unknown__"
 NONE_TOKEN = u"__none__"
 
@@ -81,6 +76,7 @@ def parse_args():
     return args
 
 if __name__ == "__main__":
+    from gensim.models import Word2Vec
     args = parse_args()
 
     print("building index...")
