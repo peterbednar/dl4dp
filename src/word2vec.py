@@ -31,7 +31,7 @@ class Tokens(object):
             tokens = map(map_token, sentence)
             yield list(tokens)
 
-def word2vec(index, args):
+def _word2vec(index, args):
     for i, f in enumerate(args.fields):
         print("building {0} vectors...".format(field_to_str[f].upper()))
         tokens = Tokens(args.inputfile, f, index)
@@ -85,4 +85,4 @@ if __name__ == "__main__":
     print("done")
     write_index(args.outbasename, index, args.fields)
 
-    word2vec(index, args)
+    _word2vec(index, args)
