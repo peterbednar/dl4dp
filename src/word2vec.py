@@ -59,7 +59,7 @@ def read_word2vec(basename, fields=(FORM, UPOS, FEATS), index=None):
     
     return vectors
 
-def parse_args():
+def _parse_args():
     parser = ArgumentParser()
 
     parser.add_argument("--inputfile")
@@ -77,7 +77,7 @@ def parse_args():
 
 if __name__ == "__main__":
     from gensim.models import Word2Vec
-    args = parse_args()
+    args = _parse_args()
 
     print("building index...")
     dic = create_dictionary(read_conllu(args.inputfile), fields=args.fields)
