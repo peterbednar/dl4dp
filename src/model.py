@@ -2,7 +2,6 @@ from __future__ import print_function
 
 import math
 import dynet as dy
-import numpy as np
 from utils import FORM, UPOS, FEATS
 from word2vec import read_word2vec
 
@@ -29,7 +28,7 @@ class Embeddings(object):
         x = [dy.concatenate([_lookup(i, f) for f in range(num_feats)]) for i in range(num_tokens)]
         return x
 
-    def disable_dropout():
+    def disable_dropout(self):
         self.set_dropout(0)
 
     def set_dropout(self, dropout):
@@ -89,6 +88,37 @@ class Dense(object):
         indim, outdim, act, init_gain, ln = spec
         return Dense(model, indim, outdim, act, init_gain, ln)
 
+class MultiLayerPerceptron(object):
+
+    def __init__(self, model, dims, act=dy.rectify, init_gain=math.sqrt(2.), ln=False, dropout=0):
+        self.pc = model.add_subcollection()
+        self.layers = []
+        for indim, outdim in zip(dims, dims[1:]):
+            self.layers.append(Dense(self.pc, indim, outdim, act, init_gain, ln))
+        self.dropout = dropout
+        self.spec = (dims, act, init_gain, ln, dropout)
+
+    def __call__(self, x):
+        for layer in self.layers:
+            x = layer(x)
+            if self.dropout > 0:
+                x = dy.dropout(x, self.dropout)
+        return x
+
+    def set_dropout(self, dropout):
+        self.dropout = dropout
+    
+    def disable_dropout(self):
+        self.set_dropout(0)
+
+    def param_collection(self):
+        return self.pc
+
+    @staticmethod
+    def from_spec(spec, model):
+        dims, act, init_gain, ln, dropout = spec
+        return MultiLayerPerceptron(model, dims, act, init_gain, ln, dropout)
+       
 
 from utils import DepTree
 
@@ -96,9 +126,18 @@ if __name__ == "__main__":
     m1 = dy.ParameterCollection()
     embeddings = Embeddings.init_from_word2vec(m1, "../build/cs")
     dense = Dense(m1, 125, 10)
+    mlp = MultiLayerPerceptron(m1, [125, 10, 1])
+
+    dy.save("../build/model", [embeddings, dense, mlp])
+
+    m2 = dy.ParameterCollection()
+    embeddings, dense, mlp = dy.load("../build/model", m2)
+
     tree = DepTree(2, 3)
     tree.feats[:,:] = [[1,2,3],[4,5,6]]
 
     x = embeddings(tree)
     y = dense(x[0])
+    print(y.value())
+    y = mlp(x[0])
     print(y.value())
