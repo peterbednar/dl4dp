@@ -19,7 +19,9 @@ class Embeddings(object):
         def _lookup(i):
             feats = [self.lookup[f][tree.feats[i,f]] for f in range(num_feats)]
             if isinstance(self.dropout, (tuple, list)):
-                feats = [dy.dropout(feats[i], p) if p > 0 else feats[i] for i, p in enumerate(self.dropout)]
+                for f, p in enumerate(self.dropout):
+                    if p > 0:
+                        feats[f] = dy.dropout(feats[f], p)
                 x_i = dy.concatenate(feats)
             else:
                 x_i = dy.concatenate(feats)
