@@ -64,7 +64,7 @@ class Dense(object):
         self.pc = model.add_subcollection()
         self.act = act
         self.ln = ln
-        self.W = self.pc.add_parameters((outfim, indim), init=dy.GlorotInitializer(gain=init_gain))
+        self.W = self.pc.add_parameters((outdim, indim), init=dy.GlorotInitializer(gain=init_gain))
         self.b = self.pc.add_parameters(outdim, init=dy.ConstInitializer(0.))
         if ln:
             self.g = self.pc.add_parameters(outdim, init=dy.ConstInitializer(1.))
