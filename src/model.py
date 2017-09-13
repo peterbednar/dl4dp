@@ -7,30 +7,32 @@ from word2vec import read_word2vec
 
 class Embeddings(object):
 
-    def __init__(self, model, dims, dropout=0):
+    def __init__(self, model, dims, dropout=0, update=True):
         self.pc = model.add_subcollection()
         self.lookup = [self.pc.add_lookup_parameters(dim) for dim in dims]
         self.dropout = dropout
-        self.spec = (dims, dropout)
+        self.update = update
+        self.spec = (dims, dropout, update)
 
     def __call__(self, tree):
+
+        def _lookup(i, f):
+            update = self._update(f)
+            dropout = self._dropout(f)
+            feats = dy.lookup(self.lookup[f], tree.feats[i,f], update=update)
+            if dropout > 0:
+                feats = dy.dropout(feats, dropout)
+            return feats
+
         num_tokens, num_feats = tree.feats.shape
-
-        def _lookup(i):
-            feats = [self.lookup[f][tree.feats[i,f]] for f in range(num_feats)]
-            if isinstance(self.dropout, (tuple, list)):
-                for f, p in enumerate(self.dropout):
-                    if p > 0:
-                        feats[f] = dy.dropout(feats[f], p)
-                x_i = dy.concatenate(feats)
-            else:
-                x_i = dy.concatenate(feats)
-                if self.dropout > 0:
-                    x_i = dy.dropout(x_i, self.dropout)
-            return x_i
-
-        x = [_lookup(i) for i in range(num_tokens)]
+        x = [dy.concatenate([_lookup(i, f) for f in range(num_feats)]) for i in range(num_tokens)]
         return x
+
+    def _update(self, f):
+        return self.update[f] if isinstance(tuple, list) else self.update
+
+    def _dropout(self, f):
+        return self.dropout[f] if isinstance(tuple, list) else self.dropout
 
     def set_dropout(self, dropout):
         self.dropout = dropout
@@ -42,21 +44,22 @@ class Embeddings(object):
         return self.pc
 
     @staticmethod
-    def init_from_array(model, arrays, dropout=0):
-        embeddings = Embeddings(model, [a.shape for a in arrays], dropout)
+    def init_from_array(model, arrays, dropout=0, update=True):
+        embeddings = Embeddings(model, [a.shape for a in arrays], dropout, update)
         for param, a in zip(embeddings.lookup, arrays):
             param.init_from_array(a)
         return embeddings
 
     @staticmethod
-    def init_from_word2vec(model, basename, fields=(FORM, UPOS, FEATS), dropout=0):
+    def init_from_word2vec(model, basename, fields=(FORM, UPOS, FEATS), dropout=0, update=True):
         wv = read_word2vec(basename, fields)
-        return Embeddings.init_from_array(model, wv, dropout)
+        return Embeddings.init_from_array(model, wv, dropout, update)
 
     @staticmethod
     def from_spec(spec, model):
-        dims, dropout = spec
-        return Embeddings(model, dims, dropout)
+        dims, dropout, update = spec
+        return Embeddings(model, dims, dropout, update)
+
 
 from utils import DepTree
 
