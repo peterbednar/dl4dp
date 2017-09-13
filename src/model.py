@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+import math
 import dynet as dy
 import numpy as np
 from utils import FORM, UPOS, FEATS
@@ -57,19 +58,47 @@ class Embeddings(object):
         dims, dropout, update = spec
         return Embeddings(model, dims, dropout, update)
 
+class Dense(object):
+
+    def __init__(self, model, indim, outdim, act=dy.rectify, init_gain=math.sqrt(2.), ln=False):
+        self.pc = model.add_subcollection()
+        self.act = act
+        self.ln = ln
+        self.W = self.pc.add_parameters((indim, outdim), init=dy.GlorotInitializer(gain=init_gain))
+        self.b = self.pc.add_parameters(outdim, init=dy.ConstInitializer(0.))
+        if ln:
+            self.g = self.pc.add_parameters(outdim, init=dy.ConstInitializer(1.))
+        self.spec = (indim, outdim, act, init_gain, ln)
+
+    def __call__(self, x):
+        W = dy.parameter(self.W)
+        b = dy.parameter(self.b)
+        if self.ln:
+            g = dy.parameter(self.g)
+            y = dy.layer_norm(W * x, g, b)
+            return self.act(y)
+        else:
+            y = dy.affine_transform([b, W, x])
+            return self.act(y)
+    
+    def param_collection(self):
+        return self.pc
+
+    @staticmethod
+    def from_spec(spec, model):
+        indim, outdim, act, init_gain, ln = spec
+        return Dense(model, indim, outdim, act, init_gain, ln)
+
 
 from utils import DepTree
 
 if __name__ == "__main__":
     m1 = dy.ParameterCollection()
     embeddings = Embeddings.init_from_word2vec(m1, "../build/cs")
-    dy.save("../build/model", [embeddings])
-
-    m2 = dy.ParameterCollection()
-    embeddings, = dy.load("../build/model", m2)
-
+    dense = Dense(m1, 125, 10)
     tree = DepTree(2, 3)
     tree.feats[:,:] = [[1,2,3],[4,5,6]]
+
     x = embeddings(tree)
-    print(x[0].dim())
-    print(x[0].value())
+    y = dense(x[0])
+    print(y.value())
