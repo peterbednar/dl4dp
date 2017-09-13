@@ -17,12 +17,12 @@ class Embeddings(object):
         num_tokens, num_feats = tree.feats.shape
 
         def _lookup(i):
-            x_i = [self.lookup[f][tree.feats[i,f]] for f in range(num_feats)]
+            feats = [self.lookup[f][tree.feats[i,f]] for f in range(num_feats)]
             if isinstance(self.dropout, (tuple, list)):
-                x_i = [dy.dropout(x_i[i], p) if p > 0 else x_i[i] for i, p in enumerate(self.dropout)]
-                x_i = dy.concatenate(x_i)
+                feats = [dy.dropout(feats[i], p) if p > 0 else feats[i] for i, p in enumerate(self.dropout)]
+                x_i = dy.concatenate(feats)
             else:
-                x_i = dy.concatenate(x_i)
+                x_i = dy.concatenate(feats)
                 if self.dropout > 0:
                     x_i = dy.dropout(x_i, self.dropout)
             return x_i
