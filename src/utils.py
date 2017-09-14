@@ -11,8 +11,12 @@ ID, FORM, LEMMA, UPOS, XPOS, FEATS, HEAD, DEPREL, DEPS, MISC = range(10)
 EMPTY = 0
 MULTIWORD = 1
 
-field_to_str = ["id", "form", "lemma", "upos", "xpos", "feats", "head", "deprel", "deps", "misc"]
-str_to_field = {k : v for v, k in enumerate(field_to_str)} 
+FIELD_TO_STR = ["id", "form", "lemma", "upos", "xpos", "feats", "head", "deprel", "deps", "misc"]
+STR_TO_FIELD = {k : v for v, k in enumerate(FIELD_TO_STR)}
+
+ROOT_NODE = ["__root__"] * 10
+ROOT_NODE[ID] = 0
+ROOT_NODE[HEAD] = -1
 
 def isempty(token):
     if isinstance(token, list):
@@ -27,10 +31,13 @@ def ismultiword(token):
 def normalize_lower(field, value):
     return value.lower() if field == FORM else value
 
-def read_conllu(filename, skip_empty=True, skip_multiword=True, parse_feats=False, parse_deps=False, normalize=normalize_lower):
+def read_conllu(filename, skip_empty=True, skip_multiword=True, parse_feats=False, parse_deps=False, normalize=normalize_lower,
+        insert_root=True):
 
     def _parse_sentence(lines):
         sentence = []
+        if insert_root:
+            sentence.append(ROOT_NODE)
         for line in lines:
             token = _parse_token(line)
             if skip_empty and isempty(token):
@@ -129,7 +136,7 @@ def write_index(basename, index, fields={FORM, UPOS, FEATS, DEPREL}):
     index = create_inverse_index(index)
     for f in fields:
         c = index[f]
-        with codecs.open(INDEX_FILENAME.format(basename, field_to_str[f]), "w", "utf-8") as fp:
+        with codecs.open(INDEX_FILENAME.format(basename, FIELD_TO_STR[f]), "w", "utf-8") as fp:
             for i in range(1, len(c) + 1):
                 token = c[i]
                 if token is None:
@@ -140,7 +147,7 @@ def read_index(basename, fields={FORM, UPOS, FEATS, DEPREL}):
     index = {}
     for f in fields:
         index[f] = Counter()
-        with codecs.open(INDEX_FILENAME.format(basename, field_to_str[f]), "r", "utf-8") as fp:
+        with codecs.open(INDEX_FILENAME.format(basename, FIELD_TO_STR[f]), "r", "utf-8") as fp:
             i = 1
             for line in fp:
                 token = line.rstrip("\r\n")
