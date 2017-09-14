@@ -17,9 +17,8 @@ class Embeddings(object):
     def __call__(self, tree):
 
         def _lookup(i, f):
-            update = self.update[f]
+            feats = dy.lookup(self.lookup[f], tree.feats[i,f], update=self.update[f])
             dropout = self.dropout[f]
-            feats = dy.lookup(self.lookup[f], tree.feats[i,f], update=update)
             if dropout > 0:
                 feats = dy.dropout(feats, dropout)
             return feats
@@ -28,12 +27,12 @@ class Embeddings(object):
         x = [dy.concatenate([_lookup(i, f) for f in range(num_feats)]) for i in range(num_tokens)]
         return x
 
-    def disable_dropout(self):
-        self.set_dropout(0)
-
     def set_dropout(self, dropout):
         self.dropout = dropout if isinstance(dropout, (tuple, list)) else [dropout] * len(self.lookup)
     
+    def disable_dropout(self):
+        self.set_dropout(0)
+
     def set_update(self, update):
         self.update = update if isinstance(update, (tuple, list)) else [update] * len(self.lookup)
 
