@@ -17,8 +17,9 @@ class Embeddings(object):
     def __call__(self, tree):
 
         def _lookup(i, f):
-            feats = dy.lookup(self.lookup[f], tree.feats[i,f], update=self.update[f])
+            update = self.update[f]
             dropout = self.dropout[f]
+            feats = dy.lookup(self.lookup[f], tree.feats[i,f], update=update)
             if dropout > 0:
                 feats = dy.dropout(feats, dropout)
             return feats
@@ -117,26 +118,3 @@ class MultiLayerPerceptron(object):
     def from_spec(spec, model):
         dims, act, init_gain, ln, dropout = spec
         return MultiLayerPerceptron(model, dims, act, init_gain, ln, dropout)
-       
-
-from utils import DepTree
-
-if __name__ == "__main__":
-    m1 = dy.ParameterCollection()
-    embeddings = Embeddings.init_from_word2vec(m1, "../build/cs")
-    dense = Dense(m1, 125, 10)
-    mlp = MultiLayerPerceptron(m1, [125, 10, 1])
-
-    dy.save("../build/model", [embeddings, dense, mlp])
-
-    m2 = dy.ParameterCollection()
-    embeddings, dense, mlp = dy.load("../build/model", m2)
-
-    tree = DepTree(2, 3)
-    tree.feats[:,:] = [[1,2,3],[4,5,6]]
-
-    x = embeddings(tree)
-    y = dense(x[0])
-    print(y.value())
-    y = mlp(x[0])
-    print(y.value())
