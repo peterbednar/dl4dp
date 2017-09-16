@@ -123,7 +123,7 @@ class BiLSTM(object):
     def __init__(self, model, input_dim, hidden_dim, num_layers=1, input_dropout=0, output_dropout=0, ln=False, insert_boundaries=False, insert_root=False):
         self.pc = model.add_subcollection()
 
-        def _build_layer(input_dim, hidden_dim, rnn_builder=dy.VanilaLSTMBuilder):
+        def _build_layer(input_dim, hidden_dim, rnn_builder=dy.VanillaLSTMBuilder):
             f = rnn_builder(1, input_dim, hidden_dim / 2, self.pc, ln)
             b = rnn_builder(1, input_dim, hidden_dim / 2, self.pc, ln)
             return (f, b)
@@ -132,15 +132,20 @@ class BiLSTM(object):
         for _ in range(num_layers - 1):
             self._builder_layers.append(_build_layer(hidden_dim, hidden_dim))
 
-        self.rnn = dy.BiRNNBuilder(num_layers, input_dim, hidden_dim, self.pc, dy.VanilaLSTMBuilder, self._builder_layers)
+        self.rnn = dy.BiRNNBuilder(num_layers, input_dim, hidden_dim, self.pc, dy.VanillaLSTMBuilder, self._builder_layers)
         self.set_dropouts(input_dropout, output_dropout)
 
         if insert_boundaries:
             self._BOS = self.pc.add_parameters(input_dim)
             self._EOS = self.pc.add_parameters(input_dim)
+        else:
+            self._BOS = None
+            self._EOS = None
 
         if insert_root:
             self.ROOT = self.pc.add_parameters(input_dim)
+        else:
+            self.ROOT = None
 
         self.spec = input_dim, hidden_dim, num_layers, input_dropout, output_dropout, ln, insert_boundaries, insert_root
 
@@ -153,7 +158,7 @@ class BiLSTM(object):
             x.append(dy.parameter(self._EOS))
 
         h = self.rnn.transduce(x)
-        h[:] = h[1:-2]
+        h[:] = h[1:-1]
         return h
 
     def set_dropout(self, dropout):
