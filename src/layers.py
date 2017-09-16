@@ -124,40 +124,47 @@ class BiLSTM(object):
     def __init__(self, model, input_dim, hidden_dim, num_layers=1, input_dropout=0, output_dropout=0, ln=False):
         self.pc = model.add_subcollection()
 
-        self.BOS = self.pc.add_parameters(input_dim)
-        self.EOS = self.pc.add_parameters(input_dim)
-        self.ROOT = self.pc.add_parameters(input_dim)
-
         def _build_layer(input_dim, hidden_dim, rnn_builder=dy.VanillaLSTMBuilder):
             f = rnn_builder(1, input_dim, hidden_dim / 2, self.pc, ln)
             b = rnn_builder(1, input_dim, hidden_dim / 2, self.pc, ln)
             return (f, b)
 
-        self._builder_layers = [_build_layer(input_dim, hidden_dim)]
-        for _ in range(num_layers - 1):
-            self._builder_layers.append(_build_layer(hidden_dim, hidden_dim))
+        self.BOS = self.pc.add_parameters(input_dim)
+        self.EOS = self.pc.add_parameters(input_dim)
+        self.ROOT = self.pc.add_parameters(input_dim)
 
-        self.rnn = dy.BiRNNBuilder(num_layers, input_dim, hidden_dim, self.pc, dy.VanillaLSTMBuilder, self._builder_layers)
+        self.layers = [_build_layer(input_dim, hidden_dim)]
+        for _ in range(num_layers - 1):
+            self.layers.append(_build_layer(hidden_dim, hidden_dim))
         self.set_dropouts(input_dropout, output_dropout)
 
         self.spec = input_dim, hidden_dim, num_layers, input_dropout, output_dropout, ln
 
     def __call__(self, x):
         x = [dy.parameter(self.BOS), dy.parameter(self.ROOT)] + x + [dy.parameter(self.EOS)]
-        h = self.rnn.transduce(x)
+        h = self.transduce(x)
         h[:] = h[1:-1]
         return h
+
+    def transduce(self, x):
+        for (f,b) in self.layers:
+            fs = f.initial_state().transduce(x)
+            bs = b.initial_state().transduce(reversed(x))
+            x = [dy.concatenate([f,b]) for f,b in zip(fs, reversed(bs))]
+        return x
 
     def set_dropout(self, dropout):
         self.set_dropouts(dropout, dropout)
 
     def set_dropouts(self, input_dropout, output_dropout):
-        for (f, b) in self._builder_layers:
+        for (f,b) in self.layers:
             f.set_dropouts(input_dropout, output_dropout)
             b.set_dropouts(input_dropout, output_dropout)
     
     def disable_dropout(self):
-        self.rnn.disable_dropout()
+        for (f,b) in self.layers:
+            f.disable_dropout()
+            b.disable_dropout()
 
     def param_collection(self):
         return self.pc
