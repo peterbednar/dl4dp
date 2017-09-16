@@ -12,6 +12,7 @@ class Embeddings(object):
         self.lookup = [self.pc.add_lookup_parameters(dim) for dim in dims]
         self.set_dropout(dropout)
         self.set_update(update)
+        self.dim = sum([dim for (_,dim) in dims])
         self.spec = (dims, dropout, update)
 
     def __call__(self, tree):
