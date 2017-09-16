@@ -14,16 +14,6 @@ MULTIWORD = 1
 FIELD_TO_STR = ["id", "form", "lemma", "upos", "xpos", "feats", "head", "deprel", "deps", "misc"]
 STR_TO_FIELD = {k : v for v, k in enumerate(FIELD_TO_STR)}
 
-def _init_placeholder(id, label, head=-1):
-    node = [label] * 10
-    node[ID] = id
-    node[HEAD] = head
-    return node
-
-ROOT_NODE = _init_placeholder(0, "__root__")
-BOS_NODE = _init_placeholder(-1, "__bos__")
-EOS_NODE = _init_placeholder(-1, "__eos__")
-
 def isempty(token):
     if isinstance(token, list):
         token = token[ID]
@@ -37,16 +27,10 @@ def ismultiword(token):
 def normalize_lower(field, value):
     return value.lower() if field == FORM else value
 
-def read_conllu(filename, skip_empty=True, skip_multiword=True, parse_feats=False, parse_deps=False, normalize=normalize_lower,
-        insert_boundaries=True, insert_root=True):
+def read_conllu(filename, skip_empty=True, skip_multiword=True, parse_feats=False, parse_deps=False, normalize=normalize_lower):
 
     def _parse_sentence(lines):
         sentence = []
-        if insert_boundaries:
-            sentence.append(BOS_NODE)
-
-        if insert_root:
-            sentence.append(ROOT_NODE)
         for line in lines:
             token = _parse_token(line)
             if skip_empty and isempty(token):
@@ -54,9 +38,6 @@ def read_conllu(filename, skip_empty=True, skip_multiword=True, parse_feats=Fals
             if skip_multiword and ismultiword(token):
                 continue
             sentence.append(token)
-
-        if insert_boundaries:
-            sentence.append(EOS_NODE)
         return sentence
 
     def _parse_token(line):
