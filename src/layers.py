@@ -58,15 +58,15 @@ class Embeddings(object):
 
 class Dense(object):
 
-    def __init__(self, model, indim, outdim, act=dy.rectify, init_gain=math.sqrt(2.), ln=False):
+    def __init__(self, model, input_dim, output_dim, act=dy.rectify, init_gain=math.sqrt(2.), ln=False):
         self.pc = model.add_subcollection()
         self.act = act
         self.ln = ln
-        self.W = self.pc.add_parameters((outdim, indim), init=dy.GlorotInitializer(gain=init_gain))
-        self.b = self.pc.add_parameters(outdim, init=dy.ConstInitializer(0.))
+        self.W = self.pc.add_parameters((output_dim, input_dim), init=dy.GlorotInitializer(gain=init_gain))
+        self.b = self.pc.add_parameters(output_dim, init=dy.ConstInitializer(0.))
         if ln:
-            self.g = self.pc.add_parameters(outdim, init=dy.ConstInitializer(1.))
-        self.spec = (indim, outdim, act, init_gain, ln)
+            self.g = self.pc.add_parameters(output_dim, init=dy.ConstInitializer(1.))
+        self.spec = (input_dim, output_dim, act, init_gain, ln)
 
     def __call__(self, x):
         W = dy.parameter(self.W)
@@ -84,16 +84,16 @@ class Dense(object):
 
     @staticmethod
     def from_spec(spec, model):
-        indim, outdim, act, init_gain, ln = spec
-        return Dense(model, indim, outdim, act, init_gain, ln)
+        input_dim, output_dim, act, init_gain, ln = spec
+        return Dense(model, input_dim, output_dim, act, init_gain, ln)
 
 class MultiLayerPerceptron(object):
 
     def __init__(self, model, dims, act=dy.rectify, init_gain=math.sqrt(2.), ln=False, dropout=0):
         self.pc = model.add_subcollection()
         self.layers = []
-        for indim, outdim in zip(dims, dims[1:]):
-            self.layers.append(Dense(self.pc, indim, outdim, act, init_gain, ln))
+        for input_dim, output_dim in zip(dims, dims[1:]):
+            self.layers.append(Dense(self.pc, input_dim, output_dim, act, init_gain, ln))
         self.dropout = dropout
         self.spec = (dims, act, init_gain, ln, dropout)
 
@@ -117,3 +117,60 @@ class MultiLayerPerceptron(object):
     def from_spec(spec, model):
         dims, act, init_gain, ln, dropout = spec
         return MultiLayerPerceptron(model, dims, act, init_gain, ln, dropout)
+
+class BiLSTM(object):
+
+    def __init__(self, model, input_dim, hidden_dim, num_layers=1, input_dropout=0, output_dropout=0, ln=False, insert_boundaries=False, insert_root=False):
+        self.pc = model.add_subcollection()
+
+        def _build_layer(input_dim, hidden_dim, rnn_builder=dy.VanilaLSTMBuilder):
+            f = rnn_builder(1, input_dim, hidden_dim / 2, self.pc, ln)
+            b = rnn_builder(1, input_dim, hidden_dim / 2, self.pc, ln)
+            return (f, b)
+
+        self._builder_layers = [_build_layer(input_dim, hidden_dim)]
+        for _ in range(num_layers - 1):
+            self._builder_layers.append(_build_layer(hidden_dim, hidden_dim))
+
+        self.rnn = dy.BiRNNBuilder(num_layers, input_dim, hidden_dim, self.pc, dy.VanilaLSTMBuilder, self._builder_layers)
+        self.set_dropouts(input_dropout, output_dropout)
+
+        if insert_boundaries:
+            self._BOS = self.pc.add_parameters(input_dim)
+            self._EOS = self.pc.add_parameters(input_dim)
+
+        if insert_root:
+            self.ROOT = self.pc.add_parameters(input_dim)
+
+        self.spec = input_dim, hidden_dim, num_layers, input_dropout, output_dropout, ln, insert_boundaries, insert_root
+
+    def __call__(self, x):
+        if self.ROOT:
+            x.insert(0, dy.parameter(self.ROOT))
+        if self._BOS:
+            x.insert(0, dy.parameter(self._BOS))
+        if self._EOS:
+            x.append(dy.parameter(self._EOS))
+
+        h = self.rnn.transduce(x)
+        h[:] = h[1:-2]
+        return h
+
+    def set_dropout(self, dropout):
+        self.set_dropouts(dropout, dropout)
+
+    def set_dropouts(self, input_dropout, output_dropout):
+        for (f, b) in self._builder_layers:
+            f.set_dropouts(input_dropout, output_dropout)
+            b.set_dropouts(input_dropout, output_dropout)
+    
+    def disable_dropout(self):
+        self.rnn.disable_dropout()
+
+    def param_collection(self):
+        return self.pc
+
+    @staticmethod
+    def from_spec(spec, model):
+        input_dim, hidden_dim, num_layers, input_dropout, output_dropout, ln, insert_boundaries, insert_root = spec
+        return BiLSTM(model, input_dim, hidden_dim, num_layers, input_dropout, output_dropout, ln, insert_boundaries, insert_root)
