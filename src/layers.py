@@ -120,8 +120,12 @@ class MultiLayerPerceptron(object):
 
 class BiLSTM(object):
 
-    def __init__(self, model, input_dim, hidden_dim, num_layers=1, input_dropout=0, output_dropout=0, ln=False, insert_boundaries=False, insert_root=False):
+    def __init__(self, model, input_dim, hidden_dim, num_layers=1, input_dropout=0, output_dropout=0, ln=False):
         self.pc = model.add_subcollection()
+
+        self.BOS = self.pc.add_parameters(input_dim)
+        self.EOS = self.pc.add_parameters(input_dim)
+        self.ROOT = self.pc.add_parameters(input_dim)
 
         def _build_layer(input_dim, hidden_dim, rnn_builder=dy.VanillaLSTMBuilder):
             f = rnn_builder(1, input_dim, hidden_dim / 2, self.pc, ln)
@@ -135,28 +139,10 @@ class BiLSTM(object):
         self.rnn = dy.BiRNNBuilder(num_layers, input_dim, hidden_dim, self.pc, dy.VanillaLSTMBuilder, self._builder_layers)
         self.set_dropouts(input_dropout, output_dropout)
 
-        if insert_boundaries:
-            self._BOS = self.pc.add_parameters(input_dim)
-            self._EOS = self.pc.add_parameters(input_dim)
-        else:
-            self._BOS = None
-            self._EOS = None
-
-        if insert_root:
-            self.ROOT = self.pc.add_parameters(input_dim)
-        else:
-            self.ROOT = None
-
-        self.spec = input_dim, hidden_dim, num_layers, input_dropout, output_dropout, ln, insert_boundaries, insert_root
+        self.spec = input_dim, hidden_dim, num_layers, input_dropout, output_dropout, ln
 
     def __call__(self, x):
-        if self.ROOT:
-            x.insert(0, dy.parameter(self.ROOT))
-        if self._BOS:
-            x.insert(0, dy.parameter(self._BOS))
-        if self._EOS:
-            x.append(dy.parameter(self._EOS))
-
+        x = [dy.parameter(self.BOS), dy.parameter(self.ROOT)] + x + [dy.parameter(self.EOS)]
         h = self.rnn.transduce(x)
         h[:] = h[1:-1]
         return h
@@ -177,5 +163,5 @@ class BiLSTM(object):
 
     @staticmethod
     def from_spec(spec, model):
-        input_dim, hidden_dim, num_layers, input_dropout, output_dropout, ln, insert_boundaries, insert_root = spec
-        return BiLSTM(model, input_dim, hidden_dim, num_layers, input_dropout, output_dropout, ln, insert_boundaries, insert_root)
+        input_dim, hidden_dim, num_layers, input_dropout, output_dropout, ln = spec
+        return BiLSTM(model, input_dim, hidden_dim, num_layers, input_dropout, output_dropout, ln)
