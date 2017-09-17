@@ -48,8 +48,8 @@ class Embeddings(object):
         return embeddings
 
     @staticmethod
-    def init_from_word2vec(model, basename, fields=(FORM, UPOS, FEATS), dropout=0, update=True):
-        wv = read_word2vec(basename, fields)
+    def init_from_word2vec(model, basename, fields=(FORM, UPOS, FEATS), index=None, dropout=0, update=True):
+        wv = read_word2vec(basename, fields, index)
         return Embeddings.init_from_array(model, wv, dropout, update)
 
     @staticmethod
