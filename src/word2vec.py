@@ -63,8 +63,8 @@ def read_word2vec(basename, fields=(FORM, UPOS, FEATS), index=None):
 def _parse_args():
     parser = ArgumentParser()
 
-    parser.add_argument("--inputfile")
-    parser.add_argument("--outbasename")
+    parser.add_argument("--inputfile", required=True)
+    parser.add_argument("--outbasename", required=True)
     parser.add_argument("--fields", default=["FORM", "UPOS", "FEATS"], nargs='+')
     parser.add_argument("--size", default=[100, 5, 20], type=int, nargs='+')
     parser.add_argument("--min_frequency", default=5, type=int)
