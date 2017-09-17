@@ -35,7 +35,7 @@ class _Tokens(object):
 def _word2vec(index, args):
     for i, f in enumerate(args.fields):
         if args.size[i] > 0:
-            print("building {0} vectors...".format(FIELD_TO_STR[f].upper()), end=" ")
+            print("building {0}[{1}] vectors...".format(FIELD_TO_STR[f].upper(), args.size[i]), end=" ")
             tokens = _Tokens(args.inputfile, f, index)
             model = Word2Vec(tokens, sg=1 if args.sg else 0, size=args.size[i], window=args.window, min_count=1, workers=4, seed=args.seed)
             model.wv.save_word2vec_format(VECTORS_FILENAME.format(args.outbasename, FIELD_TO_STR[f]))
