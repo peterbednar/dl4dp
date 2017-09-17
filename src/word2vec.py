@@ -34,11 +34,12 @@ class _Tokens(object):
 
 def _word2vec(index, args):
     for i, f in enumerate(args.fields):
-        print("building {0} vectors...".format(FIELD_TO_STR[f].upper()), end=" ")
-        tokens = _Tokens(args.inputfile, f, index)
-        model = Word2Vec(tokens, sg=1 if args.sg else 0, size=args.size[i], window=args.window, min_count=1, workers=4, seed=args.seed)
-        model.wv.save_word2vec_format(VECTORS_FILENAME.format(args.outbasename, FIELD_TO_STR[f]))
-        print("done")
+        if args.size[i] > 0:
+            print("building {0} vectors...".format(FIELD_TO_STR[f].upper()), end=" ")
+            tokens = _Tokens(args.inputfile, f, index)
+            model = Word2Vec(tokens, sg=1 if args.sg else 0, size=args.size[i], window=args.window, min_count=1, workers=4, seed=args.seed)
+            model.wv.save_word2vec_format(VECTORS_FILENAME.format(args.outbasename, FIELD_TO_STR[f]))
+            print("done")
 
 def read_word2vec(basename, fields=(FORM, UPOS, FEATS), index=None):
     if index is None:
@@ -66,7 +67,7 @@ def _parse_args():
     parser.add_argument("--inputfile", required=True)
     parser.add_argument("--outbasename", required=True)
     parser.add_argument("--fields", default=["FORM", "UPOS", "FEATS", "DEPREL"], nargs='+')
-    parser.add_argument("--size", default=[100, 5, 20], type=int, nargs='+')
+    parser.add_argument("--size", default=[100, 5, 20, 0], type=int, nargs='+')
     parser.add_argument("--min_frequency", default=5, type=int)
     parser.add_argument("--window", default=5, type=int)
     parser.add_argument("--sg")
