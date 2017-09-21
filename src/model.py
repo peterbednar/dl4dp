@@ -2,19 +2,35 @@ from __future__ import print_function
 
 import dynet as dy
 from layers import Embeddings, BiLSTM, MultiLayerPerceptron
+from utils import DEPREL, read_index
 
 class MSTParser(object):
 
     def __init__(self, model, **kwargs):
         self.pc = model.add_subcollection()
 
-        embeddings_basename = "../build/cs"
+        basename = "../build/cs"
+
+        index = read_index(basename)
+        num_labels = len(index[DEPREL])
+
         lstm_num_layers = 3
         lstm_dim = 100
-
-        self.embeddings = Embeddings.init_from_word2vec(self.pc, embeddings_basename)
+        self.embeddings = Embeddings.init_from_word2vec(self.pc, basename, index=index)
         input_dim = self.embeddings.dim
         self.lstm = BiLSTM(self.pc, input_dim, lstm_dim, lstm_num_layers)
+
+        arc_mlp_layers = 2
+        arc_mlp_dim = 100
+        arc_mlp_act = dy.rectify
+        dims = [lstm_dim * 2] + [arc_mlp_dim]*arc_mlp_layers + [1]
+        self.arc_mlp = MultiLayerPerceptron(self.pc, dims, act=arc_mlp_act)
+
+        label_mlp_layers = 2
+        label_mlp_dim = 100
+        label_mlp_act = dy.rectify
+        dims = [lstm_dim * 2] + [label_mlp_dim]*label_mlp_layers + [num_labels]
+        self.label_mlp = MultiLayerPerceptron(self.pc, dims, act=label_mlp_act)
 
         self.kwargs = kwargs
         self.spec = kwargs,
@@ -22,7 +38,18 @@ class MSTParser(object):
     def predict_arcs(self, tree):
         x = self.embeddings(tree)
         h = self.lstm(x)
-        return h
+
+        def _predict_arc(head, dep):
+            x = dy.concatenate([h[head], h[dep]])
+            y = self.arc_mlp(x)
+            return y
+
+        def _predic_heads(dep):
+            scores = [_predict_arc(head, dep) if head != dep else dy.zeros(1) for head in range(len(x))]
+            return dy.concatenate(scores)
+
+        scores = [_predic_heads(dep) for dep in range(1, len(x))]
+        return scores
     
     def predict_labels(self, tree):
         pass
