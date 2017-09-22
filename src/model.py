@@ -35,9 +35,9 @@ class MSTParser(object):
         self.kwargs = kwargs
         self.spec = kwargs,
 
-    def predict_arcs(self, tree, h=None):
+    def predict_arcs(self, feats=None, h=None):
         if h is None:
-            x = self.embeddings(tree)
+            x = self.embeddings(feats)
             h = self.lstm(x)
         num_nodes = len(h)
 
@@ -53,9 +53,9 @@ class MSTParser(object):
         heads = [_predict_heads(dep) for dep in range(1, num_nodes)]
         return heads
 
-    def predict_labels(self, tree, h=None):
+    def predict_labels(self, heads, feats=None, h=None):
         if h is None:
-            x = self.embeddings(tree)
+            x = self.embeddings(feats)
             h = self.lstm(x)
         num_nodes = len(h)
 
@@ -64,7 +64,7 @@ class MSTParser(object):
             y = self.label_mlp(x)
             return y
 
-        labels = [_predict_labels(tree.heads[dep-1], dep) for dep in range(1, num_nodes)]
+        labels = [_predict_labels(heads[dep-1], dep) for dep in range(1, num_nodes)]
         return labels
 
     def param_collection(self):
@@ -85,22 +85,22 @@ if __name__ == "__main__":
 
     m1 = dy.ParameterCollection()
     mst = MSTParser(m1)
-    y = mst.predict_arcs(tree)
+    y = mst.predict_arcs(tree.feats)
     print(y[0].value())
-    print(len(y))
+    print(len(y), len(y[0].value()))
 
-    y = mst.predict_labels(tree)
+    y = mst.predict_labels(tree.heads, tree.feats)
     print(y[0].value())
-    print(len(y))
+    print(len(y), len(y[0].value()))
  
     dy.save("../build/model", [mst])
 
     m2 = dy.ParameterCollection()
     mst, = dy.load("../build/model", m2)
-    y = mst.predict_arcs(tree)
+    y = mst.predict_arcs(tree.feats)
     print(y[0].value())
-    print(len(y))
+    print(len(y), len(y[0].value()))
  
-    y = mst.predict_labels(tree)
+    y = mst.predict_labels(tree.heads, tree.feats)
     print(y[0].value())
-    print(len(y))
+    print(len(y), len(y[0].value()))
