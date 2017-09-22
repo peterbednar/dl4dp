@@ -70,7 +70,7 @@ class MSTParser(object):
 
     def _parse_heads(self, heads, h):
         scores = self.predict_arcs(h=h)
-        weights = np.vstack([np.zeros(len(h))] + [s.npvalue() for s in scores])
+        weights = np.transpose(np.vstack([np.zeros(len(h))] + [s.npvalue() for s in scores]))
         max_branching(weights, heads)
 
     def _parse_labels(self, heads, labels, h):
@@ -80,7 +80,6 @@ class MSTParser(object):
     def parse(self, feats):
         x = self.embeddings(feats)
         h = self.lstm(x)
-
         tree = DepTree(len(x))
         self._parse_heads(tree.heads, h)
         self._parse_labels(tree.heads, tree.labels, h)
@@ -110,4 +109,3 @@ if __name__ == "__main__":
     tree = mst.parse(gold.feats)
     print(tree.heads)
     print(tree.labels)
- 
