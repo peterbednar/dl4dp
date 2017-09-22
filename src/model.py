@@ -1,8 +1,9 @@
 from __future__ import print_function
 
 import dynet as dy
+import numpy as np
 from layers import Embeddings, BiLSTM, MultiLayerPerceptron
-from utils import DEPREL, read_index
+from utils import DEPREL, read_index, max_branching
 
 class MSTParser(object):
 
@@ -67,6 +68,24 @@ class MSTParser(object):
         labels = [_predict_labels(heads[dep-1], dep) for dep in range(1, num_nodes)]
         return labels
 
+    def _parse_heads(self, heads, h):
+        scores = self.predict_arcs(h=h)
+        weights = np.vstack([np.zeros(len(h))] + [s.npvalue() for s in scores])
+        max_branching(weights, heads)
+
+    def _parse_labels(self, heads, labels, h):
+        scores = self.predict_labels(heads, h=h)
+        labels[:] = [np.argmax(scores[i].npvalue()) + 1 for i in range(len(scores))]
+
+    def parse(self, feats):
+        x = self.embeddings(feats)
+        h = self.lstm(x)
+
+        tree = DepTree(len(x))
+        self._parse_heads(tree.heads, h)
+        self._parse_labels(tree.heads, tree.labels, h)
+        return tree
+
     def param_collection(self):
         return self.pc
 
@@ -75,32 +94,20 @@ class MSTParser(object):
         kwargs, = spec
         return MSTParser(model, **kwargs)
 
+def _argmax_skip(a, skip):
+    a[skip] = np.NINF
+    return np.argmax(a)
 
 from utils import DepTree
 
 if __name__ == "__main__":
-
-    tree = DepTree(4, 3)
-    tree.feats[:] = [[1,2,3], [4,5,6], [7,8,9], [1,2,3]]
+    gold = DepTree(4, 3)
+    gold.feats[:] = [[1,2,3], [4,5,6], [7,8,9], [1,2,3]]
 
     m1 = dy.ParameterCollection()
     mst = MSTParser(m1)
-    y = mst.predict_arcs(tree.feats)
-    print(y[0].value())
-    print(len(y), len(y[0].value()))
 
-    y = mst.predict_labels(tree.heads, tree.feats)
-    print(y[0].value())
-    print(len(y), len(y[0].value()))
+    tree = mst.parse(gold.feats)
+    print(tree.heads)
+    print(tree.labels)
  
-    dy.save("../build/model", [mst])
-
-    m2 = dy.ParameterCollection()
-    mst, = dy.load("../build/model", m2)
-    y = mst.predict_arcs(tree.feats)
-    print(y[0].value())
-    print(len(y), len(y[0].value()))
- 
-    y = mst.predict_labels(tree.heads, tree.feats)
-    print(y[0].value())
-    print(len(y), len(y[0].value()))
