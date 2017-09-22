@@ -15,16 +15,16 @@ class Embeddings(object):
         self.dim = sum([dim for (_,dim) in dims])
         self.spec = (dims, dropout, update)
 
-    def __call__(self, tree):
+    def __call__(self, feats):
 
         def _lookup(i, f):
-            feats = dy.lookup(self.lookup[f], tree.feats[i,f], update=self.update[f])
+            embds = dy.lookup(self.lookup[f], feats[i,f], update=self.update[f])
             dropout = self.dropout[f]
             if dropout > 0:
-                feats = dy.dropout(feats, dropout)
-            return feats
+                embds = dy.dropout(embds, dropout)
+            return embds
 
-        num_tokens, num_feats = tree.feats.shape
+        num_tokens, num_feats = feats.shape
         x = [dy.concatenate([_lookup(i, f) for f in range(num_feats)]) for i in range(num_tokens)]
         return x
 
