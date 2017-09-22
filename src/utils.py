@@ -158,6 +158,9 @@ class DepTree(namedtuple("DepTree", "feats, heads, labels")):
                 np.full(num_tokens, -1, dtype=np.int),
                 np.full(num_tokens, -1, dtype=np.int))
 
+    def __len__(self):
+        return len(self.heads)
+
 def map_to_instance(sentence, index, fields=(FORM, UPOS, FEATS)):
     num_tokens = len(sentence)
     num_feats = len(fields)
