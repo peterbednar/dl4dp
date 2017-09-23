@@ -10,16 +10,19 @@ class MSTParser(object):
 
     def __init__(self, model, **kwargs):
         self.pc = model.add_subcollection()
+        self.kwargs = kwargs
 
-        basename = "../build/cs"
+        basename = kwargs.get("basename")
         index = read_index(basename)
         self._num_labels = len(index[DEPREL])
 
-        lstm_num_layers = 3
-        lstm_dim = 100
+        lstm_num_layers = kwargs.get("lstm_num_layers", 3)
+        lstm_dim = kwargs.get("lstm_dim", 100)
         self.embeddings = Embeddings.init_from_word2vec(self.pc, basename, index=index)
         input_dim = self.embeddings.dim
         self.lstm = BiLSTM(self.pc, input_dim, lstm_dim, lstm_num_layers)
+
+        self.spec = kwargs,
 
     def transduce(self, feats):
         x = self.embeddings(feats)
@@ -64,32 +67,26 @@ class MSTParser(object):
         self._parse_labels(tree.heads, tree.labels, h)
         return tree
 
+    def disable_dropout(self):
+        self.embeddings.disable_dropout()
+        self.lstm.disable_dropout()
+
+    def enable_dropout(self):
+        self.embeddings.set_dropout(self.kwargs.get("input_dropout", 0))
+        self.lstm.set_dropout(self.kwargs.get("lstm_dropout", 0))
+
     def param_collection(self):
         return self.pc
 
     __metaclass__ = ABCMeta
-
 
 class MLPParser(MSTParser):
 
     def __init__(self, model, **kwargs):
         super(MLPParser, self).__init__(model, **kwargs)
         lstm_dim = self.lstm.dims[1]
-
-        arc_mlp_layers = 2
-        arc_mlp_dim = 100
-        arc_mlp_act = dy.rectify
-        dims = [lstm_dim * 2] + [arc_mlp_dim]*arc_mlp_layers + [1]
-        self.arc_mlp = MultiLayerPerceptron(self.pc, dims, act=arc_mlp_act)
-
-        label_mlp_layers = 2
-        label_mlp_dim = 100
-        label_mlp_act = dy.rectify
-        dims = [lstm_dim * 2] + [label_mlp_dim]*label_mlp_layers + [self._num_labels]
-        self.label_mlp = MultiLayerPerceptron(self.pc, dims, act=label_mlp_act)
-
-        self.kwargs = kwargs
-        self.spec = kwargs,
+        self.arc_mlp = _build_mlp(self.pc, kwargs, "arc_mlp", lstm_dim * 2, 100, 1, 2, "relu")
+        self.label_mlp = _build_mlp(self.pc, kwargs, "label_mlp", lstm_dim * 2, 100, self._num_labels, 2, "relu")
 
     def _predict_arc(self, head, dep, h):
         x = dy.concatenate([h[head], h[dep]])
@@ -101,10 +98,29 @@ class MLPParser(MSTParser):
         y = self.label_mlp(x)
         return y
 
+    def disable_dropout(self):
+        super(MLPParser, self).disable_dropout()
+        self.arc_mlp.disable_dropout()
+        self.label_mlp.disable_dropout()
+
+    def enable_dropout(self):
+        super(MLPParser, self).enable_dropout()
+        self.arc_mlp.set_dropout(self.kwargs.get("arc_mlp_dropout", 0))
+        self.label_mlp.set_dropout(self.kwargs.get("label_mlp_dropout", 0))        
+
     @staticmethod
     def from_spec(spec, model):
         kwargs, = spec
         return MLPParser(model, **kwargs)
+
+_STR_TO_ACT = {"tanh": dy.tanh, "sigmoid": dy.logistic, "relu": dy.rectify}
+
+def _build_mlp(model, kwargs, prefix, input_dim, hidden_dim, output_dim, num_layers, act):
+    hidden_dim = kwargs.get(prefix + "_dim", hidden_dim)
+    num_layers = kwargs.get(prefix + "_num_layers", num_layers)
+    act = _STR_TO_ACT[kwargs.get(prefix + "_act", act)]
+    dims = [input_dim] + [hidden_dim]*num_layers + [output_dim]
+    return MultiLayerPerceptron(model, dims, act)
 
 from utils import DepTree
 
@@ -113,7 +129,7 @@ if __name__ == "__main__":
     gold.feats[:] = [[1,2,3], [4,5,6], [7,8,9], [1,2,3]]
 
     m1 = dy.ParameterCollection()
-    mst = MLPParser(m1)
+    mst = MLPParser(m1, basename="../build/cs")
 
     tree = mst.parse(gold.feats)
     print(tree.heads)
