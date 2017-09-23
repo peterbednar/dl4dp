@@ -92,6 +92,7 @@ class MultiLayerPerceptron(object):
 
     def __init__(self, model, dims, act=dy.rectify, init_gain=math.sqrt(2.), ln=False, dropout=0):
         self.pc = model.add_subcollection()
+        self.dims = tuple(dims)
         self.layers = []
         for input_dim, output_dim in zip(dims, dims[1:]):
             self.layers.append(Dense(self.pc, input_dim, output_dim, act, init_gain, ln))
@@ -123,6 +124,7 @@ class BiLSTM(object):
 
     def __init__(self, model, input_dim, hidden_dim, num_layers=1, input_dropout=0, output_dropout=0, ln=False):
         self.pc = model.add_subcollection()
+        self.dims = (input_dim, hidden_dim)
 
         def _build_layer(input_dim, hidden_dim, rnn_builder=dy.VanillaLSTMBuilder):
             f = rnn_builder(1, input_dim, hidden_dim / 2, self.pc, ln)
