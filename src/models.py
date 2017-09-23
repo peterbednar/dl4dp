@@ -3,7 +3,7 @@ from __future__ import print_function
 import dynet as dy
 import numpy as np
 from layers import Embeddings, BiLSTM, MultiLayerPerceptron
-from utils import DEPREL, read_index, max_branching
+from utils import DEPREL, read_index, max_branching, DepTree
 from abc import ABCMeta, abstractmethod
 
 class MSTParser(object):
@@ -121,23 +121,3 @@ def _build_mlp(model, kwargs, prefix, input_dim, hidden_dim, output_dim, num_lay
     act = _STR_TO_ACT[kwargs.get(prefix + "_act", act)]
     dims = [input_dim] + [hidden_dim]*num_layers + [output_dim]
     return MultiLayerPerceptron(model, dims, act)
-
-from utils import DepTree
-
-if __name__ == "__main__":
-    gold = DepTree(4, 3)
-    gold.feats[:] = [[1,2,3], [4,5,6], [7,8,9], [1,2,3]]
-
-    m1 = dy.ParameterCollection()
-    mst = MLPParser(m1, basename="../build/cs")
-
-    tree = mst.parse(gold.feats)
-    print(tree.heads)
-    print(tree.labels)
-
-    dy.save("../build/model", [mst])
-    m2 = dy.ParameterCollection()
-    mst, = dy.load("../build/model", m2)
-    tree = mst.parse(gold.feats)
-    print(tree.heads)
-    print(tree.labels)
