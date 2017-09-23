@@ -22,6 +22,29 @@ def label_loss(model, tree):
     loss = [dy.hinge(sc, tree.labels[dep] - 1, 1.0) for dep, sc in enumerate(scores)]
     return dy.esum(loss)
 
+def evaluate(model, validation_data):
+    num_tokens = 0.
+    correct_uas = correct_las = 0.
+
+    for i, gold in enumerate(validation_data):
+        num_tokens += len(gold)
+        parsed = model.parse(gold.feats)
+
+        for n in range(len(gold)):
+            if parsed.heads[n] == gold.heads[n]:
+                correct_uas += 1.
+                if parsed.labels[n] == gold.labels[n]:
+                    correct_las += 1.
+
+        if (i % 100) == 0:
+            print(".", end="")
+            sys.stdout.flush()
+
+    uas = correct_uas / num_tokens
+    las = correct_las / num_tokens
+    print("\nUAS: {0:.4}, LAS: {1:.4}".format(uas, las))
+
+
 if __name__ == "__main__":
     basename = "../build/cs"
     index = read_index(basename)
@@ -42,8 +65,10 @@ if __name__ == "__main__":
             total_loss += loss.value()
             loss.backward()
             trainer.update()
+
             if (i % 100) == 0:
                 print(".", end="")
                 sys.stdout.flush()
 
         print("\naverage loss: {0}".format(total_loss / len(train_data)))
+        evaluate(model, train_data)
