@@ -60,6 +60,7 @@ class MSTParser(object):
         labels[:] = [np.argmax(scores[i].npvalue()) + 1 for i in range(len(scores))]
 
     def parse(self, feats):
+        dy.renew_cg()
         x = self.embeddings(feats)
         h = self.lstm(x)
         tree = DepTree(len(x))
@@ -85,8 +86,8 @@ class MLPParser(MSTParser):
     def __init__(self, model, **kwargs):
         super(MLPParser, self).__init__(model, **kwargs)
         lstm_dim = self.lstm.dims[1]
-        self.arc_mlp = _build_mlp(self.pc, kwargs, "arc_mlp", lstm_dim * 2, 100, 1, 2, "relu")
-        self.label_mlp = _build_mlp(self.pc, kwargs, "label_mlp", lstm_dim * 2, 100, self._num_labels, 2, "relu")
+        self.arc_mlp = _build_mlp(self.pc, kwargs, "arc_mlp", lstm_dim * 2, 100, 1, 1, "relu")
+        self.label_mlp = _build_mlp(self.pc, kwargs, "label_mlp", lstm_dim * 2, 100, self._num_labels, 1, "relu")
 
     def _predict_arc(self, head, dep, h):
         x = dy.concatenate([h[head], h[dep]])
