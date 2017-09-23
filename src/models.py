@@ -48,12 +48,12 @@ class MSTParser(object):
         return labels
 
     def _parse_heads(self, heads, h):
-        scores = self.predict_arcs(h=h)
+        scores = self.predict_arcs(h)
         weights = np.transpose(np.vstack([np.zeros(len(h))] + [s.npvalue() for s in scores]))
         max_branching(weights, heads)
 
     def _parse_labels(self, heads, labels, h):
-        scores = self.predict_labels(heads, h=h)
+        scores = self.predict_labels(heads, h)
         labels[:] = [np.argmax(scores[i].npvalue()) + 1 for i in range(len(scores))]
 
     def parse(self, feats):
