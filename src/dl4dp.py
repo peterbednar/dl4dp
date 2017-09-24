@@ -28,7 +28,7 @@ def _hinge(exprs, target, margin=1.0):
     if scores[target] < scores[best_wrong] + margin:
         return exprs[best_wrong] - exprs[target] + margin
     else:
-        return dy.constant(0.0)
+        return dy.zeros(1)
 
 def evaluate(model, validation_data):
     num_tokens = 0.
