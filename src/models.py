@@ -16,8 +16,8 @@ class MSTParser(object):
         index = read_index(basename)
         self._num_labels = len(index[DEPREL])
 
-        lstm_num_layers = kwargs.get("lstm_num_layers", 3)
-        lstm_dim = kwargs.get("lstm_dim", 100)
+        lstm_num_layers = kwargs.get("lstm_num_layers", 2)
+        lstm_dim = kwargs.get("lstm_dim", 125)
         self.embeddings = Embeddings.init_from_word2vec(self.pc, basename, index=index)
         input_dim = self.embeddings.dim
         self.lstm = BiLSTM(self.pc, input_dim, lstm_dim, lstm_num_layers)
@@ -60,12 +60,12 @@ class MSTParser(object):
         labels[:] = [np.argmax(scores[i].npvalue()) + 1 for i in range(len(scores))]
 
     def parse(self, feats):
-        dy.renew_cg()
         x = self.embeddings(feats)
         h = self.lstm(x)
         tree = DepTree(len(x))
         self._parse_heads(tree.heads, h)
         self._parse_labels(tree.heads, tree.labels, h)
+        dy.renew_cg()
         return tree
 
     def disable_dropout(self):
@@ -86,8 +86,8 @@ class MLPParser(MSTParser):
     def __init__(self, model, **kwargs):
         super(MLPParser, self).__init__(model, **kwargs)
         lstm_dim = self.lstm.dims[1]
-        self.arc_mlp = _build_mlp(self.pc, kwargs, "arc_mlp", lstm_dim * 2, 100, 1, 1, "relu")
-        self.label_mlp = _build_mlp(self.pc, kwargs, "label_mlp", lstm_dim * 2, 100, self._num_labels, 1, "relu")
+        self.arc_mlp = _build_mlp(self.pc, kwargs, "arc_mlp", lstm_dim * 2, 100, 1, 1, "tanh")
+        self.label_mlp = _build_mlp(self.pc, kwargs, "label_mlp", lstm_dim * 2, 100, self._num_labels, 1, "tanh")
 
     def _predict_arc(self, head, dep, h):
         x = dy.concatenate([h[head], h[dep]])
