@@ -24,13 +24,11 @@ class Embeddings(object):
                 embds = dy.dropout(embds, dropout)
             return embds
 
-        x = []
         num_tokens, num_feats = feats.shape
-        for i in range(num_tokens):
-            if num_feats > 1:
-                x.append(dy.concatenate([_lookup(i,f) for f in range(num_feats)]))
-            else:
-                x.append(_lookup(i,0))
+        if num_feats > 1:
+            x = [dy.concatenate([_lookup(i,f) for f in range(num_feats)]) for i in range(num_tokens)]
+        else:
+            x = [_lookup(i,0) for i in range(num_tokens)]
         return x
 
     def set_dropout(self, dropout):
