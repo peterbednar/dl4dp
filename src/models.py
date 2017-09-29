@@ -17,7 +17,7 @@ class MSTParser(object):
         self._num_labels = len(index[DEPREL])
 
         lstm_num_layers = kwargs.get("lstm_num_layers", 2)
-        lstm_dim = kwargs.get("lstm_dim", 125)
+        lstm_dim = kwargs.get("lstm_dim", 250)
         self.embeddings = Embeddings.init_from_word2vec(self.pc, basename, index=index)
         input_dim = self.embeddings.dim
         self.lstm = BiLSTM(self.pc, input_dim, lstm_dim, lstm_num_layers)
@@ -60,12 +60,12 @@ class MSTParser(object):
         labels[:] = [np.argmax(scores[i].npvalue()) + 1 for i in range(len(scores))]
 
     def parse(self, feats):
+        dy.renew_cg()
         x = self.embeddings(feats)
         h = self.lstm(x)
         tree = DepTree(len(x))
         self._parse_heads(tree.heads, h)
         self._parse_labels(tree.heads, tree.labels, h)
-        dy.renew_cg()
         return tree
 
     def disable_dropout(self):
@@ -80,6 +80,15 @@ class MSTParser(object):
         return self.pc
 
     __metaclass__ = ABCMeta
+
+_STR_TO_ACT = {"tanh": dy.tanh, "sigmoid": dy.logistic, "relu": dy.rectify}
+
+def _build_mlp(model, kwargs, prefix, input_dim, hidden_dim, output_dim, num_layers, act):
+    hidden_dim = kwargs.get(prefix + "_dim", hidden_dim)
+    num_layers = kwargs.get(prefix + "_num_layers", num_layers)
+    act = _STR_TO_ACT[kwargs.get(prefix + "_act", act)]
+    dims = [input_dim] + [hidden_dim]*num_layers + [output_dim]
+    return MultiLayerPerceptron(model, dims, act)
 
 class MLPParser(MSTParser):
 
@@ -113,12 +122,3 @@ class MLPParser(MSTParser):
     def from_spec(spec, model):
         kwargs, = spec
         return MLPParser(model, **kwargs)
-
-_STR_TO_ACT = {"tanh": dy.tanh, "sigmoid": dy.logistic, "relu": dy.rectify}
-
-def _build_mlp(model, kwargs, prefix, input_dim, hidden_dim, output_dim, num_layers, act):
-    hidden_dim = kwargs.get(prefix + "_dim", hidden_dim)
-    num_layers = kwargs.get(prefix + "_num_layers", num_layers)
-    act = _STR_TO_ACT[kwargs.get(prefix + "_act", act)]
-    dims = [input_dim] + [hidden_dim]*num_layers + [output_dim]
-    return MultiLayerPerceptron(model, dims, act)
