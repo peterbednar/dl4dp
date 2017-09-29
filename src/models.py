@@ -3,8 +3,10 @@ from __future__ import print_function
 import dynet as dy
 import numpy as np
 from layers import Embeddings, BiLSTM, MultiLayerPerceptron
-from utils import DEPREL, read_index, parse_nonprojective, DepTree
+from utils import FORM, UPOS, DEPREL, read_index, parse_nonprojective, DepTree
 from abc import ABCMeta, abstractmethod
+
+FIELDS = (FORM, UPOS)
 
 class MSTParser(object):
 
@@ -18,7 +20,7 @@ class MSTParser(object):
 
         lstm_num_layers = kwargs.get("lstm_num_layers", 2)
         lstm_dim = kwargs.get("lstm_dim", 250)
-        self.embeddings = Embeddings.init_from_word2vec(self.pc, basename, index=index)
+        self.embeddings = Embeddings.init_from_word2vec(self.pc, basename, FIELDS, index=index)
         input_dim = self.embeddings.dim
         self.lstm = BiLSTM(self.pc, input_dim, lstm_dim, lstm_num_layers)
 
