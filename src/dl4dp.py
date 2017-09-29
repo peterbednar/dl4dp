@@ -7,7 +7,7 @@ import sys
 import random
 import dynet as dy
 import numpy as np
-from models import MLPParser
+from models import MLPParser, FIELDS
 from utils import DepTree, map_to_instances, read_conllu, read_index
 
 def arc_loss(model, tree):
@@ -37,8 +37,8 @@ def shuffled_stream(data):
             yield d
 
 def evaluate(model, validation_data):
-    num_tokens = 0
-    correct_ua = correct_la = 0
+    num_tokens = 0.
+    correct_ua = correct_la = 0.
 
     model.disable_dropout()
     for i, gold in enumerate(validation_data):
@@ -47,35 +47,34 @@ def evaluate(model, validation_data):
 
         for n in range(len(gold)):
             if parsed.heads[n] == gold.heads[n]:
-                correct_ua += 1
+                correct_ua += 1.
                 if parsed.labels[n] == gold.labels[n]:
-                    correct_la += 1
+                    correct_la += 1.
 
         if (i % 100) == 0:
             print(".", end="")
             sys.stdout.flush()
     model.enable_dropout()
 
-    uas = float(correct_ua) / num_tokens
-    las = float(correct_la) / num_tokens
+    uas = correct_ua / num_tokens
+    las = correct_la / num_tokens
     print("\nUAS: {0:.4}, LAS: {1:.4}".format(uas, las))
 
 if __name__ == "__main__":
 
-    basename = "../build/cs"
+    basename = "../build/en"
     index = read_index(basename)
-    train_data = list(map_to_instances(read_conllu("../treebanks/train/cs/cs.conllu"), index))
-    train_data = list(train_data[:1000])
+    train_data = list(map_to_instances(read_conllu("../treebanks/train/en/en.conllu"), index, FIELDS))
 
     pc = dy.ParameterCollection()
-    model = MLPParser(pc, basename="../build/cs")
+    model = MLPParser(pc, basename="../build/en")
     model.enable_dropout()
-    trainer = dy.AdamTrainer(pc, learning_rate=0.1)
+    trainer = dy.AdamTrainer(pc)
 
     print("training sentences: {0}, tokens: {1}".format(len(train_data), sum([len(tree) for tree in train_data])))
 
     batch_size = 50
-    max_steps = 5000
+    max_steps = 1000
 
     step = 0
     total_loss = 0
