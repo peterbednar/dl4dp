@@ -3,6 +3,7 @@ from __future__ import print_function
 import codecs
 import heapq
 import numpy as np
+import re
 from collections import Counter, OrderedDict, namedtuple, defaultdict
 from functools import total_ordering
 
@@ -27,7 +28,18 @@ def ismultiword(token):
 def normalize_lower(field, value):
     return value.lower() if field == FORM else value
 
-def read_conllu(filename, skip_empty=True, skip_multiword=True, parse_feats=False, parse_deps=False, normalize=normalize_lower):
+_NUM_REGEX = re.compile("[0-9]+|[0-9]+\\.[0-9]+|[0-9]+[0-9,]+")
+NUM_FORM = u"__number__"
+
+def normalize_default(field, value):
+    if field != FORM:
+        return value
+    if _NUM_REGEX.match(value):
+        return NUM_FORM
+    value = value.lower()
+    return value
+
+def read_conllu(filename, skip_empty=True, skip_multiword=True, parse_feats=False, parse_deps=False, normalize=normalize_default):
 
     def _parse_sentence(lines):
         sentence = []
@@ -161,7 +173,7 @@ class DepTree(namedtuple("DepTree", "feats, heads, labels")):
     def __len__(self):
         return len(self.heads)
 
-def map_to_instance(sentence, index, fields=(FORM, UPOS, FEATS)):
+def map_to_instance(sentence, index, fields=(FORM, UPOS)):
     num_tokens = len(sentence)
     num_feats = len(fields)
     tree = DepTree(num_tokens, num_feats)
@@ -174,11 +186,11 @@ def map_to_instance(sentence, index, fields=(FORM, UPOS, FEATS)):
 
     return tree
 
-def map_to_instances(sentences, index, fields=(FORM, UPOS, FEATS)):
+def map_to_instances(sentences, index, fields=(FORM, UPOS)):
     for sentence in sentences:
         yield map_to_instance(sentence, index, fields)
 
-def max_branching(weights, branching=None):
+def parse_nonprojective(scores, heads=None):
 
     def _push(queue, elm):
         heapq.heappush(queue, elm)
@@ -204,7 +216,7 @@ def max_branching(weights, branching=None):
             inverted[v - 1] = node
             _invert_max_branching(v, h, visited, inverted)
 
-    nr, nc = weights.shape
+    nr, nc = scores.shape
 
     roots = list(range(1, nr))
     rset = [0]
@@ -222,7 +234,7 @@ def max_branching(weights, branching=None):
         q[node] = []
         for i in range(nr):
             if i != node:
-                _push(q[node], _Edge(i, node, weights[i, node]))
+                _push(q[node], _Edge(i, node, scores[i, node]))
 
     while roots:
         scc_to = roots.pop()
@@ -277,12 +289,12 @@ def max_branching(weights, branching=None):
         roots.append(scc_to)
 
     visited = np.zeros(nr, dtype=np.bool)
-    if branching is None:
-        branching = np.zeros(nr - 1, dtype=np.int)
+    if heads is None:
+        heads = np.zeros(nr - 1, dtype=np.int)
     for scc in rset:
-        _invert_max_branching(min[scc], h, visited, branching)
+        _invert_max_branching(min[scc], h, visited, heads)
 
-    return branching
+    return heads
 
 @total_ordering
 class _Edge(object):
