@@ -3,7 +3,7 @@ from __future__ import print_function
 import dynet as dy
 import numpy as np
 from layers import Embeddings, BiLSTM, MultiLayerPerceptron
-from utils import DEPREL, read_index, max_branching, DepTree
+from utils import DEPREL, read_index, parse_nonprojective, DepTree
 from abc import ABCMeta, abstractmethod
 
 class MSTParser(object):
@@ -53,7 +53,7 @@ class MSTParser(object):
     def _parse_heads(self, heads, h):
         scores = self.predict_arcs(h)
         weights = np.transpose(np.vstack([np.zeros(len(h))] + [s.npvalue() for s in scores]))
-        max_branching(weights, heads)
+        parse_nonprojective(weights, heads)
 
     def _parse_labels(self, heads, labels, h):
         scores = self.predict_labels(heads, h)
