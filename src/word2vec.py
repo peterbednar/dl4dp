@@ -67,7 +67,7 @@ def _parse_args():
     parser.add_argument("--inputfile", required=True)
     parser.add_argument("--outbasename", required=True)
     parser.add_argument("--fields", default=["FORM", "UPOS", "FEATS", "DEPREL"], nargs='+')
-    parser.add_argument("--size", default=[100, 5, 20, 0], type=int, nargs='+')
+    parser.add_argument("--size", default=[100, 25, 25, 0], type=int, nargs='+')
     parser.add_argument("--min_frequency", default=5, type=int)
     parser.add_argument("--window", default=5, type=int)
     parser.add_argument("--sg")
