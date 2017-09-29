@@ -173,7 +173,7 @@ class DepTree(namedtuple("DepTree", "feats, heads, labels")):
     def __len__(self):
         return len(self.heads)
 
-def map_to_instance(sentence, index, fields=(FORM, UPOS)):
+def map_to_instance(sentence, index, fields=(FORM, UPOS, FEATS)):
     num_tokens = len(sentence)
     num_feats = len(fields)
     tree = DepTree(num_tokens, num_feats)
@@ -186,7 +186,7 @@ def map_to_instance(sentence, index, fields=(FORM, UPOS)):
 
     return tree
 
-def map_to_instances(sentences, index, fields=(FORM, UPOS)):
+def map_to_instances(sentences, index, fields=(FORM, UPOS, FEATS)):
     for sentence in sentences:
         yield map_to_instance(sentence, index, fields)
 
