@@ -4,6 +4,7 @@ import codecs
 import heapq
 import numpy as np
 import re
+import random
 from collections import Counter, OrderedDict, namedtuple, defaultdict
 from functools import total_ordering
 
@@ -190,6 +191,12 @@ def map_to_instances(sentences, index, fields=(FORM, UPOS, FEATS)):
     for sentence in sentences:
         yield map_to_instance(sentence, index, fields)
 
+def shuffled_stream(data):
+    while True:
+        random.shuffle(data)
+        for d in data:
+            yield d
+
 def parse_nonprojective(scores, heads=None):
 
     def _push(queue, elm):
@@ -283,14 +290,13 @@ def parse_nonprojective(scores, heads=None):
 
             _union_disjoint_sets(s, scc_to, tmp_scc_to)
             q[tmp_scc_to] = None
-
             tmp = enter[_find_disjoint_sets(s, tmp.start)]
 
         roots.append(scc_to)
 
     visited = np.zeros(nr, dtype=np.bool)
     if heads is None:
-        heads = np.zeros(nr - 1, dtype=np.int)
+        heads = -np.ones(nr - 1, dtype=np.int)
     for scc in rset:
         _invert_max_branching(min[scc], h, visited, heads)
 
@@ -312,3 +318,108 @@ class _Edge(object):
 
     def __repr__(self):
         return str((self.start, self.end, self.weight))
+
+def parse_projective(scores):
+    nr, nc = np.shape
+    N = nr - 1
+
+    complete_0 = np.zeros((nr, nr)) # s, t, direction (right=1).
+    complete_1 = np.zeros((nr, nr)) # s, t, direction (right=1).
+    incomplete_0 = np.zeros((nr, nr)) # s, t, direction (right=1).
+    incomplete_1 = np.zeros((nr, nr)) # s, t, direction (right=1).
+
+    complete_backtrack = -np.ones((nr, nr, 2), dtype=np.int) # s, t, direction (right=1).
+    incomplete_backtrack = -np.ones((nr, nr, 2), dtype=np.int) # s, t, direction (right=1).
+
+    for i in range(nr):
+        incomplete_0[i, 0] = -np.inf
+
+    for k in range(1, nr):
+        for s in range(nr - k):
+            t = s + k
+            tmp = NEGINF
+            maxidx = s
+            for r in range(s, t):
+                cand = complete_1[s, r] + complete_0[r+1, t]
+                if cand > tmp:
+                    tmp = cand
+                    maxidx = r
+                if s == 0 and r == 0:
+                    break
+            incomplete_0[t, s] = tmp + scores[t, s]
+            incomplete_1[s, t] = tmp + scores[s, t]
+            incomplete_backtrack[s, t, 0] = maxidx
+            incomplete_backtrack[s, t, 1] = maxidx
+
+            tmp = -np.inf
+            maxidx = s
+            for r in range(s, t):
+                cand = complete_0[s, r] + incomplete_0[t, r]
+                if cand > tmp:
+                    tmp = cand
+                    maxidx = r
+            complete_0[s, t] = tmp
+            complete_backtrack[s, t, 0] = maxidx
+
+            tmp = -np.inf
+            maxidx = s + 1
+            for r in range(s+1, t+1):
+                cand = incomplete_1[s, r] + complete_1[r, t]
+                if cand > tmp:
+                    tmp = cand
+                    maxidx = r
+            complete_1[s, t] = tmp
+            complete_backtrack[s, t, 1] = maxidx
+
+    heads = -np.ones(N, dtype=np.int)
+    _backtrack_eisner(incomplete_backtrack, complete_backtrack, 0, N, 1, 1, heads)
+    return heads
+
+def _backtrack_eisner(incomplete_backtrack, complete_backtrack, s, t, direction, complete, heads):
+    if s == t:
+        return
+    if complete:
+        r = complete_backtrack[s, t, direction]
+        if direction:
+            _backtrack_eisner(incomplete_backtrack, complete_backtrack, s, r, 1, 0, heads)
+            _backtrack_eisner(incomplete_backtrack, complete_backtrack, r, t, 1, 1, heads)
+            return
+        else:
+            _backtrack_eisner(incomplete_backtrack, complete_backtrack, s, r, 0, 1, heads)
+            _backtrack_eisner(incomplete_backtrack, complete_backtrack, r, t, 0, 0, heads)
+            return
+    else:
+        r = incomplete_backtrack[s, t, direction]
+        if direction:
+            heads[t-1] = s
+            _backtrack_eisner(incomplete_backtrack, complete_backtrack, s, r, 1, 1, heads)
+            _backtrack_eisner(incomplete_backtrack, complete_backtrack, r + 1, t, 0, 1, heads)
+            return
+        else:
+            heads[s-1] = t
+            _backtrack_eisner(incomplete_backtrack, complete_backtrack, s, r, 1, 1, heads)
+            _backtrack_eisner(incomplete_backtrack, complete_backtrack, r + 1, t, 0, 1, heads)
+            return
+
+def is_projective(heads):
+    n_len = heads.shape[0]
+    for i in range(n_len):
+        if heads[i] < 0:
+            continue
+        for j in range(i + 1, n_len):
+            if heads[j] < 0:
+                continue
+            edge1_0 = min(i, heads[i])
+            edge1_1 = max(i, heads[i])
+            edge2_0 = min(j, heads[j])
+            edge2_1 = max(j, heads[j])
+            if edge1_0 == edge2_0:
+                if edge1_1 == edge2_1:
+                    return False
+                else:
+                    continue
+            if edge1_0 < edge2_0 and not (edge2_0 >= edge1_1 or edge2_1 <= edge1_1):
+                return False
+            if edge1_0 > edge2_0 and not (edge1_0 >= edge2_1 or edge1_1 <= edge2_1):
+                return False
+    return True
