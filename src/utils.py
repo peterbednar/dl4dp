@@ -320,7 +320,7 @@ class _Edge(object):
         return str((self.start, self.end, self.weight))
 
 def parse_projective(scores):
-    nr, nc = np.shape
+    nr, nc = scores.shape
     N = nr - 1
 
     complete_0 = np.zeros((nr, nr)) # s, t, direction (right=1).
@@ -337,7 +337,7 @@ def parse_projective(scores):
     for k in range(1, nr):
         for s in range(nr - k):
             t = s + k
-            tmp = NEGINF
+            tmp = -np.inf
             maxidx = s
             for r in range(s, t):
                 cand = complete_1[s, r] + complete_0[r+1, t]
