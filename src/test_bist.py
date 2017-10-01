@@ -93,6 +93,9 @@ if __name__ == "__main__":
             x.append(dy.concatenate([xform, xpos]))
         return x
 
+    def to_nparray(exprs):
+        return np.array([exp.value() for exp in exprs])
+
     trainer = dy.AdamTrainer(pc)
 
     total_loss = 0.0
@@ -115,7 +118,7 @@ if __name__ == "__main__":
         label_scores = predict_labels(s, example.heads)
 
         for i in range(len(s)-1):
-            scarray = [arc_scores[i][h].value() for h in range(len(s))]
+            scarray = to_nparray(arc_scores[i])
             gold = example.heads[i]
             best_wrong = max([(j, sc) for j, sc in enumerate(scarray) if j != gold], key=lambda x: x[1])[0]
             if scarray[gold] < scarray[best_wrong]:
@@ -124,7 +127,7 @@ if __name__ == "__main__":
                 arc_loss.append(arc_scores[i][best_wrong] - arc_scores[i][gold] + 1.0)
 
         for i in range(len(s)-1):
-            scarray = [sc.value() for sc in label_scores[i]]
+            scarray = to_nparray(label_scores[i])
             gold = example.labels[i] - 1
             best_wrong = max([(j, sc) for j, sc in enumerate(scarray) if j != gold], key=lambda x: x[1])[0]
             if scarray[gold] < scarray[best_wrong]:
@@ -159,4 +162,3 @@ if __name__ == "__main__":
             print("epoch: {0}".format(epoch))
             if epoch >= max_epochs:
                 break
- 
