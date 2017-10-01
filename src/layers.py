@@ -91,14 +91,33 @@ class Dense(object):
         input_dim, output_dim, act, init_gain, ln = spec
         return Dense(model, input_dim, output_dim, act, init_gain, ln)
 
+class Identity(object):
+
+    def __init__(self, model, input_dim, output_dim, init_gain=math.sqrt(2.)):
+        self.pc = model.add_subcollection()
+        self.W = self.pc.add_parameters((output_dim, input_dim), init=dy.GlorotInitializer(gain=init_gain))
+        self.spec = (input_dim, output_dim, init_gain)
+    
+    def __call__(self, x):
+        return dy.parameter(self.W) * x
+
+    def param_collection(self):
+        return self.pc
+
+    @staticmethod
+    def from_spec(spec, model):
+        input_dim, output_dim, init_gain = spec
+        return Dense(model, input_dim, output_dim, init_gain)
+
 class MultiLayerPerceptron(object):
 
     def __init__(self, model, dims, act=dy.rectify, init_gain=math.sqrt(2.), ln=False, dropout=0):
         self.pc = model.add_subcollection()
         self.dims = tuple(dims)
         self.layers = []
-        for input_dim, output_dim in zip(dims, dims[1:]):
+        for input_dim, output_dim in zip(dims, dims[1:-1]):
             self.layers.append(Dense(self.pc, input_dim, output_dim, act, init_gain, ln))
+        self.layers.append(Identity(self.pc, dims[-2], dims[-1], init_gain))
         self.dropout = dropout
         self.spec = (dims, act, init_gain, ln, dropout)
 
