@@ -2,22 +2,23 @@ from __future__ import print_function
 
 import math
 import dynet as dy
-from utils import FORM, UPOS, FEATS
-from word2vec import read_word2vec, read_word2vec_arrays
+from utils import FORM, XPOS
+from word2vec import read_word2vec
 
 class Embeddings(object):
 
-    def __init__(self, model, dims, dropout=0, update=True):
+    def __init__(self, model, dims, dropout=0, index_dropout=None, update=True):
         self.pc = model.add_subcollection()
         self.lookup = [self.pc.add_lookup_parameters(dim) for dim in dims]
-        self.set_dropout(dropout)
+        self.set_dropout(dropout, index_dropout)
         self.set_update(update)
         self.dim = sum([dim for (_,dim) in dims])
-        self.spec = (dims, dropout, update)
 
     def __call__(self, feats):
 
         def _lookup(i, f):
+            if self.index_dropout is not None:
+                i = self.index_dropout(i, f)
             embds = dy.lookup(self.lookup[f], feats[i,f], update=self.update[f])
             dropout = self.dropout[f]
             if dropout > 0:
@@ -31,35 +32,23 @@ class Embeddings(object):
             x = [_lookup(i,0) for i in range(num_tokens)]
         return x
 
-    def set_dropout(self, dropout):
+    def set_dropout(self, dropout, index_dropout=None):
+        self.index_dropout = index_dropout
         self.dropout = dropout if isinstance(dropout, (tuple, list)) else [dropout] * len(self.lookup)
     
     def disable_dropout(self):
-        self.set_dropout(0)
+        self.set_dropout(0, None)
 
     def set_update(self, update):
         self.update = update if isinstance(update, (tuple, list)) else [update] * len(self.lookup)
 
-    def param_collection(self):
-        return self.pc
+    def init_from_word2vec(self, basename, fields=(FORM, XPOS), index=None):
+        for fi,i,vec in read_word2vec(basename, fields, index):
+            self.lookup[fi].init_row(i, vec)
 
-    @staticmethod
-    def init_from_array(model, arrays, dropout=0, update=True):
-        embeddings = Embeddings(model, [a.shape for a in arrays], dropout, update)
-        for param, a in zip(embeddings.lookup, arrays):
+    def init_from_array(self, arrays):
+        for param, a in zip(self.lookup, arrays):
             param.init_from_array(a)
-        return embeddings
-
-    @staticmethod
-    def init_from_word2vec(model, basename, dims, fields=(FORM, UPOS, FEATS), index=None, dropout=0, update=True):
-        embeddings = Embeddings(model, dims, dropout, update)
-        for fi,i,vec in read_word2vec(basename, fields):
-            embeddings.lookup[fi].init_row(i, vec)
-
-    @staticmethod
-    def from_spec(spec, model):
-        dims, dropout, update = spec
-        return Embeddings(model, dims, dropout, update)
 
 class Dense(object):
 
@@ -71,7 +60,6 @@ class Dense(object):
         self.b = self.pc.add_parameters(output_dim, init=dy.ConstInitializer(0.))
         if ln:
             self.g = self.pc.add_parameters(output_dim, init=dy.ConstInitializer(1.))
-        self.spec = (input_dim, output_dim, act, init_gain, ln)
 
     def __call__(self, x):
         W = dy.parameter(self.W)
@@ -83,14 +71,6 @@ class Dense(object):
         else:
             y = dy.affine_transform([b, W, x])
             return self.act(y)
-    
-    def param_collection(self):
-        return self.pc
-
-    @staticmethod
-    def from_spec(spec, model):
-        input_dim, output_dim, act, init_gain, ln = spec
-        return Dense(model, input_dim, output_dim, act, init_gain, ln)
 
 class Identity(object):
 
@@ -102,25 +82,16 @@ class Identity(object):
     def __call__(self, x):
         return dy.parameter(self.W) * x
 
-    def param_collection(self):
-        return self.pc
-
-    @staticmethod
-    def from_spec(spec, model):
-        input_dim, output_dim, init_gain = spec
-        return Dense(model, input_dim, output_dim, init_gain)
-
 class MultiLayerPerceptron(object):
 
-    def __init__(self, model, dims, act=dy.rectify, init_gain=math.sqrt(2.), ln=False, dropout=0):
+    def __init__(self, model, input_dim, hidden_dim, output_dim, num_layers=1, act=dy.rectify, init_gain=math.sqrt(2.), ln=False, dropout=0):
         self.pc = model.add_subcollection()
-        self.dims = tuple(dims)
+        self.dims = [input_dim] + [hidden_dim]*num_layers + [output_dim]
         self.layers = []
-        for input_dim, output_dim in zip(dims, dims[1:-1]):
+        for input_dim, output_dim in zip(self.dims, self.dims[1:-1]):
             self.layers.append(Dense(self.pc, input_dim, output_dim, act, init_gain, ln))
-        self.layers.append(Identity(self.pc, dims[-2], dims[-1], init_gain))
+        self.layers.append(Identity(self.pc, self.dims[-2], self.dims[-1], init_gain))
         self.dropout = dropout
-        self.spec = (dims, act, init_gain, ln, dropout)
 
     def __call__(self, x):
         for layer in self.layers:
@@ -134,14 +105,6 @@ class MultiLayerPerceptron(object):
     
     def disable_dropout(self):
         self.set_dropout(0)
-
-    def param_collection(self):
-        return self.pc
-
-    @staticmethod
-    def from_spec(spec, model):
-        dims, act, init_gain, ln, dropout = spec
-        return MultiLayerPerceptron(model, dims, act, init_gain, ln, dropout)
 
 class BiLSTM(object):
 
@@ -162,8 +125,6 @@ class BiLSTM(object):
         for _ in range(num_layers - 1):
             self.layers.append(_build_layer(hidden_dim, hidden_dim))
         self.set_dropouts(input_dropout, output_dropout)
-
-        self.spec = input_dim, hidden_dim, num_layers, input_dropout, output_dropout, ln
 
     def __call__(self, x):
         x = [dy.parameter(self.BOS), dy.parameter(self.ROOT)] + x + [dy.parameter(self.EOS)]
@@ -190,11 +151,3 @@ class BiLSTM(object):
         for (f,b) in self.layers:
             f.disable_dropout()
             b.disable_dropout()
-
-    def param_collection(self):
-        return self.pc
-
-    @staticmethod
-    def from_spec(spec, model):
-        input_dim, hidden_dim, num_layers, input_dropout, output_dropout, ln = spec
-        return BiLSTM(model, input_dim, hidden_dim, num_layers, input_dropout, output_dropout, ln)
