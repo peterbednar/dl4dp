@@ -3,7 +3,7 @@ from __future__ import print_function
 import codecs
 import numpy as np
 from argparse import ArgumentParser
-from utils import FORM, UPOS, FEATS, FIELD_TO_STR, STR_TO_FIELD
+from utils import FORM, XPOS, FIELD_TO_STR, STR_TO_FIELD
 from utils import read_conllu, create_dictionary, create_index, write_index, read_index
 
 UNKNOWN_TOKEN = u"__unknown__"
@@ -50,7 +50,7 @@ def _read_word2vec_lines(fp, field, index):
            v = [float(num) for num in line[1:]]
            yield (i,v)
 
-def read_word2vec(basename, fields=(FORM, UPOS, FEATS), index=None):
+def read_word2vec(basename, fields=(FORM, XPOS), index=None):
     if index is None:
         index = read_index(basename, fields)
 
@@ -65,8 +65,8 @@ def _parse_args():
 
     parser.add_argument("--inputfile", required=True)
     parser.add_argument("--outbasename", required=True)
-    parser.add_argument("--fields", default=["FORM", "UPOS", "FEATS", "DEPREL"], nargs='+')
-    parser.add_argument("--size", default=[100, 25, 25, 0], type=int, nargs='+')
+    parser.add_argument("--fields", default=["FORM", "XPOS", "DEPREL"], nargs='+')
+    parser.add_argument("--size", default=[100, 25, 0], type=int, nargs='+')
     parser.add_argument("--min_frequency", default=5, type=int)
     parser.add_argument("--window", default=5, type=int)
     parser.add_argument("--sg")
