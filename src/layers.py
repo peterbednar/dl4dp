@@ -3,7 +3,7 @@ from __future__ import print_function
 import math
 import dynet as dy
 from utils import FORM, UPOS, FEATS
-from word2vec import read_word2vec
+from word2vec import read_word2vec, read_word2vec_arrays
 
 class Embeddings(object):
 
@@ -51,9 +51,10 @@ class Embeddings(object):
         return embeddings
 
     @staticmethod
-    def init_from_word2vec(model, basename, fields=(FORM, UPOS, FEATS), index=None, dropout=0, update=True):
-        wv = read_word2vec(basename, fields, index)
-        return Embeddings.init_from_array(model, wv, dropout, update)
+    def init_from_word2vec(model, basename, dims, fields=(FORM, UPOS, FEATS), index=None, dropout=0, update=True):
+        embeddings = Embeddings(model, dims, dropout, update)
+        for fi,i,vec in read_word2vec(basename, fields):
+            embeddings.lookup[fi].init_row(i, vec)
 
     @staticmethod
     def from_spec(spec, model):
