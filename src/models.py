@@ -3,10 +3,8 @@ from __future__ import print_function
 import dynet as dy
 import numpy as np
 from layers import Embeddings, BiLSTM, MultiLayerPerceptron
-from utils import FORM, UPOS, DEPREL, read_index, parse_nonprojective, DepTree
+from utils import FORM, XPOS, DEPREL, read_index, parse_nonprojective, DepTree
 from abc import ABCMeta, abstractmethod
-
-FIELDS = (FORM, UPOS)
 
 class MSTParser(object):
 
@@ -18,10 +16,17 @@ class MSTParser(object):
         index = read_index(basename)
         self._num_labels = len(index[DEPREL])
 
+        input_fields = kwargs.get("input_fields", (FORM, XPOS))
+        input_dims = kwargs.get("embeddings_dims", (100, 25))
+        embedding_dims = [(len(index[f])+1, d) for f,d in zip(input_fields, input_dims)]
+        self.embeddings = Embeddings(self.pc, embedding_dims)
+
+        if kwargs.get("init_embeddings", False):
+            self.embeddings.init_from_word2vec(basename, input_fields, index)
+
+        input_dim = self.embeddings.dim
         lstm_num_layers = kwargs.get("lstm_num_layers", 2)
         lstm_dim = kwargs.get("lstm_dim", 250)
-        self.embeddings = Embeddings.init_from_word2vec(self.pc, basename, FIELDS, index=index)
-        input_dim = self.embeddings.dim
         self.lstm = BiLSTM(self.pc, input_dim, lstm_dim, lstm_num_layers)
 
         self.spec = kwargs,
@@ -54,12 +59,12 @@ class MSTParser(object):
 
     def _parse_heads(self, heads, h):
         scores = self.predict_arcs(h)
-        weights = np.transpose(np.vstack([np.zeros(len(h))] + [s.npvalue() for s in scores]))
-        parse_nonprojective(weights, heads)
+        scarray = np.transpose(np.vstack([np.zeros(len(h))] + [s.npvalue() for s in scores]))
+        parse_nonprojective(scarray, heads)
 
     def _parse_labels(self, heads, labels, h):
         scores = self.predict_labels(heads, h)
-        labels[:] = [np.argmax(scores[i].npvalue()) + 1 for i in range(len(scores))]
+        labels[:] = [np.argmax(s.npvalue()) + 1 for s in scores]
 
     def parse(self, feats):
         dy.renew_cg()
@@ -75,7 +80,7 @@ class MSTParser(object):
         self.lstm.disable_dropout()
 
     def enable_dropout(self):
-        self.embeddings.set_dropout(self.kwargs.get("input_dropout", 0))
+        self.embeddings.set_dropout(self.kwargs.get("embeddings_dropout", 0))
         self.lstm.set_dropout(self.kwargs.get("lstm_dropout", 0))
 
     def param_collection(self):
@@ -89,8 +94,7 @@ def _build_mlp(model, kwargs, prefix, input_dim, hidden_dim, output_dim, num_lay
     hidden_dim = kwargs.get(prefix + "_dim", hidden_dim)
     num_layers = kwargs.get(prefix + "_num_layers", num_layers)
     act = _STR_TO_ACT[kwargs.get(prefix + "_act", act)]
-    dims = [input_dim] + [hidden_dim]*num_layers + [output_dim]
-    return MultiLayerPerceptron(model, dims, act)
+    return MultiLayerPerceptron(model, input_dim, hidden_dim, output_dim, num_layers, act)
 
 class MLPParser(MSTParser):
 
