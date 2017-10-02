@@ -41,26 +41,25 @@ def _word2vec(index, args):
             model.wv.save_word2vec_format(VECTORS_FILENAME.format(args.outbasename, FIELD_TO_STR[f]))
             print("done")
 
+def _read_word2vec_lines(fp, field, index):
+    for line in fp:
+        line = line.rstrip("\r\n").split(" ")
+        token = line[0]
+        i = index[field][token]
+        if i > 0 or token == UNKNOWN_TOKEN:
+           v = [float(num) for num in line[1:]]
+           yield (i,v)
+
 def read_word2vec(basename, fields=(FORM, UPOS, FEATS), index=None):
     if index is None:
         index = read_index(basename, fields)
-    
-    vectors = []
-    for f in fields:
+
+    for fi, f in enumerate(fields):
         with codecs.open(VECTORS_FILENAME.format(basename, FIELD_TO_STR[f]), "r", "utf-8") as fp:
             num_tokens, size = (int(num) for num in fp.readline().split(" "))
-            num_tokens = len(index[f]) + 1
-            a = np.zeros((num_tokens, size))
-            for line in fp:
-                line = line.rstrip("\r\n").split(" ")
-                token = line[0]
-                i = index[f][token]
-                if i > 0 or token == UNKNOWN_TOKEN:
-                    a[i] = [float(num) for num in line[1:]]
-            vectors.append(a)
-    
-    return vectors
-
+            for i,vec in _read_word2vec_lines(fp, f, index):
+                yield (fi,i,vec)
+        
 def _parse_args():
     parser = ArgumentParser()
 
