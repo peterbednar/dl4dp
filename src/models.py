@@ -13,7 +13,10 @@ class MSTParser(object):
         self.kwargs = kwargs
 
         basename = kwargs.get("basename")
-        index = read_index(basename)
+
+        index = kwargs.get("index", None)
+        if index is None:
+            index = read_index(basename)
         self._num_labels = len(index[DEPREL])
 
         input_fields = kwargs.get("input_fields", (FORM, XPOS))
@@ -68,8 +71,7 @@ class MSTParser(object):
 
     def parse(self, feats):
         dy.renew_cg()
-        x = self.embeddings(feats)
-        h = self.lstm(x)
+        h = self.transduce(feats)
         tree = DepTree(len(x))
         self._parse_heads(tree.heads, h)
         self._parse_labels(tree.heads, tree.labels, h)
