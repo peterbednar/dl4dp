@@ -13,7 +13,7 @@ from models import MLPParser
 from utils import create_index, create_dictionary, FORM, XPOS, DEPREL
 from utils import DepTree, map_to_instances, read_conllu, shuffled_stream
 
-def get_arc_loss(tree, scores):
+def hinge_arc_loss(tree, scores):
     error = 0
     loss = []
 
@@ -29,7 +29,7 @@ def get_arc_loss(tree, scores):
 
     return error, loss
 
-def get_label_loss(tree, scores):
+def hinge_label_loss(tree, scores):
     error = 0
     loss = []
 
@@ -101,12 +101,12 @@ if __name__ == "__main__":
         h = model.transduce(example.feats)
 
         arc_scores = model.predict_arcs(h)
-        arc_error, arc_loss = get_arc_loss(example, arc_scores)
+        arc_error, arc_loss = hinge_arc_loss(example, arc_scores)
         step_arc_error += arc_error
         loss.extend(arc_loss)
 
         label_scores = model.predict_labels(example.heads, h)
-        label_error, label_loss = get_label_loss(example, label_scores)
+        label_error, label_loss = hinge_label_loss(example, label_scores)
         step_label_error += label_error
         loss.extend(label_loss)
 
