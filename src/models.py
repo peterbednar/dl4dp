@@ -12,20 +12,9 @@ class MSTParser(object):
         self.pc = model.add_subcollection()
         self.kwargs = kwargs
 
-        basename = kwargs.get("basename")
-        input_fields = kwargs.get("input_fields", (FORM, XPOS))
-
-        index = kwargs.get("index", None)
-        if index is None:
-            index = read_index(basename, input_fields + [DEPREL])
-
-        input_dims = kwargs.get("embeddings_dims", (100, 25))
-        embedding_dims = [(len(index[f])+1, d) for f,d in zip(input_fields, input_dims)]
-        self.labels_dim = len(index[DEPREL])
-        self.embeddings = Embeddings(self.pc, embedding_dims)
-
-        if kwargs.get("init_embeddings", False):
-            self.embeddings.init_from_word2vec(basename, input_fields, index)
+        embeddings_dims = kwargs.get("embeddings_dims")
+        self.labels_dim = kwargs.get("labels_dim")
+        self.embeddings = Embeddings(self.pc, embeddings_dims)
 
         input_dim = self.embeddings.dim
         lstm_num_layers = kwargs.get("lstm_num_layers", 2)
@@ -70,11 +59,11 @@ class MSTParser(object):
         labels[:] = [np.argmax(s.npvalue()) + 1 for s in scores]
 
     def parse(self, feats):
-        dy.renew_cg()
         h = self.transduce(feats)
         tree = DepTree(len(feats))
         self._parse_heads(tree.heads, h)
         self._parse_labels(tree.heads, tree.labels, h)
+        dy.renew_cg()
         return tree
 
     def disable_dropout(self):
