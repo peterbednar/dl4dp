@@ -16,7 +16,6 @@ from utils import DepTree, map_to_instances, read_conllu, shuffled_stream
 def hinge_arc_loss(tree, scores):
     error = 0
     loss = []
-
     for i in range(len(tree)):
         scarray = scores[i].npvalue()
         gold = tree.heads[i]
@@ -26,13 +25,11 @@ def hinge_arc_loss(tree, scores):
             error += 1
         if scarray[gold] < scarray[best_wrong] + 1.0:
             loss.append(arc_scores[i][best_wrong] - arc_scores[i][gold] + 1.0)
-
     return error, loss
 
 def hinge_label_loss(tree, scores):
     error = 0
     loss = []
-
     for i in range(len(tree)):
         scarray = scores[i].npvalue()
         gold = tree.labels[i] - 1
@@ -41,7 +38,6 @@ def hinge_label_loss(tree, scores):
             error += 1
         if scarray[gold] < scarray[best_wrong] + 1.0:
             loss.append(label_scores[i][best_wrong] - label_scores[i][gold] + 1.0)
-
     return error, loss
 
 def validate(model, validation_data):
