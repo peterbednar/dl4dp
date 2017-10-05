@@ -48,13 +48,11 @@ def validate(model, validation_data):
     for i, gold in enumerate(validation_data):
         num_tokens += len(gold)
         parsed = model.parse(gold.feats)
-
         for n in range(len(gold)):
             if parsed.heads[n] == gold.heads[n]:
                 correct_ua += 1
                 if parsed.labels[n] == gold.labels[n]:
                     correct_la += 1
-
         if (i % 100) == 0:
             print(".", end="")
             sys.stdout.flush()
