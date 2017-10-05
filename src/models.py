@@ -13,15 +13,15 @@ class MSTParser(object):
         self.kwargs = kwargs
 
         basename = kwargs.get("basename")
+        input_fields = kwargs.get("input_fields", (FORM, XPOS))
 
         index = kwargs.get("index", None)
         if index is None:
-            index = read_index(basename)
-        self._num_labels = len(index[DEPREL])
+            index = read_index(basename, input_fields + [DEPREL])
 
-        input_fields = kwargs.get("input_fields", (FORM, XPOS))
         input_dims = kwargs.get("embeddings_dims", (100, 25))
         embedding_dims = [(len(index[f])+1, d) for f,d in zip(input_fields, input_dims)]
+        self.labels_dim = len(index[DEPREL])
         self.embeddings = Embeddings(self.pc, embedding_dims)
 
         if kwargs.get("init_embeddings", False):
@@ -72,7 +72,7 @@ class MSTParser(object):
     def parse(self, feats):
         dy.renew_cg()
         h = self.transduce(feats)
-        tree = DepTree(len(x))
+        tree = DepTree(len(feats))
         self._parse_heads(tree.heads, h)
         self._parse_labels(tree.heads, tree.labels, h)
         return tree
@@ -104,7 +104,7 @@ class MLPParser(MSTParser):
         super(MLPParser, self).__init__(model, **kwargs)
         lstm_dim = self.lstm.dims[1]
         self.arc_mlp = _build_mlp(self.pc, kwargs, "arc_mlp", lstm_dim * 2, 100, 1, 1, "tanh")
-        self.label_mlp = _build_mlp(self.pc, kwargs, "label_mlp", lstm_dim * 2, 100, self._num_labels, 1, "tanh")
+        self.label_mlp = _build_mlp(self.pc, kwargs, "label_mlp", lstm_dim * 2, 100, self.labels_dim, 1, "tanh")
 
     def _predict_arc(self, head, dep, h):
         x = dy.concatenate([h[head], h[dep]])
