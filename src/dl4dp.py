@@ -72,15 +72,15 @@ if __name__ == "__main__":
     if form_dropout > 0 or xpos_dropout > 0:
         frequencies = count_frequency(read_conllu(train_filename), index, (FORM, XPOS))
 
-        def index_dropout(i, fi):
+        def index_dropout(v, fi):
             if fi == 0 and form_dropout > 0:
                 freq = frequencies[FORM][i]
                 drop = (random.random() < (freq / (form_dropout + freq)))
-                return 0 if drop else i
+                return 0 if drop else v
             elif fi == 1 and xpos_dropout > 0:
                 drop = (random.random() < xpos_dropout)
-                return 0 if drop else i
-            return i
+                return 0 if drop else v
+            return v
 
     else:
         index_dropout = None
