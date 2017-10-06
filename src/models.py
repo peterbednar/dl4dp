@@ -71,7 +71,7 @@ class MSTParser(object):
         self.lstm.disable_dropout()
 
     def enable_dropout(self):
-        self.embeddings.set_dropout(self.kwargs.get("embeddings_dropout", 0))
+        self.embeddings.set_dropout(self.kwargs.get("embeddings_dropout", 0), self.kwargs.get("index_dropout", None))
         self.lstm.set_dropout(self.kwargs.get("lstm_dropout", 0))
 
     def param_collection(self):
