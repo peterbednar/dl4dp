@@ -11,7 +11,7 @@ import dynet as dy
 import numpy as np
 from models import MLPParser
 from utils import create_index, create_dictionary, FORM, XPOS, DEPREL
-from utils import DepTree, map_to_instances, read_conllu, shuffled_stream
+from utils import DepTree, map_to_instances, read_conllu, shuffled_stream, count_frequency
 
 def hinge_loss(scores, gold):
     error = 0
@@ -52,6 +52,8 @@ if __name__ == "__main__":
     basename = "../build/en"
     train_filename = "../treebanks/train/en/en.conllu"
     validation_filename = "../treebanks/dev/en/en.conllu"
+    form_dropout = 0.0
+    xpos_dropout = 0.0
 
     index = create_index(create_dictionary(read_conllu(train_filename), (FORM, XPOS, DEPREL)))
     train_data = list(map_to_instances(read_conllu(train_filename), index, (FORM, XPOS)))
@@ -63,14 +65,30 @@ if __name__ == "__main__":
     embeddings_dims = [(len(index[FORM])+1, 100), (len(index[XPOS])+1, 25)]
     labels_dim = len(index[DEPREL])
 
-    pc = dy.ParameterCollection()
-    model = MLPParser(pc, embeddings_dims=embeddings_dims, labels_dim=labels_dim)
-    model.enable_dropout()
-    trainer = dy.AdamTrainer(pc)
-
     print("training sentences: {0}, tokens: {1}".format(len(train_data), sum([len(tree) for tree in train_data])))
     if validation_data:
         print("validation sentences: {0}, tokens: {1}".format(len(validation_data), sum([len(tree) for tree in validation_data])))
+
+    if form_dropout > 0 or xpos_dropout > 0:
+        frequencies = count_frequency(read_conllu(train_filename), index, (FORM, XPOS))
+
+        def index_dropout(i, fi):
+            if fi == 0 and form_dropout > 0:
+                freq = frequencies[FORM][i]
+                drop = (random.random() < (freq / (form_dropout + freq)))
+                return 0 if drop else i
+            elif fi == 1 and xpos_dropout > 0:
+                drop = (random.random() < xpos_dropout)
+                return 0 if drop else i
+            return i
+
+    else:
+        index_dropout = None
+
+    pc = dy.ParameterCollection()
+    model = MLPParser(pc, embeddings_dims=embeddings_dims, labels_dim=labels_dim, index_dropout=index_dropout)
+    model.enable_dropout()
+    trainer = dy.AdamTrainer(pc)
 
     step_loss = 0.0
     step_arc_error = 0.0
