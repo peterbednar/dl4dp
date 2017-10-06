@@ -191,6 +191,14 @@ def map_to_instances(sentences, index, fields=(FORM, UPOS, FEATS)):
     for sentence in sentences:
         yield map_to_instance(sentence, index, fields)
 
+def count_frequency(sentences, index, fields=(FORM)):
+    dic = {f: Counter() for f in fields}
+    for sentence in sentences:
+        for token in sentence:
+            for f in fields:
+                s = index[f][token[f]]
+                dic[f][s] += 1
+
 def shuffled_stream(data):
     while True:
         random.shuffle(data)
