@@ -18,8 +18,10 @@ class Embeddings(object):
 
         def _lookup(i, f):
             if self.index_dropout is not None:
-                i = self.index_dropout(i, f)
-            embds = dy.lookup(self.lookup[f], feats[i,f], update=self.update[f])
+                v = self.index_dropout(feats, i, f)
+            else:
+                v = feats[i,f]
+            embds = dy.lookup(self.lookup[f], v, update=self.update[f])
             dropout = self.dropout[f]
             if dropout > 0:
                 embds = dy.dropout(embds, dropout)
