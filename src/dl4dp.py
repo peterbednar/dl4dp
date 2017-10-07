@@ -72,9 +72,9 @@ if __name__ == "__main__":
     if form_dropout > 0 or xpos_dropout > 0:
         frequencies = count_frequency(read_conllu(train_filename), index, (FORM, XPOS))
 
-        def index_dropout(v, fi):
+        def input_dropout(v, fi):
             if fi == 0 and form_dropout > 0:
-                freq = frequencies[FORM][i]
+                freq = frequencies[FORM][v]
                 drop = (random.random() < (freq / (form_dropout + freq)))
                 return 0 if drop else v
             elif fi == 1 and xpos_dropout > 0:
@@ -83,10 +83,10 @@ if __name__ == "__main__":
             return v
 
     else:
-        index_dropout = None
+        input_dropout = None
 
     pc = dy.ParameterCollection()
-    model = MLPParser(pc, embeddings_dims=embeddings_dims, labels_dim=labels_dim, index_dropout=index_dropout)
+    model = MLPParser(pc, embeddings_dims=embeddings_dims, labels_dim=labels_dim, input_dropout=input_dropout)
     model.enable_dropout()
     trainer = dy.AdamTrainer(pc)
 
