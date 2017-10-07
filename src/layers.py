@@ -7,10 +7,10 @@ from word2vec import read_word2vec
 
 class Embeddings(object):
 
-    def __init__(self, model, dims, dropout=0, index_dropout=None, update=True):
+    def __init__(self, model, dims, dropout=0, input_dropout=None, update=True):
         self.pc = model.add_subcollection()
         self.lookup = [self.pc.add_lookup_parameters(dim) for dim in dims]
-        self.set_dropout(dropout, index_dropout)
+        self.set_dropout(dropout, input_dropout)
         self.set_update(update)
         self.dim = sum([dim for (_,dim) in dims])
 
@@ -18,8 +18,8 @@ class Embeddings(object):
 
         def _lookup(i, f):
             v = feats[i,f]
-            if self.index_dropout is not None:
-                v = self.index_dropout(v, f)
+            if self.input_dropout is not None:
+                v = self.input_dropout(v, f)
             embds = dy.lookup(self.lookup[f], v, update=self.update[f])
             dropout = self.dropout[f]
             if dropout > 0:
@@ -33,8 +33,8 @@ class Embeddings(object):
             x = [_lookup(i,0) for i in range(num_tokens)]
         return x
 
-    def set_dropout(self, dropout, index_dropout=None):
-        self.index_dropout = index_dropout
+    def set_dropout(self, dropout, input_dropout=None):
+        self.input_dropout = input_dropout
         self.dropout = dropout if isinstance(dropout, (tuple, list)) else [dropout] * len(self.lookup)
     
     def disable_dropout(self):
