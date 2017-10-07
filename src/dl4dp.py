@@ -52,7 +52,7 @@ if __name__ == "__main__":
     basename = "../build/en"
     train_filename = "../treebanks/train/en/en.conllu"
     validation_filename = "../treebanks/dev/en/en.conllu"
-    form_dropout = 0.0
+    form_dropout = 0.25
     xpos_dropout = 0.0
 
     index = create_index(create_dictionary(read_conllu(train_filename), (FORM, XPOS, DEPREL)))
@@ -75,7 +75,7 @@ if __name__ == "__main__":
         def input_dropout(v, fi):
             if fi == 0 and form_dropout > 0:
                 freq = frequencies[FORM][v]
-                drop = (random.random() < (freq / (form_dropout + freq)))
+                drop = (random.random() < (form_dropout / (form_dropout + freq)))
                 return 0 if drop else v
             elif fi == 1 and xpos_dropout > 0:
                 drop = (random.random() < xpos_dropout)
