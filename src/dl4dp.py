@@ -55,19 +55,20 @@ if __name__ == "__main__":
     form_dropout = 0.25
     xpos_dropout = 0.0
 
+    print("building index...", end=" ")
     index = create_index(create_dictionary(read_conllu(train_filename), (FORM, XPOS, DEPREL)))
+    print("done")
     train_data = list(map_to_instances(read_conllu(train_filename), index, (FORM, XPOS)))
+    print("training sentences: {0}, tokens: {1}".format(len(train_data), sum([len(tree) for tree in train_data])))
+
     if validation_filename:
         validation_data = list(map_to_instances(read_conllu(validation_filename), index, (FORM, XPOS)))
+        print("validation sentences: {0}, tokens: {1}".format(len(validation_data), sum([len(tree) for tree in validation_data])))
     else:
         validation_data = None
 
     embeddings_dims = [(len(index[FORM])+1, 100), (len(index[XPOS])+1, 25)]
     labels_dim = len(index[DEPREL])
-
-    print("training sentences: {0}, tokens: {1}".format(len(train_data), sum([len(tree) for tree in train_data])))
-    if validation_data:
-        print("validation sentences: {0}, tokens: {1}".format(len(validation_data), sum([len(tree) for tree in validation_data])))
 
     if form_dropout > 0 or xpos_dropout > 0:
         frequencies = count_frequency(read_conllu(train_filename), index, (FORM, XPOS))
