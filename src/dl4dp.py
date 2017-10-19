@@ -95,11 +95,11 @@ def train(model, train_data, validation_data=None, max_epochs=30):
 
         if (step % len(train_data)) == 0:
             epoch += 1
+            print("epoch: {0}".format(epoch))
             if (epoch % 1) == 0 and validation_data:
                 model.disable_dropout()
                 validate(model, validation_data)
                 model.enable_dropout()
-            print("epoch: {0}".format(epoch))
             dy.save(_MODEL_FILENAME.format(basename, epoch), [model])
             if epoch >= max_epochs:
                 break
