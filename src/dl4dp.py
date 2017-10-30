@@ -18,6 +18,7 @@ def hinge_loss(scores, gold):
     loss = None
     scarray = scores.npvalue()
     best_wrong = max([(i, sc) for i, sc in enumerate(scarray) if i != gold], key=lambda x: x[1])[0]
+    gold = np.asscalar(gold)
     if scarray[gold] < scarray[best_wrong]:
         error = 1
     if scarray[gold] < scarray[best_wrong] + 1.0:
@@ -28,6 +29,7 @@ def validate(model, validation_data):
     num_tokens = 0
     correct_ua = correct_la = 0
 
+    model.disable_dropout()
     for i, gold in enumerate(validation_data):
         num_tokens += len(gold)
         parsed = model.parse(gold.feats)
@@ -39,73 +41,11 @@ def validate(model, validation_data):
         if (i % 100) == 0:
             print(".", end="")
             sys.stdout.flush()
+    model.enable_dropout()
 
     uas = float(correct_ua) / num_tokens
     las = float(correct_la) / num_tokens
-    print("\nuas: {0:.4}, las: {1:.4}".format(uas, las))
-
-_MODEL_FILENAME="{0}_model_{1}"
-
-def train(model, train_data, validation_data=None, max_epochs=30):
-    model.enable_dropout()
-    trainer = dy.AdamTrainer(pc)
-
-    step_loss = 0.0
-    step_arc_error = 0.0
-    step_label_error = 0.0
-    num_tokens = 0
-
-    step = 0
-    epoch = 0
-    dy.renew_cg()
-    for example in shuffled_stream(train_data):
-        loss = []
-        h = model.transduce(example.feats)
-
-        arc_scores = model.predict_arcs(h)
-        for i in range(len(example)):
-            arc_error, arc_loss = hinge_loss(arc_scores[i], example.heads[i])
-            step_arc_error += arc_error
-            if arc_loss:
-                loss.append(arc_loss)
-
-        label_scores = model.predict_labels(example.heads, h)
-        for i in range(len(example)):
-            label_error, label_loss = hinge_loss(label_scores[i], example.labels[i] - 1)
-            step_label_error += label_error
-            if label_loss:
-                loss.append(label_loss)
-
-        if loss:
-            loss = dy.esum(loss)
-            step_loss += loss.value()
-            loss.backward()
-            trainer.update()
-        dy.renew_cg()
-
-        num_tokens += len(example)
-        step += 1
-        if (step % 100) == 0:
-            print("{0} {1} {2} {3}".format(step, step_loss / num_tokens, step_arc_error / num_tokens, step_label_error / num_tokens))
-            sys.stdout.flush()
-            step_loss = 0.0
-            step_arc_error = 0.0
-            step_label_error = 0.0
-            num_tokens = 0
-
-        if (step % len(train_data)) == 0:
-            epoch += 1
-            print("epoch: {0}".format(epoch))
-            if (epoch % 1) == 0 and validation_data:
-                model.disable_dropout()
-                validate(model, validation_data)
-                model.enable_dropout()
-            dy.save(_MODEL_FILENAME.format(basename, epoch), [model])
-            if epoch >= max_epochs:
-                break
-
-    model.disable_dropout()
-
+    print("\nUAS: {0:.4}, LAS: {1:.4}".format(uas, las))
 
 if __name__ == "__main__":
     max_epochs = 30
@@ -149,4 +89,57 @@ if __name__ == "__main__":
 
     pc = dy.ParameterCollection()
     model = MLPParser(pc, embeddings_dims=embeddings_dims, labels_dim=labels_dim, input_dropout=input_dropout)
-    train(model, train_data, validation_data, max_epochs)
+    model.enable_dropout()
+    trainer = dy.AdamTrainer(pc)
+
+    step_loss = 0.0
+    step_arc_error = 0.0
+    step_label_error = 0.0
+    num_tokens = 0
+
+    step = 0
+    epoch = 0
+    dy.renew_cg()
+    for example in shuffled_stream(train_data):
+        loss = []
+        h = model.transduce(example.feats)
+
+        arc_scores = model.predict_arcs(h)
+        for i in range(len(example)):
+            arc_error, arc_loss = hinge_loss(arc_scores[i], example.heads[i])
+            step_arc_error += arc_error
+            if arc_loss:
+                loss.append(arc_loss)
+
+        label_scores = model.predict_labels(example.heads, h)
+        for i in range(len(example)):
+            label_error, label_loss = hinge_loss(label_scores[i], example.labels[i] - 1)
+            step_label_error += label_error
+            if label_loss:
+                loss.append(label_loss)
+
+        if loss:
+            loss = dy.esum(loss)
+            step_loss += loss.value()
+            loss.backward()
+            trainer.update()
+        dy.renew_cg()
+
+        num_tokens += len(example)
+        step += 1
+        if (step % 100) == 0:
+            print("{0} {1} {2}".format(step_loss / num_tokens, step_arc_error / num_tokens, step_label_error / num_tokens))
+            sys.stdout.flush()
+            step_loss = 0.0
+            step_arc_error = 0.0
+            step_label_error = 0.0
+            num_tokens = 0
+
+        if (step % len(train_data)) == 0:
+            dy.save(basename + "_model", [model])
+            epoch += 1
+            if (epoch % 1) == 0 and validation_data:
+                validate(model, validation_data)
+            print("epoch: {0}".format(epoch))
+            if epoch >= max_epochs:
+                break
