@@ -9,6 +9,8 @@ random.seed(_rand_seed)
 import sys
 import dynet as dy
 import numpy as np
+import time
+from datetime import timedelta
 from models import MLPParser
 from utils import create_index, create_dictionary, FORM, XPOS, DEPREL
 from utils import DepTree, map_to_instances, read_conllu, shuffled_stream, count_frequency
@@ -44,6 +46,7 @@ def validate(model, validation_data):
     uas = float(correct_ua) / num_tokens
     las = float(correct_la) / num_tokens
     print("\nuas: {0:.4}, las: {1:.4}".format(uas, las))
+    return uas, las
 
 _MODEL_FILENAME="{0}_model_{1}"
 
@@ -56,9 +59,13 @@ def train(model, train_data, validation_data=None, max_epochs=30):
     step_label_error = 0.0
     num_tokens = 0
 
+    best_epoch = 0
+    best_score = (0,0)
+
     step = 0
     epoch = 0
     dy.renew_cg()
+    start_time = time.time()
     for example in shuffled_stream(train_data):
         loss = []
         h = model.transduce(example.feats)
@@ -87,7 +94,11 @@ def train(model, train_data, validation_data=None, max_epochs=30):
         num_tokens += len(example)
         step += 1
         if (step % 100) == 0:
-            print("{0} {1} {2} {3}".format(step, step_loss / num_tokens, step_arc_error / num_tokens, step_label_error / num_tokens))
+            elapsed_time = time.time() - start_time
+            print("{0} {1} {2} {3} {4}".format(step, timedelta(seconds=elapsed_time),
+                    step_loss / num_tokens,
+                    step_arc_error / num_tokens,
+                    step_label_error / num_tokens))
             sys.stdout.flush()
             step_loss = 0.0
             step_arc_error = 0.0
@@ -99,21 +110,26 @@ def train(model, train_data, validation_data=None, max_epochs=30):
             print("epoch: {0}".format(epoch))
             if (epoch % 1) == 0 and validation_data:
                 model.disable_dropout()
-                validate(model, validation_data)
+                score = validate(model, validation_data)
                 model.enable_dropout()
+                if best_score[1] < score[1]:
+                    best_epoch = epoch
+                    best_score = score
             dy.save(_MODEL_FILENAME.format(basename, epoch), [model])
+            start_time = time.time()
             if epoch >= max_epochs:
                 break
 
     model.disable_dropout()
-
+    return best_epoch, best_score
 
 if __name__ == "__main__":
-    max_epochs = 30
+    max_epochs = 1
 
     basename = "../build/en"
     train_filename = "../treebanks/train/en/en.conllu"
     validation_filename = "../treebanks/dev/en/en.conllu"
+    test_filename = "../treebanks/test/en.conllu"
     form_dropout = 0.25
     xpos_dropout = 0.0
 
@@ -150,4 +166,13 @@ if __name__ == "__main__":
 
     pc = dy.ParameterCollection()
     model = MLPParser(pc, embeddings_dims=embeddings_dims, labels_dim=labels_dim, input_dropout=input_dropout)
-    train(model, train_data, validation_data, max_epochs)
+    best_epoch, best_score = train(model, train_data, validation_data, max_epochs)
+
+    if best_epoch > 0:
+        print("best epoch: {0}, score: {1:.4} uas, {2:.4} las", best_epoch, best_score[0], best_score[1])
+    if test_filename:
+        test_data = list(map_to_instances(read_conllu(test_filename), index, (FORM, XPOS)))
+        print("testing sentences: {0}, tokens: {1}".format(len(test_data), sum([len(tree) for tree in test_data])))
+        if best_epoch > 0:
+            model, = dy.load(_MODEL_FILENAME.format(basename, best_epoch))
+        validate(model, test_data)
