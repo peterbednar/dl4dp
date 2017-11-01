@@ -174,5 +174,6 @@ if __name__ == "__main__":
         test_data = list(map_to_instances(read_conllu(test_filename), index, (FORM, XPOS)))
         print("testing sentences: {0}, tokens: {1}".format(len(test_data), sum([len(tree) for tree in test_data])))
         if best_epoch > 0:
-            model, = dy.load(_MODEL_FILENAME.format(basename, best_epoch))
+            pc = dy.ParameterCollection()
+            model, = dy.load(_MODEL_FILENAME.format(basename, best_epoch), pc)
         validate(model, test_data)
