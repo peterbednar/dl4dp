@@ -129,7 +129,7 @@ if __name__ == "__main__":
     basename = "../build/en"
     train_filename = "../treebanks/train/en/en.conllu"
     validation_filename = "../treebanks/dev/en/en.conllu"
-    test_filename = "../treebanks/test/en.conllu"
+    test_filename = "../treebanks/test/en/en.conllu"
     form_dropout = 0.25
     xpos_dropout = 0.0
 
@@ -169,7 +169,7 @@ if __name__ == "__main__":
     best_epoch, best_score = train(model, train_data, validation_data, max_epochs)
 
     if best_epoch > 0:
-        print("best epoch: {0}, score: {1:.4} uas, {2:.4} las", best_epoch, best_score[0], best_score[1])
+        print("best epoch: {0}, score: {1:.4} uas, {2:.4} las".format(best_epoch, best_score[0], best_score[1]))
     if test_filename:
         test_data = list(map_to_instances(read_conllu(test_filename), index, (FORM, XPOS)))
         print("testing sentences: {0}, tokens: {1}".format(len(test_data), sum([len(tree) for tree in test_data])))
