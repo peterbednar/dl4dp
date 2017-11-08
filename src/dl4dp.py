@@ -50,9 +50,8 @@ def validate(model, validation_data):
 
 _MODEL_FILENAME="{0}_model_{1}"
 
-def train(model, train_data, validation_data=None, max_epochs=30):
+def train(model, trainer, train_data, validation_data=None, max_epochs=30):
     model.enable_dropout()
-    trainer = dy.AdamTrainer(pc)
 
     step_loss = 0.0
     step_arc_error = 0.0
@@ -166,7 +165,9 @@ if __name__ == "__main__":
 
     pc = dy.ParameterCollection()
     model = MLPParser(pc, embeddings_dims=embeddings_dims, labels_dim=labels_dim, input_dropout=input_dropout)
-    best_epoch, best_score = train(model, train_data, validation_data, max_epochs)
+    trainer = dy.AdamTrainer(pc)
+
+    best_epoch, best_score = train(model, trainer, train_data, validation_data, max_epochs)
 
     if best_epoch > 0:
         print("best epoch: {0}, score: {1:.4} uas, {2:.4} las".format(best_epoch, best_score[0], best_score[1]))
