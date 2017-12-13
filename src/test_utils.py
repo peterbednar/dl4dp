@@ -45,24 +45,6 @@ def test_parse_nonprojective():
         for i in range(len(tree)):
             assert heads[i] == tree.heads[i]
 
-def test_parse_projective():
-    index, train_data = load_data()
-
-    for tree in train_data:
-        if not is_projective(tree.heads):
-            continue
-
-        num_nodes = len(tree) + 1
-        scores = np.random.rand(num_nodes, num_nodes)
-        for i in range(1,num_nodes):
-            cmax = max(scores[j][i] for j in range(num_nodes))
-            gold = tree.heads[i-1]
-            scores[gold][i] = cmax + 1e-5
-
-        heads = parse_projective(scores)
-        for i in range(len(tree)):
-            assert heads[i] == tree.heads[i]
-
 if __name__ == "__main__":
     test_index()
     test_parse_nonprojective()
