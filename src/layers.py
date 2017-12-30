@@ -109,18 +109,22 @@ class MultiLayerPerceptron(object):
 
 class BiLSTM(object):
 
-    def __init__(self, model, input_dim, hidden_dim, num_layers=1, input_dropout=0, output_dropout=0, ln=False):
+    def __init__(self, model, input_dim, hidden_dim, num_layers=1, input_dropout=0, output_dropout=0, ln=False, root_token=True, boundary_tokens=True):
         self.pc = model.add_subcollection()
         self.dims = (input_dim, hidden_dim)
+        self.root_token = root_token
+        self.boundary_tokens = boundary_tokens
 
         def _build_layer(input_dim, hidden_dim, rnn_builder=dy.VanillaLSTMBuilder):
             f = rnn_builder(1, input_dim, hidden_dim / 2, self.pc, ln)
             b = rnn_builder(1, input_dim, hidden_dim / 2, self.pc, ln)
             return (f, b)
 
-        self.BOS = self.pc.add_parameters(input_dim)
-        self.EOS = self.pc.add_parameters(input_dim)
-        self.ROOT = self.pc.add_parameters(input_dim)
+        if boundary_tokens:
+            self.BOS = self.pc.add_parameters(input_dim)
+            self.EOS = self.pc.add_parameters(input_dim)
+        if root_token:
+            self.ROOT = self.pc.add_parameters(input_dim)
 
         self.layers = [_build_layer(input_dim, hidden_dim)]
         for _ in range(num_layers - 1):
@@ -128,7 +132,10 @@ class BiLSTM(object):
         self.set_dropouts(input_dropout, output_dropout)
 
     def __call__(self, x):
-        x = [dy.parameter(self.BOS), dy.parameter(self.ROOT)] + x + [dy.parameter(self.EOS)]
+        if self.root_token:
+            x = [dy.parameter(self.ROOT)] + x
+        if self.boundary_tokens:
+            x = [dy.parameter(self.BOS)] + x + [dy.parameter(self.EOS)]
         h = self.transduce(x)
         h[:] = h[1:-1]
         return h
