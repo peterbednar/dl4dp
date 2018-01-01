@@ -109,7 +109,7 @@ class MultiLayerPerceptron(object):
 
 class BiLSTM(object):
 
-    def __init__(self, model, input_dim, hidden_dim, num_layers=1, input_dropout=0, output_dropout=0, ln=False, root_token=True, boundary_tokens=True):
+    def __init__(self, model, input_dim, hidden_dim, num_layers=1, input_dropout=0, output_dropout=0, ln=False, boundary_tokens=True, root_token=True):
         self.pc = model.add_subcollection()
         self.dims = (input_dim, hidden_dim)
         self.root_token = root_token
@@ -137,7 +137,8 @@ class BiLSTM(object):
         if self.boundary_tokens:
             x = [dy.parameter(self.BOS)] + x + [dy.parameter(self.EOS)]
         h = self.transduce(x)
-        h[:] = h[1:-1]
+        if self.boundary_tokens:
+            h[:] = h[1:-1]
         return h
 
     def transduce(self, x):
