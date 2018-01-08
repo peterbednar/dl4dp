@@ -115,16 +115,16 @@ class BiLSTM(object):
         self.root_token = root_token
         self.boundary_tokens = boundary_tokens
 
-        def _build_layer(input_dim, hidden_dim, rnn_builder=dy.VanillaLSTMBuilder):
-            f = rnn_builder(1, input_dim, hidden_dim / 2, self.pc, ln)
-            b = rnn_builder(1, input_dim, hidden_dim / 2, self.pc, ln)
-            return (f, b)
-
         if boundary_tokens:
             self.BOS = self.pc.add_parameters(input_dim)
             self.EOS = self.pc.add_parameters(input_dim)
         if root_token:
             self.ROOT = self.pc.add_parameters(input_dim)
+
+        def _build_layer(input_dim, hidden_dim, rnn_builder=dy.VanillaLSTMBuilder):
+            f = rnn_builder(1, input_dim, hidden_dim / 2, self.pc, ln)
+            b = rnn_builder(1, input_dim, hidden_dim / 2, self.pc, ln)
+            return (f, b)
 
         self.layers = [_build_layer(input_dim, hidden_dim)]
         for _ in range(num_layers - 1):
