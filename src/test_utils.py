@@ -48,5 +48,4 @@ def test_parse_nonprojective():
 if __name__ == "__main__":
     test_index()
     test_parse_nonprojective()
-    test_parse_projective()
     print("all tests passed")
