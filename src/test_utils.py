@@ -2,9 +2,9 @@ from __future__ import print_function
 
 import numpy as np
 
-from utils import FORM, XPOS
+from utils import FORM, XPOS, UPOS_FEATS
 from utils import create_dictionary, create_index, create_inverse_index, read_conllu, map_to_instances
-from utils import parse_nonprojective, parse_projective, is_projective
+from utils import parse_nonprojective, is_projective
 
 FIELDS = (FORM, XPOS)
 
@@ -17,6 +17,11 @@ def load_data(filename=TRAIN_FILE):
 
 def to_string(tree, inverse_index):
     return [[inverse_index[FIELDS[f]][tree.feats[i,f]] if tree.feats[i,f] != 0 else None for f in range(len(FIELDS))] for i in range(len(tree))]
+
+def test_read_conllu():
+    for sentence in read_conllu(TRAIN_FILE):
+        for token in sentence:
+            pass
 
 def test_index():
     index, train_data = load_data()
@@ -46,6 +51,7 @@ def test_parse_nonprojective():
             assert heads[i] == tree.heads[i]
 
 if __name__ == "__main__":
+    test_read_conllu()
     test_index()
     test_parse_nonprojective()
     print("all tests passed")

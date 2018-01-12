@@ -9,6 +9,7 @@ from collections import Counter, OrderedDict, namedtuple, defaultdict
 from functools import total_ordering
 
 ID, FORM, LEMMA, UPOS, XPOS, FEATS, HEAD, DEPREL, DEPS, MISC = range(10)
+UPOS_FEATS = 10
 
 EMPTY = 0
 MULTIWORD = 1
@@ -40,7 +41,7 @@ def normalize_default(field, value):
     value = value.lower()
     return value
 
-def read_conllu(filename, skip_empty=True, skip_multiword=True, parse_feats=False, parse_deps=False, normalize=normalize_default):
+def read_conllu(filename, skip_empty=True, skip_multiword=True, parse_feats=False, parse_deps=False, normalize=normalize_default, upos_feats=True):
 
     def _parse_sentence(lines):
         sentence = []
@@ -82,7 +83,14 @@ def read_conllu(filename, skip_empty=True, skip_multiword=True, parse_feats=Fals
         if normalize:
             for f in [FORM, LEMMA]:
                 fields[f] = normalize(f, fields[f])
-        
+
+        if upos_feats:
+            upos = fields[UPOS]
+            feats = fields[FEATS]
+            tag = "POS={0}".format(upos) if upos is not None else None
+            tag = tag + "|" + feats if feats is not None else tag
+            fields.append(tag)
+
         return fields
 
     def _parse_feats(str):
