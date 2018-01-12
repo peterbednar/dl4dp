@@ -1,3 +1,4 @@
+.vscode
 build/
 src/__pycache__/
 src/*.py[cod]
