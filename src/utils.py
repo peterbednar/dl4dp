@@ -16,12 +16,12 @@ MULTIWORD = 1
 FIELD_TO_STR = ["id", "form", "lemma", "upos", "xpos", "feats", "head", "deprel", "deps", "misc"]
 STR_TO_FIELD = {k : v for v, k in enumerate(FIELD_TO_STR)}
 
-def isempty(token):
+def is_empty(token):
     if isinstance(token, list):
         token = token[ID]
     return token[2] == EMPTY if isinstance(token, tuple) else False
 
-def ismultiword(token):
+def is_multiword(token):
     if isinstance(token, list):
         token = token[ID]
     return token[2] == MULTIWORD if isinstance(token, tuple) else False
@@ -46,9 +46,9 @@ def read_conllu(filename, skip_empty=True, skip_multiword=True, parse_feats=Fals
         sentence = []
         for line in lines:
             token = _parse_token(line)
-            if skip_empty and isempty(token):
+            if skip_empty and is_empty(token):
                 continue
-            if skip_multiword and ismultiword(token):
+            if skip_multiword and is_multiword(token):
                 continue
             sentence.append(token)
         return sentence
