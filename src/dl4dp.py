@@ -12,7 +12,7 @@ import numpy as np
 import time
 from datetime import timedelta
 from models import MLPParser
-from utils import create_index, create_dictionary, FORM, XPOS, DEPREL
+from utils import create_index, create_dictionary, FORM, UPOS_FEATS, DEPREL
 from utils import DepTree, map_to_instances, read_conllu, shuffled_stream, count_frequency
 
 def hinge_loss(scores, gold):
@@ -123,32 +123,35 @@ def train(model, trainer, train_data, validation_data=None, max_epochs=30):
     return best_epoch, best_score
 
 if __name__ == "__main__":
+    lang = "en"
+    treebank = "en"
     max_epochs = 1
-
-    basename = "../build/en"
-    train_filename = "../treebanks/train/en/en.conllu"
-    validation_filename = "../treebanks/dev/en/en.conllu"
-    test_filename = "../treebanks/test/en/en.conllu"
     form_dropout = 0.25
     xpos_dropout = 0.0
+    fields = (FORM, UPOS_FEATS)
+
+    basename = "../build/" + treebank
+    train_filename = "../treebanks/train/" + lang + "/" + treebank + ".conllu"
+    validation_filename = "../treebanks/dev/" + lang + "/" + treebank + ".conllu"
+    test_filename = "../treebanks/test/" + lang + "/" + treebank + ".conllu"
 
     print("building index...", end=" ")
-    index = create_index(create_dictionary(read_conllu(train_filename), (FORM, XPOS, DEPREL)))
+    index = create_index(create_dictionary(read_conllu(train_filename), fields + (DEPREL,)))
     print("done")
-    train_data = list(map_to_instances(read_conllu(train_filename), index, (FORM, XPOS)))
+    train_data = list(map_to_instances(read_conllu(train_filename), index, fields))
     print("training sentences: {0}, tokens: {1}".format(len(train_data), sum([len(tree) for tree in train_data])))
 
     if validation_filename:
-        validation_data = list(map_to_instances(read_conllu(validation_filename), index, (FORM, XPOS)))
+        validation_data = list(map_to_instances(read_conllu(validation_filename), index, fields))
         print("validation sentences: {0}, tokens: {1}".format(len(validation_data), sum([len(tree) for tree in validation_data])))
     else:
         validation_data = None
 
-    embeddings_dims = [(len(index[FORM])+1, 100), (len(index[XPOS])+1, 25)]
+    embeddings_dims = [(len(index[FORM])+1, 100), (len(index[UPOS_FEATS])+1, 25)]
     labels_dim = len(index[DEPREL])
 
     if form_dropout > 0 or xpos_dropout > 0:
-        frequencies = count_frequency(read_conllu(train_filename), index, (FORM, XPOS))
+        frequencies = count_frequency(read_conllu(train_filename), index, fields)
 
         def input_dropout(v, fi):
             if fi == 0 and form_dropout > 0:
@@ -172,7 +175,7 @@ if __name__ == "__main__":
     if best_epoch > 0:
         print("best epoch: {0}, score: {1:.4} uas, {2:.4} las".format(best_epoch, best_score[0], best_score[1]))
     if test_filename:
-        test_data = list(map_to_instances(read_conllu(test_filename), index, (FORM, XPOS)))
+        test_data = list(map_to_instances(read_conllu(test_filename), index, fields))
         print("testing sentences: {0}, tokens: {1}".format(len(test_data), sum([len(tree) for tree in test_data])))
         if best_epoch > 0:
             pc = dy.ParameterCollection()
