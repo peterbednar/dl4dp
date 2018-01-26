@@ -41,7 +41,7 @@ def normalize_default(field, value):
     value = value.lower()
     return value
 
-def read_conllu(filename, skip_empty=True, skip_multiword=True, parse_feats=False, parse_deps=False, normalize=normalize_default, upos_feats=True):
+def read_conllu(filename, skip_empty=True, skip_multiword=True, parse_feats=False, parse_deps=False, upos_feats=True, normalize=normalize_default):
 
     def _parse_sentence(lines):
         sentence = []
