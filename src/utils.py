@@ -8,13 +8,13 @@ import random
 from collections import Counter, OrderedDict, namedtuple, defaultdict
 from functools import total_ordering
 
-ID, FORM, LEMMA, UPOS, XPOS, FEATS, HEAD, DEPREL, DEPS, MISC = range(10)
-UPOS_FEATS = 10
+ID, FORM, LEMMA, UPOS, XPOS, FEATS, HEAD, DEPREL, DEPS, MISC, FORM_NORM, LEMMA_NORM, UPOS_FEATS = range(13)
+FORM_CHAR = 13
 
 EMPTY = 0
 MULTIWORD = 1
 
-FIELD_TO_STR = ["id", "form", "lemma", "upos", "xpos", "feats", "head", "deprel", "deps", "misc"]
+FIELD_TO_STR = ["id", "form", "lemma", "upos", "xpos", "feats", "head", "deprel", "deps", "misc", "form_norm", "lemma_norm", "upos_feats", "form_char"]
 STR_TO_FIELD = {k : v for v, k in enumerate(FIELD_TO_STR)}
 
 def is_empty(token):
@@ -81,8 +81,11 @@ def read_conllu(filename, skip_empty=True, skip_multiword=True, parse_feats=Fals
             fields[DEPS] = _parse_deps(fields[DEPS])
 
         if normalize:
-            for f in [FORM, LEMMA]:
-                fields[f] = normalize(f, fields[f])
+            fields.append(normalize(FORM, fields[FORM]))
+            fields.append(normalize(LEMMA, fields[LEMMA]))
+        else:
+            fields.append(None)
+            fields.append(None)
 
         if upos_feats:
             upos = fields[UPOS]
@@ -90,6 +93,8 @@ def read_conllu(filename, skip_empty=True, skip_multiword=True, parse_feats=Fals
             tag = "POS={0}".format(upos) if upos is not None else None
             tag = tag + "|" + feats if feats is not None else tag
             fields.append(tag)
+        else:
+            fields.append(None)
 
         return fields
 
@@ -124,8 +129,12 @@ def create_dictionary(sentences, fields={FORM, LEMMA, UPOS, XPOS, FEATS, DEPREL}
     for sentence in sentences:
         for token in sentence:
             for f in fields:
-                s = token[f]
-                dic[f][s] += 1
+                if f == FORM_CHAR:
+                    for c in token[FORM]:
+                        dic[f][c] += 1
+                else:
+                    s = token[f]
+                    dic[f][s] += 1
     return dic
 
 def create_index(dic, min_frequency=1):
@@ -171,10 +180,11 @@ def read_index(basename, fields={FORM, UPOS, FEATS, DEPREL}):
                 i += 1
     return index
 
-class DepTree(namedtuple("DepTree", "feats, heads, labels")):
+class DepTree(namedtuple("DepTree", "chars, feats, heads, labels")):
 
-    def __new__(cls, num_tokens, num_feats=0):
+    def __new__(cls, num_tokens, num_feats=0, form_chars=False):
         return super(cls, DepTree).__new__(cls,
+                [None] * num_tokens if form_chars else None,
                 np.empty((num_tokens, num_feats), dtype=np.int) if num_feats > 0 else None,
                 np.full(num_tokens, -1, dtype=np.int),
                 np.full(num_tokens, -1, dtype=np.int))
@@ -182,22 +192,29 @@ class DepTree(namedtuple("DepTree", "feats, heads, labels")):
     def __len__(self):
         return len(self.heads)
 
-def map_to_instance(sentence, index, fields=(FORM, UPOS, FEATS)):
+def map_to_instance(sentence, index, fields=(FORM, UPOS, FEATS), form_chars=False):
     num_tokens = len(sentence)
     num_feats = len(fields)
-    tree = DepTree(num_tokens, num_feats)
+    tree = DepTree(num_tokens, num_feats, form_chars)
 
     for i, token in enumerate(sentence):
+        if form_chars:
+            form = token[FORM]
+            tree.chars[i] = np.empty(len(form), dtype=np.int)
+            for j, c in enumerate(form):
+                tree.chars[i][j] = index[FORM_CHAR][c]
+
         for j, f in enumerate(fields):
             tree.feats[i][j] = index[f][token[f]]
+            
         tree.heads[i] = token[HEAD]
         tree.labels[i] = index[DEPREL][token[DEPREL]]
-
+            
     return tree
 
-def map_to_instances(sentences, index, fields=(FORM, UPOS, FEATS)):
+def map_to_instances(sentences, index, fields=(FORM, UPOS, FEATS), form_chars=False):
     for sentence in sentences:
-        yield map_to_instance(sentence, index, fields)
+        yield map_to_instance(sentence, index, fields, form_chars)
 
 def count_frequency(sentences, index, fields=(FORM, UPOS, FEATS, DEPREL)):
     count = {f: Counter() for f in fields}

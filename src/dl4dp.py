@@ -12,7 +12,7 @@ import numpy as np
 import time
 from datetime import timedelta
 from models import MLPParser
-from utils import create_index, create_dictionary, FORM, UPOS_FEATS, DEPREL
+from utils import create_index, create_dictionary, FORM_NORM, UPOS_FEATS, DEPREL
 from utils import DepTree, map_to_instances, read_conllu, shuffled_stream, count_frequency
 
 def hinge_loss(scores, gold):
@@ -128,7 +128,7 @@ if __name__ == "__main__":
     max_epochs = 1
     form_dropout = 0.25
     xpos_dropout = 0.0
-    fields = (FORM, UPOS_FEATS)
+    fields = (FORM_NORM, UPOS_FEATS)
 
     basename = "../build/" + treebank
     train_filename = "../treebanks/train/" + lang + "/" + treebank + ".conllu"
@@ -147,7 +147,7 @@ if __name__ == "__main__":
     else:
         validation_data = None
 
-    embeddings_dims = [(len(index[FORM])+1, 100), (len(index[UPOS_FEATS])+1, 25)]
+    embeddings_dims = [(len(index[FORM_NORM])+1, 100), (len(index[UPOS_FEATS])+1, 25)]
     labels_dim = len(index[DEPREL])
 
     if form_dropout > 0 or xpos_dropout > 0:
@@ -155,7 +155,7 @@ if __name__ == "__main__":
 
         def input_dropout(v, fi):
             if fi == 0 and form_dropout > 0:
-                freq = frequencies[FORM][v]
+                freq = frequencies[FORM_NORM][v]
                 drop = (random.random() < (form_dropout / (form_dropout + freq)))
                 return 0 if drop else v
             elif fi == 1 and xpos_dropout > 0:

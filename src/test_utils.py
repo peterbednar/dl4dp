@@ -2,17 +2,17 @@ from __future__ import print_function
 
 import numpy as np
 
-from utils import FORM, XPOS, UPOS_FEATS
+from utils import FORM_NORM, UPOS_FEATS, DEPREL, FORM_CHAR
 from utils import create_dictionary, create_index, create_inverse_index, read_conllu, map_to_instances
 from utils import parse_nonprojective, is_projective
 
-FIELDS = (FORM, XPOS)
-
+FIELDS = [FORM_NORM, UPOS_FEATS]
 TRAIN_FILE = "../treebanks/train/en/en.conllu"
 
 def load_data(filename=TRAIN_FILE):
-    index = create_index(create_dictionary(read_conllu(TRAIN_FILE, normalize=None)), min_frequency=1)
-    train_data = list(map_to_instances(read_conllu(TRAIN_FILE, normalize=None), index, FIELDS))
+    dic = create_dictionary(read_conllu(TRAIN_FILE, normalize=None), fields={FORM_NORM, UPOS_FEATS, DEPREL, FORM_CHAR})
+    index = create_index(dic, min_frequency=1)
+    train_data = list(map_to_instances(read_conllu(TRAIN_FILE, normalize=None), index, FIELDS, True))
     return index, train_data
 
 def to_string(tree, inverse_index):
@@ -51,7 +51,9 @@ def test_parse_nonprojective():
             assert heads[i] == tree.heads[i]
 
 if __name__ == "__main__":
-    test_read_conllu()
-    test_index()
-    test_parse_nonprojective()
+    # test_read_conllu()
+    # test_index()
+    # test_parse_nonprojective()
+
+    load_data()
     print("all tests passed")
