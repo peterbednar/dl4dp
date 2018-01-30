@@ -184,7 +184,7 @@ class DepTree(namedtuple("DepTree", "chars, feats, heads, labels")):
 
     def __new__(cls, num_tokens, num_feats=0, form_chars=False):
         return super(cls, DepTree).__new__(cls,
-                [None] * num_tokens if form_chars else None,
+                np.empty(num_tokens, dtype=np.object) if form_chars else None,
                 np.empty((num_tokens, num_feats), dtype=np.int) if num_feats > 0 else None,
                 np.full(num_tokens, -1, dtype=np.int),
                 np.full(num_tokens, -1, dtype=np.int))
