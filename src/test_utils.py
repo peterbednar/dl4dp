@@ -2,7 +2,7 @@ from __future__ import print_function
 
 import numpy as np
 
-from utils import FORM_NORM, UPOS_FEATS, DEPREL, FORM_CHAR
+from utils import FORM_NORM, UPOS_FEATS, DEPREL, FORM_CHARS
 from utils import create_dictionary, create_index, create_inverse_index, read_conllu, map_to_instances
 from utils import parse_nonprojective, is_projective
 
@@ -10,9 +10,9 @@ FIELDS = [FORM_NORM, UPOS_FEATS]
 TRAIN_FILE = "../treebanks/train/en/en.conllu"
 
 def load_data(filename=TRAIN_FILE):
-    dic = create_dictionary(read_conllu(TRAIN_FILE, normalize=None), fields={FORM_NORM, UPOS_FEATS, DEPREL, FORM_CHAR})
+    dic = create_dictionary(read_conllu(TRAIN_FILE), fields={FORM_NORM, UPOS_FEATS, DEPREL}, chars_field=FORM_NORM)
     index = create_index(dic, min_frequency=1)
-    train_data = list(map_to_instances(read_conllu(TRAIN_FILE, normalize=None), index, FIELDS, True))
+    train_data = list(map_to_instances(read_conllu(TRAIN_FILE), index, FIELDS, chars_field=FORM_NORM))
     return index, train_data
 
 def to_string(tree, inverse_index):

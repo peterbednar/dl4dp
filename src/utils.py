@@ -9,12 +9,12 @@ from collections import Counter, OrderedDict, namedtuple, defaultdict
 from functools import total_ordering
 
 ID, FORM, LEMMA, UPOS, XPOS, FEATS, HEAD, DEPREL, DEPS, MISC, FORM_NORM, LEMMA_NORM, UPOS_FEATS = range(13)
-FORM_CHAR = 13
+FORM_CHARS = 13
 
 EMPTY = 0
 MULTIWORD = 1
 
-FIELD_TO_STR = ["id", "form", "lemma", "upos", "xpos", "feats", "head", "deprel", "deps", "misc", "form_norm", "lemma_norm", "upos_feats", "form_char"]
+FIELD_TO_STR = ["id", "form", "lemma", "upos", "xpos", "feats", "head", "deprel", "deps", "misc", "form_norm", "lemma_norm", "upos_feats", "form_chars"]
 STR_TO_FIELD = {k : v for v, k in enumerate(FIELD_TO_STR)}
 
 def is_empty(token):
@@ -124,17 +124,27 @@ def read_conllu(filename, skip_empty=True, skip_multiword=True, parse_feats=Fals
         if len(lines) != 0:
             yield _parse_sentence(lines)
 
-def create_dictionary(sentences, fields={FORM, LEMMA, UPOS, XPOS, FEATS, DEPREL}):
+_NUM_FORM_CHARS = ["0"]
+
+def splitter_default(field, value):
+    if value is None:
+        return []
+    if field == FORM_NORM and value == NUM_FORM:
+        return _NUM_FORM_CHARS
+    return list(value)
+
+def create_dictionary(sentences, fields={FORM, LEMMA, UPOS, XPOS, FEATS, DEPREL}, chars_field=None, splitter=splitter_default):
     dic = {f: Counter() for f in fields}
+    if chars_field:
+        dic[FORM_CHARS] = Counter()
     for sentence in sentences:
         for token in sentence:
             for f in fields:
-                if f == FORM_CHAR:
-                    for c in token[FORM]:
-                        dic[f][c] += 1
-                else:
-                    s = token[f]
-                    dic[f][s] += 1
+                s = token[f]
+                dic[f][s] += 1
+            if chars_field:
+                for ch in splitter(chars_field, token[chars_field]):
+                    dic[FORM_CHARS][ch] + 1
     return dic
 
 def create_index(dic, min_frequency=1):
@@ -192,29 +202,25 @@ class DepTree(namedtuple("DepTree", "chars, feats, heads, labels")):
     def __len__(self):
         return len(self.heads)
 
-def map_to_instance(sentence, index, fields=(FORM, UPOS, FEATS), form_chars=False):
+def map_to_instance(sentence, index, fields=(FORM, UPOS, FEATS), chars_field=None, splitter=splitter_default):
     num_tokens = len(sentence)
     num_feats = len(fields)
-    tree = DepTree(num_tokens, num_feats, form_chars)
+    tree = DepTree(num_tokens, num_feats, chars_field is not None)
 
     for i, token in enumerate(sentence):
-        if form_chars:
-            form = token[FORM]
-            tree.chars[i] = np.empty(len(form), dtype=np.int)
-            for j, c in enumerate(form):
-                tree.chars[i][j] = index[FORM_CHAR][c]
-
+        if chars_field:
+            chars = [index[FORM_CHARS][ch] for ch in splitter(chars_field, token[chars_field])]
+            tree.chars[i] = np.array(chars, dtype=np.float)
         for j, f in enumerate(fields):
             tree.feats[i][j] = index[f][token[f]]
-            
         tree.heads[i] = token[HEAD]
         tree.labels[i] = index[DEPREL][token[DEPREL]]
             
     return tree
 
-def map_to_instances(sentences, index, fields=(FORM, UPOS, FEATS), form_chars=False):
+def map_to_instances(sentences, index, fields=(FORM, UPOS, FEATS), chars_field=None):
     for sentence in sentences:
-        yield map_to_instance(sentence, index, fields, form_chars)
+        yield map_to_instance(sentence, index, fields, chars_field)
 
 def count_frequency(sentences, index, fields=(FORM, UPOS, FEATS, DEPREL)):
     count = {f: Counter() for f in fields}
