@@ -55,5 +55,10 @@ if __name__ == "__main__":
     # test_index()
     # test_parse_nonprojective()
 
-    load_data()
+    index, train_data = load_data()
+
+    # print(index[FORM_CHARS])
+    # for tree in train_data:
+    #    print(tree.chars)
+
     print("all tests passed")

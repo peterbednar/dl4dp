@@ -144,7 +144,7 @@ def create_dictionary(sentences, fields={FORM, LEMMA, UPOS, XPOS, FEATS, DEPREL}
                 dic[f][s] += 1
             if chars_field:
                 for ch in splitter(chars_field, token[chars_field]):
-                    dic[FORM_CHARS][ch] + 1
+                    dic[FORM_CHARS][ch] += 1
     return dic
 
 def create_index(dic, min_frequency=1):
@@ -210,7 +210,7 @@ def map_to_instance(sentence, index, fields=(FORM, UPOS, FEATS), chars_field=Non
     for i, token in enumerate(sentence):
         if chars_field:
             chars = [index[FORM_CHARS][ch] for ch in splitter(chars_field, token[chars_field])]
-            tree.chars[i] = np.array(chars, dtype=np.float)
+            tree.chars[i] = np.array(chars, dtype=np.int)
         for j, f in enumerate(fields):
             tree.feats[i][j] = index[f][token[f]]
         tree.heads[i] = token[HEAD]
