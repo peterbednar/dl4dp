@@ -236,6 +236,29 @@ def shuffled_stream(data):
         for d in data:
             yield d
 
+def is_projective(heads):
+    n_len = heads.shape[0]
+    for i in range(n_len):
+        if heads[i] < 0:
+            continue
+        for j in range(i + 1, n_len):
+            if heads[j] < 0:
+                continue
+            edge1_0 = min(i, heads[i])
+            edge1_1 = max(i, heads[i])
+            edge2_0 = min(j, heads[j])
+            edge2_1 = max(j, heads[j])
+            if edge1_0 == edge2_0:
+                if edge1_1 == edge2_1:
+                    return False
+                else:
+                    continue
+            if edge1_0 < edge2_0 and not (edge2_0 >= edge1_1 or edge2_1 <= edge1_1):
+                return False
+            if edge1_0 > edge2_0 and not (edge1_0 >= edge2_1 or edge1_1 <= edge2_1):
+                return False
+    return True
+
 def parse_nonprojective(scores, heads=None):
 
     def _push(queue, elm):
@@ -357,26 +380,3 @@ class _Edge(object):
 
     def __repr__(self):
         return str((self.start, self.end, self.weight))
-
-def is_projective(heads):
-    n_len = heads.shape[0]
-    for i in range(n_len):
-        if heads[i] < 0:
-            continue
-        for j in range(i + 1, n_len):
-            if heads[j] < 0:
-                continue
-            edge1_0 = min(i, heads[i])
-            edge1_1 = max(i, heads[i])
-            edge2_0 = min(j, heads[j])
-            edge2_1 = max(j, heads[j])
-            if edge1_0 == edge2_0:
-                if edge1_1 == edge2_1:
-                    return False
-                else:
-                    continue
-            if edge1_0 < edge2_0 and not (edge2_0 >= edge1_1 or edge2_1 <= edge1_1):
-                return False
-            if edge1_0 > edge2_0 and not (edge1_0 >= edge2_1 or edge1_1 <= edge2_1):
-                return False
-    return True
