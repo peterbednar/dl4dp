@@ -380,3 +380,4 @@ class _Edge(object):
 
     def __repr__(self):
         return str((self.start, self.end, self.weight))
+
