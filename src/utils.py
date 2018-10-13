@@ -8,12 +8,16 @@ import random
 from collections import Counter, OrderedDict, namedtuple, defaultdict
 from functools import total_ordering
 
-ID, FORM, LEMMA, UPOS, XPOS, FEATS, HEAD, DEPREL, DEPS, MISC, FORM_NORM, LEMMA_NORM, UPOS_FEATS, CHARS = range(14)
+ID, FORM, LEMMA, UPOS, XPOS, FEATS, HEAD, DEPREL, DEPS, MISC, FORM_NORM, LEMMA_NORM, UPOS_FEATS = range(13)
+
+_CHARS_FIELD_OFFSET = 13
+FORM_CHARS, LEMMA_CHARS, FORM_NORM_CHARS, LEMMA_NORM_CHARS = range(13, 17)
 
 EMPTY = 0
 MULTIWORD = 1
 
-FIELD_TO_STR = ["id", "form", "lemma", "upos", "xpos", "feats", "head", "deprel", "deps", "misc", "form_norm", "lemma_norm", "upos_feats", "chars"]
+FIELD_TO_STR = ["id", "form", "lemma", "upos", "xpos", "feats", "head", "deprel", "deps", "misc", "form_norm", "lemma_norm", "upos_feats",
+                "form_chars", "lemma_chars", "form_norm_chars", "lemma_norm_chars"]
 STR_TO_FIELD = {k : v for v, k in enumerate(FIELD_TO_STR)}
 
 def is_empty(token):
@@ -132,18 +136,24 @@ def splitter_default(field, value):
         return _NUM_FORM_CHARS
     return list(value)
 
-def create_dictionary(sentences, fields={FORM, LEMMA, UPOS, XPOS, FEATS, DEPREL}, chars_field=None, splitter=splitter_default):
+def split_chars(sentences, fields={FORM}, splitter=splitter_default):
+    for sentence in sentences:
+        for token in sentence:
+            for f in fields:
+                token[f + _CHARS_FIELD_OFFSET] = splitter(token[f])
+        yield sentence
+
+def create_dictionary(sentences, fields={FORM, LEMMA, UPOS, XPOS, FEATS, DEPREL}):
     dic = {f: Counter() for f in fields}
-    if chars_field:
-        dic[CHARS] = Counter()
     for sentence in sentences:
         for token in sentence:
             for f in fields:
                 s = token[f]
-                dic[f][s] += 1
-            if chars_field:
-                for ch in splitter(chars_field, token[chars_field]):
-                    dic[CHARS][ch] += 1
+                if isinstance(s, list):
+                    for ch in s:
+                        dic[f][ch] += 1
+                else:
+                    dic[f][s] += 1
     return dic
 
 def create_index(dic, min_frequency=1):
@@ -191,9 +201,9 @@ def read_index(basename, fields={FORM, UPOS, FEATS, DEPREL}):
 
 class DepTree(namedtuple("DepTree", "chars, feats, heads, labels")):
 
-    def __new__(cls, num_tokens, num_feats=0, form_chars=False):
+    def __new__(cls, num_tokens, num_feats=0, chars_field=False):
         return super(cls, DepTree).__new__(cls,
-                np.empty(num_tokens, dtype=np.object) if form_chars else None,
+                np.empty(num_tokens, dtype=np.object) if chars_field else None,
                 np.empty((num_tokens, num_feats), dtype=np.int) if num_feats > 0 else None,
                 np.full(num_tokens, -1, dtype=np.int),
                 np.full(num_tokens, -1, dtype=np.int))
@@ -201,14 +211,14 @@ class DepTree(namedtuple("DepTree", "chars, feats, heads, labels")):
     def __len__(self):
         return len(self.heads)
 
-def map_to_instance(sentence, index, fields=(FORM, UPOS, FEATS), chars_field=None, splitter=splitter_default):
+def map_to_instance(sentence, index, fields=(FORM, UPOS, FEATS), chars_field=None):
     num_tokens = len(sentence)
     num_feats = len(fields)
     tree = DepTree(num_tokens, num_feats, chars_field is not None)
 
     for i, token in enumerate(sentence):
         if chars_field:
-            chars = [index[CHARS][ch] for ch in splitter(chars_field, token[chars_field])]
+            chars = [index[chars_field][ch] for ch in token[chars_field]]
             tree.chars[i] = np.array(chars, dtype=np.int)
         for j, f in enumerate(fields):
             tree.feats[i][j] = index[f][token[f]]
@@ -258,6 +268,23 @@ def is_projective(heads):
             if edge1_0 > edge2_0 and not (edge1_0 >= edge2_1 or edge1_1 <= edge2_1):
                 return False
     return True
+
+@total_ordering
+class _Edge(object):
+
+    def __init__(self, start, end, weight):
+        self.start = start
+        self.end = end
+        self.weight = weight
+
+    def __eq__(self, other):
+        return (self.weight, self.start, self.end) == (other.weight, other.start, other.end)
+
+    def __lt__(self, other):
+        return (-self.weight, self.start, self.end) < (-other.weight, other.start, other.end)
+
+    def __repr__(self):
+        return str((self.start, self.end, self.weight))
 
 def parse_nonprojective(scores, heads=None):
 
@@ -363,21 +390,4 @@ def parse_nonprojective(scores, heads=None):
         _invert_max_branching(min[scc], h, visited, heads)
 
     return heads
-
-@total_ordering
-class _Edge(object):
-
-    def __init__(self, start, end, weight):
-        self.start = start
-        self.end = end
-        self.weight = weight
-
-    def __eq__(self, other):
-        return (self.weight, self.start, self.end) == (other.weight, other.start, other.end)
-
-    def __lt__(self, other):
-        return (-self.weight, self.start, self.end) < (-other.weight, other.start, other.end)
-
-    def __repr__(self):
-        return str((self.start, self.end, self.weight))
 
