@@ -199,6 +199,27 @@ def read_index(basename, fields={FORM, UPOS, FEATS, DEPREL}):
                 i += 1
     return index
 
+def count_frequency(sentences, index, fields={FORM, UPOS, FEATS, DEPREL}):
+    count = {f: Counter() for f in fields}
+    for sentence in sentences:
+        for token in sentence:
+            for f in fields:
+                s = token[f]
+                if isinstance(s, list):
+                    for ch in s:
+                        i = index[f][ch]
+                        count[f][i] += 1
+                else:
+                    i = index[f][s]
+                    count[f][i] += 1
+    return count
+
+def shuffled_stream(data):
+    while True:
+        random.shuffle(data)
+        for d in data:
+            yield d
+
 class DepTree(namedtuple("DepTree", "chars, feats, heads, labels")):
 
     def __new__(cls, num_tokens, num_feats=0, chars_field=False):
@@ -230,21 +251,6 @@ def map_to_instance(sentence, index, fields=(FORM, UPOS, FEATS), chars_field=Non
 def map_to_instances(sentences, index, fields=(FORM, UPOS, FEATS), chars_field=None):
     for sentence in sentences:
         yield map_to_instance(sentence, index, fields, chars_field)
-
-def count_frequency(sentences, index, fields=(FORM, UPOS, FEATS, DEPREL)):
-    count = {f: Counter() for f in fields}
-    for sentence in sentences:
-        for token in sentence:
-            for f in fields:
-                s = index[f][token[f]]
-                count[f][s] += 1
-    return count
-
-def shuffled_stream(data):
-    while True:
-        random.shuffle(data)
-        for d in data:
-            yield d
 
 def is_projective(heads):
     n_len = heads.shape[0]
