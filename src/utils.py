@@ -8,10 +8,8 @@ import random
 from collections import Counter, OrderedDict, namedtuple, defaultdict
 from functools import total_ordering
 
-ID, FORM, LEMMA, UPOS, XPOS, FEATS, HEAD, DEPREL, DEPS, MISC, FORM_NORM, LEMMA_NORM, UPOS_FEATS = range(13)
-
-_CHARS_FIELD_OFFSET = 13
-FORM_CHARS, LEMMA_CHARS, FORM_NORM_CHARS, LEMMA_NORM_CHARS = range(13, 17)
+ID, FORM, LEMMA, UPOS, XPOS, FEATS, HEAD, DEPREL, DEPS, MISC, FORM_NORM, LEMMA_NORM, UPOS_FEATS,
+FORM_CHARS, LEMMA_CHARS, FORM_NORM_CHARS, LEMMA_NORM_CHARS = range(17)
 
 EMPTY = 0
 MULTIWORD = 1
@@ -136,11 +134,16 @@ def splitter_default(field, value):
         return _NUM_FORM_CHARS
     return list(value)
 
+_CHAR_FIELDS = {FORM: FORM_CHARS, LEMMA: LEMMA_CHARS, FORM_NORM: FORM_NORM_CHARS, LEMMA_NORM: LEMMA_NORM_CHARS}
+
 def split_chars(sentences, fields={FORM}, splitter=splitter_default):
+    char_fields = [(_CHAR_FIELDS[f], f) for f in fields]
     for sentence in sentences:
         for token in sentence:
-            for f in fields:
-                token[f + _CHARS_FIELD_OFFSET] = splitter(token[f])
+            while len(token) <= LEMMA_NORM_CHARS:
+                token.append(None)
+            for (ch, f) in char_fields:
+                token[ch] = splitter(token[f])
         yield sentence
 
 def create_dictionary(sentences, fields={FORM, LEMMA, UPOS, XPOS, FEATS, DEPREL}):
