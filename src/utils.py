@@ -29,12 +29,12 @@ def is_multiword(token):
         token = token[ID]
     return token[2] == MULTIWORD if isinstance(token, tuple) else False
     
-def normalize_lower(field, value):
-    return value.lower() if field == FORM else value
-
 _NUM_REGEX = re.compile("[0-9]+|[0-9]+\\.[0-9]+|[0-9]+[0-9,]+")
 NUM_FORM = u"__number__"
 _NUM_FORM_CHARS = (u"0",)
+
+def normalize_lower(field, value):
+    return value.lower() if field == FORM else value
 
 def normalize_default(field, value):
     if field != FORM:
@@ -56,7 +56,7 @@ def splitter_default(field, value):
         return _NUM_FORM_CHARS
     return tuple(value)
 
-_CHAR_FIELDS = {FORM: FORM_CHARS, LEMMA: LEMMA_CHARS, FORM_NORM: FORM_NORM_CHARS, LEMMA_NORM: LEMMA_NORM_CHARS}
+_CHARS_FIELDS = {FORM: FORM_CHARS, LEMMA: LEMMA_CHARS, FORM_NORM: FORM_NORM_CHARS, LEMMA_NORM: LEMMA_NORM_CHARS}
 
 def read_conllu(filename, skip_empty=True, skip_multiword=True, parse_feats=False, parse_deps=False, upos_feats=True,
                 normalize=normalize_default, splitter=None):
@@ -113,7 +113,7 @@ def read_conllu(filename, skip_empty=True, skip_multiword=True, parse_feats=Fals
             fields[UPOS_FEATS] = tag
 
         if splitter:
-            for (f, ch) in _CHAR_FIELDS.items():
+            for (f, ch) in _CHARS_FIELDS.items():
                 fields[ch] = splitter(f, fields[f])
 
         return fields
