@@ -3,6 +3,7 @@ from __future__ import print_function
 import codecs
 import heapq
 import numpy as np
+import os
 import re
 import random
 from collections import Counter, OrderedDict, namedtuple, defaultdict
@@ -33,6 +34,7 @@ def normalize_lower(field, value):
 
 _NUM_REGEX = re.compile("[0-9]+|[0-9]+\\.[0-9]+|[0-9]+[0-9,]+")
 NUM_FORM = u"__number__"
+_NUM_FORM_CHARS = (u"0",)
 
 def normalize_default(field, value):
     if field != FORM:
@@ -42,7 +44,22 @@ def normalize_default(field, value):
     value = value.lower()
     return value
 
-def read_conllu(filename, skip_empty=True, skip_multiword=True, parse_feats=False, parse_deps=False, upos_feats=True, normalize=normalize_default):
+def splitter_form(field, value):
+    if field != FORM:
+        return None
+    return tuple(value)
+
+def splitter_default(field, value):
+    if value is None:
+        return None
+    if field == FORM_NORM and value == NUM_FORM:
+        return _NUM_FORM_CHARS
+    return tuple(value)
+
+_CHAR_FIELDS = {FORM: FORM_CHARS, LEMMA: LEMMA_CHARS, FORM_NORM: FORM_NORM_CHARS, LEMMA_NORM: LEMMA_NORM_CHARS}
+
+def read_conllu(filename, skip_empty=True, skip_multiword=True, parse_feats=False, parse_deps=False, upos_feats=True,
+                normalize=normalize_default, splitter=None):
 
     def _parse_sentence(lines):
         sentence = []
@@ -57,6 +74,9 @@ def read_conllu(filename, skip_empty=True, skip_multiword=True, parse_feats=Fals
 
     def _parse_token(line):
         fields = line.split("\t")
+        
+        fields = fields[:MISC + 1]
+        fields += [None] * (LEMMA_NORM_CHARS - MISC)
 
         if "." in fields[ID]:
             token_id, index = fields[ID].split(".")
@@ -82,20 +102,19 @@ def read_conllu(filename, skip_empty=True, skip_multiword=True, parse_feats=Fals
             fields[DEPS] = _parse_deps(fields[DEPS])
 
         if normalize:
-            fields.append(normalize(FORM, fields[FORM]))
-            fields.append(normalize(LEMMA, fields[LEMMA]))
-        else:
-            fields.append(None)
-            fields.append(None)
+            fields[FORM_NORM] = normalize(FORM, fields[FORM])
+            fields[LEMMA_NORM] = normalize(LEMMA, fields[LEMMA])
 
         if upos_feats:
             upos = fields[UPOS]
             feats = fields[FEATS]
             tag = "POS={0}".format(upos) if upos is not None else None
             tag = tag + "|" + feats if feats is not None else tag
-            fields.append(tag)
-        else:
-            fields.append(None)
+            fields[UPOS_FEATS] = tag
+
+        if splitter:
+            for (f, ch) in _CHAR_FIELDS.items():
+                fields[ch] = splitter(f, fields[f])
 
         return fields
 
@@ -124,27 +143,6 @@ def read_conllu(filename, skip_empty=True, skip_multiword=True, parse_feats=Fals
             lines.append(line)
         if len(lines) != 0:
             yield _parse_sentence(lines)
-
-_NUM_FORM_CHARS = ["0"]
-
-def splitter_default(field, value):
-    if value is None:
-        return []
-    if field == FORM_NORM and value == NUM_FORM:
-        return _NUM_FORM_CHARS
-    return list(value)
-
-_CHAR_FIELDS = {FORM: FORM_CHARS, LEMMA: LEMMA_CHARS, FORM_NORM: FORM_NORM_CHARS, LEMMA_NORM: LEMMA_NORM_CHARS}
-
-def split_chars(sentences, fields={FORM}, splitter=splitter_default):
-    char_fields = [(_CHAR_FIELDS[f], f) for f in fields]
-    for sentence in sentences:
-        for token in sentence:
-            while len(token) <= LEMMA_NORM_CHARS:
-                token.append(None)
-            for (ch, f) in char_fields:
-                token[ch] = splitter(token[f])
-        yield sentence
 
 def create_dictionary(sentences, fields={FORM, LEMMA, UPOS, XPOS, FEATS, DEPREL}):
     dic = {f: Counter() for f in fields}
@@ -177,32 +175,41 @@ INDEX_FILENAME = "{0}_{1}_index.txt"
 
 _NONE_TOKEN = u"__none__"
 
-def write_index(basename, index, fields={FORM, UPOS, FEATS, DEPREL}):
+def write_index(basename, index, fields=None):
+    if fields is None:
+        fields = index.keys()
     index = create_inverse_index(index)
     for f in fields:
-        c = index[f]
-        with codecs.open(INDEX_FILENAME.format(basename, FIELD_TO_STR[f]), "w", "utf-8") as fp:
+        filename = INDEX_FILENAME.format(basename, FIELD_TO_STR[f])
+        with codecs.open(filename, "w", "utf-8") as fp:
+            c = index[f]
             for i in range(1, len(c) + 1):
                 token = c[i]
                 if token is None:
                     token = _NONE_TOKEN
                 print(token, file=fp)
 
-def read_index(basename, fields={FORM, UPOS, FEATS, DEPREL}):
+def read_index(basename, fields=None):
+    if fields is None:
+        fields = range(len(FIELD_TO_STR))
     index = {}
     for f in fields:
-        index[f] = Counter()
-        with codecs.open(INDEX_FILENAME.format(basename, FIELD_TO_STR[f]), "r", "utf-8") as fp:
-            i = 1
-            for line in fp:
-                token = line.rstrip("\r\n")
-                if token == _NONE_TOKEN:
-                    token = None
-                index[f][token] = i
-                i += 1
+        filename = INDEX_FILENAME.format(basename, FIELD_TO_STR[f])
+        if os.path.isfile(filename):
+            with codecs.open(filename, "r", "utf-8") as fp:
+                index[f] = Counter()
+                i = 1
+                for line in fp:
+                    token = line.rstrip("\r\n")
+                    if token == _NONE_TOKEN:
+                        token = None
+                    index[f][token] = i
+                    i += 1
     return index
 
-def count_frequency(sentences, index, fields={FORM, UPOS, FEATS, DEPREL}):
+def count_frequency(sentences, index, fields=None):
+    if fields is None:
+        fields = index.keys()
     count = {f: Counter() for f in fields}
     for sentence in sentences:
         for token in sentence:
