@@ -20,34 +20,39 @@ FIELD_TO_STR = ["id", "form", "lemma", "upos", "xpos", "feats", "head", "deprel"
 STR_TO_FIELD = {k : v for v, k in enumerate(FIELD_TO_STR)}
 
 def is_empty(token):
-    if isinstance(token, list):
-        token = token[ID]
-    return token[2] == EMPTY if isinstance(token, tuple) else False
+    id = token[ID]
+    return id[2] == EMPTY if isinstance(id, tuple) else False
 
 def is_multiword(token):
-    if isinstance(token, list):
-        token = token[ID]
-    return token[2] == MULTIWORD if isinstance(token, tuple) else False
+    id = token[ID]
+    return id[2] == MULTIWORD if isinstance(id, tuple) else False
     
 _NUM_REGEX = re.compile("[0-9]+|[0-9]+\\.[0-9]+|[0-9]+[0-9,]+")
 NUM_FORM = u"__number__"
 _NUM_FORM_CHARS = (u"0",)
 
 def normalize_lower(field, value):
-    return value.lower() if field == FORM else value
+    if value is None:
+        return None
+    if field == FORM:
+        return value.lower()
+    return value
 
 def normalize_default(field, value):
-    if field != FORM:
-        return value
-    if _NUM_REGEX.match(value):
-        return NUM_FORM
-    value = value.lower()
+    if value == None:
+        return None
+    if field == FORM:
+        if _NUM_REGEX.match(value):
+            return NUM_FORM
+        return value.lower()
     return value
 
 def splitter_form(field, value):
-    if field != FORM:
+    if value == None:
         return None
-    return tuple(value)
+    if field == FORM:
+        return tuple(value)
+    return None
 
 def splitter_default(field, value):
     if value is None:
@@ -88,7 +93,7 @@ def read_conllu(filename, skip_empty=True, skip_multiword=True, parse_feats=Fals
             id = int(fields[ID])
         fields[ID] = id
 
-        for f in [LEMMA, UPOS, XPOS, FEATS, HEAD, DEPREL, DEPS, MISC]:
+        for f in [FORM, LEMMA, UPOS, XPOS, FEATS, HEAD, DEPREL, DEPS, MISC]:
             if fields[f] == "_":
                 fields[f] = None
 
