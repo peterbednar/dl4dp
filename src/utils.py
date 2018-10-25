@@ -101,9 +101,7 @@ def read_conllu(filename, skip_empty=True, skip_multiword=True, parse_feats=Fals
             upos = fields[UPOS]
             feats = fields[FEATS]
             if upos:
-                tag = "POS={0}".format(upos)
-                if feats:
-                    tag = tag + "|" + feats
+                tag = "POS={0}|{1}".format(upos, feats) if feats else "POS={0}".format(upos)
             else:
                 tag = feats
             fields[UPOS_FEATS] = tag
