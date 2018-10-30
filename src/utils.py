@@ -97,6 +97,15 @@ def read_conllu(filename, skip_empty=True, skip_multiword=True, parse_feats=Fals
             if fields[f] == "_":
                 fields[f] = None
 
+        if upos_feats:
+            upos = fields[UPOS]
+            feats = fields[FEATS]
+            if upos:
+                tag = "POS={0}|{1}".format(upos, feats) if feats else "POS={0}".format(upos)
+            else:
+                tag = feats
+            fields[UPOS_FEATS] = tag
+
         if parse_feats and fields[FEATS]:
             fields[FEATS] = _parse_feats(fields[FEATS])
 
@@ -109,13 +118,6 @@ def read_conllu(filename, skip_empty=True, skip_multiword=True, parse_feats=Fals
         if normalize:
             fields[FORM_NORM] = normalize(FORM, fields[FORM])
             fields[LEMMA_NORM] = normalize(LEMMA, fields[LEMMA])
-
-        if upos_feats:
-            upos = fields[UPOS]
-            feats = fields[FEATS]
-            tag = "POS={0}".format(upos) if upos is not None else None
-            tag = tag + "|" + feats if feats is not None else tag
-            fields[UPOS_FEATS] = tag
 
         if splitter:
             for (f, ch) in _CHARS_FIELDS.items():
