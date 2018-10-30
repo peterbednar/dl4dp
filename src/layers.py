@@ -122,9 +122,9 @@ class Biaffine(object):
     def __init__(self, model, input_dim, output_dim):
         self.pc = model.add_subcollection()
         self.U = [Bilinear(model, input_dim) for _ in range(output_dim)]
-        self.x_bias = self.pc.add_parameters((output_dim, input_dim))
-        self.y_bias = self.pc.add_parameters((output_dim, input_dim))
-        self.bias = self.pc.add_parameters(output_dim)
+        self.x_bias = self.pc.add_parameters((output_dim, input_dim), init=dy.ConstInitializer(.0))
+        self.y_bias = self.pc.add_parameters((output_dim, input_dim), init=dy.ConstInitializer(.0))
+        self.bias = self.pc.add_parameters(output_dim, init=dy.ConstInitializer(.0))
 
     def __call__(self, x, y):
         x_bias = dy.parameter(self.x_bias)
