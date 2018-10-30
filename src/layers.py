@@ -107,6 +107,32 @@ class MultiLayerPerceptron(object):
     def disable_dropout(self):
         self.set_dropout(0)
 
+class Bilinear(object):
+
+    def __init__(self, model, dim):
+        self.pc = model.add_subcollection()
+        self.U = self.pc.add_parameters((dim, dim), init=dy.SaxeInitializer)
+
+    def __call__(self, x, y):
+        U = dy.parameter(self.U)
+        return dy.transpose(x) * U * y
+
+class Biaffine(object):
+
+    def __init__(self, model, input_dim, output_dim):
+        self.pc = model.add_subcollection()
+        self.U = [Bilinear(model, input_dim) for _ in range(output_dim)]
+        self.x_bias = self.pc.add_parameters((output_dim, input_dim))
+        self.y_bias = self.pc.add_parameters((output_dim, input_dim))
+        self.bias = self.pc.add_parameters(output_dim)
+
+    def __call__(self, x, y):
+        x_bias = dy.parameter(self.x_bias)
+        y_bias = dy.parameter(self.y_bias)
+        bias = dy.parameter(self.bias)
+        xUy = dy.concatenate([u(x,y) for u in self.U])
+        return xUy + x_bias * x + y_bias * y + bias 
+
 class BiLSTM(object):
 
     def __init__(self, model, input_dim, hidden_dim, num_layers=1, input_dropout=0, output_dropout=0, ln=False, boundary_tokens=True, root_token=True):
