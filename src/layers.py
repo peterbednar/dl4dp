@@ -87,7 +87,6 @@ class Identity(object):
     def __init__(self, model, input_dim, output_dim, init_gain=math.sqrt(2.), dropout=0):
         self.pc = model.add_subcollection()
         self.W = self.pc.add_parameters((output_dim, input_dim), init=dy.GlorotInitializer(gain=init_gain))
-        self.spec = (input_dim, output_dim, init_gain)
         self.dropout = dropout
     
     def __call__(self, x):
