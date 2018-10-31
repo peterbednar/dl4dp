@@ -53,7 +53,7 @@ class Embeddings(object):
 
 class Dense(object):
 
-    def __init__(self, model, input_dim, output_dim, act=dy.rectify, init_gain=math.sqrt(2.), ln=False):
+    def __init__(self, model, input_dim, output_dim, act=dy.rectify, init_gain=math.sqrt(2.), ln=False, dropout=0):
         self.pc = model.add_subcollection()
         self.act = act
         self.ln = ln
@@ -61,6 +61,7 @@ class Dense(object):
         self.b = self.pc.add_parameters(output_dim, init=dy.ConstInitializer(0.))
         if ln:
             self.g = self.pc.add_parameters(output_dim, init=dy.ConstInitializer(1.))
+        self.dropout = dropout
 
     def __call__(self, x):
         W = dy.parameter(self.W)
@@ -68,20 +69,38 @@ class Dense(object):
         if self.ln:
             g = dy.parameter(self.g)
             y = dy.layer_norm(W * x, g, b)
-            return self.act(y)
         else:
             y = dy.affine_transform([b, W, x])
-            return self.act(y)
+        y = self.act(y)
+        if dropout > 0:
+            y = dy.dropout(y, dropout)
+        return y
+
+    def set_dropout(self, dropout):
+        self.dropout = dropout
+
+    def disable_dropout(self):
+        self.set_dropout(0)
 
 class Identity(object):
 
-    def __init__(self, model, input_dim, output_dim, init_gain=math.sqrt(2.)):
+    def __init__(self, model, input_dim, output_dim, init_gain=math.sqrt(2.), dropout=0):
         self.pc = model.add_subcollection()
         self.W = self.pc.add_parameters((output_dim, input_dim), init=dy.GlorotInitializer(gain=init_gain))
         self.spec = (input_dim, output_dim, init_gain)
+        self.dropout = dropout
     
     def __call__(self, x):
-        return dy.parameter(self.W) * x
+        y = dy.parameter(self.W) * x
+        if dropout > 0:
+            y = dy.dropout(y, dropout)
+        return y
+
+    def set_dropout(self, dropout):
+        self.dropout = dropout
+
+    def disable_dropout(self):
+        self.set_dropout(0)
 
 class MultiLayerPerceptron(object):
 
@@ -92,20 +111,20 @@ class MultiLayerPerceptron(object):
         for input_dim, output_dim in zip(self.dims, self.dims[1:-1]):
             self.layers.append(Dense(self.pc, input_dim, output_dim, act, init_gain, ln))
         self.layers.append(Identity(self.pc, self.dims[-2], self.dims[-1], init_gain))
-        self.dropout = dropout
+        self.set_dropout(dropout)
 
     def __call__(self, x):
         for layer in self.layers:
             x = layer(x)
-            if self.dropout > 0:
-                x = dy.dropout(x, self.dropout)
         return x
 
     def set_dropout(self, dropout):
-        self.dropout = dropout
+        for layer in self.layers:
+            layer.set_dropout(dropout)
     
     def disable_dropout(self):
-        self.set_dropout(0)
+        for layer in self.layers:
+            layer.disable_dropout()
 
 class Bilinear(object):
 
