@@ -2,7 +2,7 @@ from __future__ import print_function
 
 import dynet as dy
 import numpy as np
-from layers import Embeddings, BiLSTM, MultiLayerPerceptron
+from layers import Embeddings, BiLSTM, MultiLayerPerceptron, Dense, Biaffine
 from utils import FORM, XPOS, DEPREL, read_index, parse_nonprojective, DepTree
 from abc import ABCMeta, abstractmethod
 
@@ -117,3 +117,45 @@ class MLPParser(MSTParser):
     def from_spec(spec, model):
         kwargs, = spec
         return MLPParser(model, **kwargs)
+
+class BiaffineParser(MSTParser):
+
+    def __init__(self, model, **kwargs):
+        super(BiaffineParser, self).__init__(model, **kwargs)
+        lstm_dim = self.lstm.dims[1]
+
+        arc_dim = kwargs.get("arc_dim", 100)
+        arc_act = kwargs.get("arc_act", "leaky_relu")
+        self.arc_mlp = Dense(model, lstm_dim, arc_dim, arc_act)
+
+        label_dim = kwargs.get("label_dim", 100)
+        label_act = kwargs.get("label_act", "leaky_relu")
+        self.label_mlp = Dense(model, lstm_dim, label_dim, label_act)
+
+        self.arc_biaffine = Biaffine(model, arc_dim, 1)
+        self.label_biaffine = Biaffine(model, label_dim, self.labels_dim)
+
+    def _predict_arc(self, head, dep, h):
+        x = self.arc_mlp(h[head])
+        y = self.arc_mlp(h[dep])
+        return self.arc_biaffine(x, y)
+
+    def _predict_labels(self, head, dep, h):
+        x = self.label_mlp(h[head])
+        y = self.label_mlp(h[dep])
+        return self.label_biaffine(x, y)
+
+    def disable_dropout(self):
+        super(BiaffineParser, self).disable_dropout()
+        self.arc_mlp.disable_dropout()
+        self.label_mlp.disable_dropout()
+
+    def enable_dropout(self):
+        super(BiaffineParser, self).enable_dropout()
+        self.arc_mlp.set_dropout(self.kwargs.get("arc_mlp_dropout", 0))
+        self.label_mlp.set_dropout(self.kwargs.get("label_mlp_dropout", 0))        
+
+    @staticmethod
+    def from_spec(spec, model):
+        kwargs, = spec
+        return BiaffineParser(model, **kwargs)

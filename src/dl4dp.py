@@ -12,7 +12,7 @@ import dynet as dy
 import numpy as np
 import time
 from datetime import timedelta
-from models import MLPParser
+from models import MLPParser, BiaffineParser
 from utils import create_index, create_dictionary, FORM_NORM, UPOS_FEATS, DEPREL
 from utils import DepTree, map_to_instances, read_conllu, shuffled_stream, count_frequency
 
@@ -171,7 +171,8 @@ if __name__ == "__main__":
         input_dropout = None
 
     pc = dy.ParameterCollection()
-    model = MLPParser(pc, embeddings_dims=embeddings_dims, labels_dim=labels_dim, input_dropout=input_dropout)
+    model = BiaffineParser(pc, embeddings_dims=embeddings_dims, labels_dim=labels_dim, input_dropout=input_dropout)
+    #model = MLPParser(pc, embeddings_dims=embeddings_dims, labels_dim=labels_dim, input_dropout=input_dropout)
     trainer = dy.AdamTrainer(pc)
 
     best_epoch, best_score = train(model, trainer, train_data, validation_data, max_epochs)

@@ -139,7 +139,7 @@ class Bilinear(object):
 
     def __init__(self, model, dim):
         self.pc = model.add_subcollection()
-        self.U = self.pc.add_parameters((dim, dim), init=dy.SaxeInitializer)
+        self.U = self.pc.add_parameters((dim, dim), init=dy.SaxeInitializer())
 
     def __call__(self, x, y):
         U = dy.parameter(self.U)
