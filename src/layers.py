@@ -72,8 +72,8 @@ class Dense(object):
         else:
             y = dy.affine_transform([b, W, x])
         y = self.act(y)
-        if dropout > 0:
-            y = dy.dropout(y, dropout)
+        if self.dropout > 0:
+            y = dy.dropout(y, self.dropout)
         return y
 
     def set_dropout(self, dropout):
@@ -91,8 +91,8 @@ class Identity(object):
     
     def __call__(self, x):
         y = dy.parameter(self.W) * x
-        if dropout > 0:
-            y = dy.dropout(y, dropout)
+        if self.dropout > 0:
+            y = dy.dropout(y, self.dropout)
         return y
 
     def set_dropout(self, dropout):

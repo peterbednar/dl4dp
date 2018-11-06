@@ -7,6 +7,7 @@ import random
 random.seed(_rand_seed)
 
 import sys
+import os
 import dynet as dy
 import numpy as np
 import time
@@ -131,6 +132,9 @@ if __name__ == "__main__":
     fields = (FORM_NORM, UPOS_FEATS)
 
     basename = "../build/" + treebank
+    if not os.path.isdir(basename):
+        os.makedirs(basename)
+
     train_filename = "../treebanks/train/" + lang + "/" + treebank + ".conllu"
     validation_filename = "../treebanks/dev/" + lang + "/" + treebank + ".conllu"
     test_filename = "../treebanks/test/" + lang + "/" + treebank + ".conllu"
