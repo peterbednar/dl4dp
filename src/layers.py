@@ -51,9 +51,16 @@ class Embeddings(object):
         for param, a in zip(self.lookup, arrays):
             param.init_from_array(a)
 
+def leaky_relu(x):
+    return dy.bmax(0.1 * x, x)
+
+_STR_TO_ACT = {"tanh": dy.tanh, "sigmoid": dy.logistic, "relu": dy.rectify, "leaky_relu": leaky_relu}
+
 class Dense(object):
 
     def __init__(self, model, input_dim, output_dim, act=dy.rectify, init_gain=math.sqrt(2.), ln=False, dropout=0):
+        if isinstance(act, str):
+            act = _STR_TO_ACT[act]
         self.pc = model.add_subcollection()
         self.act = act
         self.ln = ln
@@ -101,9 +108,12 @@ class Identity(object):
     def disable_dropout(self):
         self.set_dropout(0)
 
+
 class MultiLayerPerceptron(object):
 
     def __init__(self, model, input_dim, hidden_dim, output_dim, num_layers=1, act=dy.rectify, init_gain=math.sqrt(2.), ln=False, dropout=0):
+        if isinstance(act, str):
+            act = _STR_TO_ACT[act]
         self.pc = model.add_subcollection()
         self.dims = [input_dim] + [hidden_dim]*num_layers + [output_dim]
         self.layers = []

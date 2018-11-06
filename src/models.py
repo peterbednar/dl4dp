@@ -79,12 +79,10 @@ class MSTParser(object):
 
     __metaclass__ = ABCMeta
 
-_STR_TO_ACT = {"tanh": dy.tanh, "sigmoid": dy.logistic, "relu": dy.rectify}
-
 def _build_mlp(model, kwargs, prefix, input_dim, hidden_dim, output_dim, num_layers, act):
     hidden_dim = kwargs.get(prefix + "_dim", hidden_dim)
     num_layers = kwargs.get(prefix + "_num_layers", num_layers)
-    act = _STR_TO_ACT[kwargs.get(prefix + "_act", act)]
+    act = kwargs.get(prefix + "_act", act)
     return MultiLayerPerceptron(model, input_dim, hidden_dim, output_dim, num_layers, act)
 
 class MLPParser(MSTParser):
