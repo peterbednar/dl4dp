@@ -126,14 +126,14 @@ class BiaffineParser(MSTParser):
 
         arc_dim = kwargs.get("arc_dim", 100)
         arc_act = kwargs.get("arc_act", "leaky_relu")
-        self.arc_mlp = Dense(model, lstm_dim, arc_dim, arc_act)
+        self.arc_mlp = Dense(self.pc, lstm_dim, arc_dim, arc_act)
 
         label_dim = kwargs.get("label_dim", 100)
         label_act = kwargs.get("label_act", "leaky_relu")
-        self.label_mlp = Dense(model, lstm_dim, label_dim, label_act)
+        self.label_mlp = Dense(self.pc, lstm_dim, label_dim, label_act)
 
-        self.arc_biaffine = Biaffine(model, arc_dim, 1)
-        self.label_biaffine = Biaffine(model, label_dim, self.labels_dim)
+        self.arc_biaffine = Biaffine(self.pc, arc_dim, 1)
+        self.label_biaffine = Biaffine(self.pc, label_dim, self.labels_dim)
 
     def _predict_arc(self, head, dep, h):
         x = self.arc_mlp(h[head])
