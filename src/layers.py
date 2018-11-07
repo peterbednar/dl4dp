@@ -71,13 +71,10 @@ class Dense(object):
         self.dropout = dropout
 
     def __call__(self, x):
-        W = dy.parameter(self.W)
-        b = dy.parameter(self.b)
         if self.ln:
-            g = dy.parameter(self.g)
-            y = dy.layer_norm(W * x, g, b)
+            y = dy.layer_norm(self.W * x, self.g, self.b)
         else:
-            y = dy.affine_transform([b, W, x])
+            y = dy.affine_transform([self.b, self.W, x])
         y = self.act(y)
         if self.dropout > 0:
             y = dy.dropout(y, self.dropout)
@@ -97,7 +94,7 @@ class Identity(object):
         self.dropout = dropout
     
     def __call__(self, x):
-        y = dy.parameter(self.W) * x
+        y = self.W * x
         if self.dropout > 0:
             y = dy.dropout(y, self.dropout)
         return y
@@ -142,8 +139,7 @@ class Bilinear(object):
         self.U = self.pc.add_parameters((dim, dim), init=dy.SaxeInitializer())
 
     def __call__(self, x, y):
-        U = dy.parameter(self.U)
-        return dy.transpose(x) * U * y
+        return dy.transpose(x) * self.U * y
 
 class Biaffine(object):
 
@@ -155,11 +151,8 @@ class Biaffine(object):
         self.bias = self.pc.add_parameters(output_dim, init=dy.ConstInitializer(.0))
 
     def __call__(self, x, y):
-        x_bias = dy.parameter(self.x_bias)
-        y_bias = dy.parameter(self.y_bias)
-        bias = dy.parameter(self.bias)
         xUy = dy.concatenate([u(x,y) for u in self.U])
-        return xUy + x_bias * x + y_bias * y + bias 
+        return xUy + self.x_bias * x + self.y_bias * y + self.bias 
 
 class BiLSTM(object):
 
@@ -187,9 +180,9 @@ class BiLSTM(object):
 
     def __call__(self, x):
         if self.root_token:
-            x = [dy.parameter(self.ROOT)] + x
+            x = [self.ROOT] + x
         if self.boundary_tokens:
-            x = [dy.parameter(self.BOS)] + x + [dy.parameter(self.EOS)]
+            x = [self.BOS] + x + [self.EOS]
         h = self.transduce(x)
         if self.boundary_tokens:
             h[:] = h[1:-1]
