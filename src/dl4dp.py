@@ -49,6 +49,14 @@ def validate(model, validation_data):
     print("\nuas: {0:.4}, las: {1:.4}".format(uas, las))
     return uas, las
 
+def load_data(filename, index, fields, msg=None):
+    data = list(map_to_instances(read_conllu(filename), index, fields))
+    if msg is not None:
+        num_sentences = len(data)
+        num_tokens = sum([len(tree) for tree in data])
+        print(msg.format(num_sentences, num_tokens))
+    return data
+
 _MODEL_FILENAME="{0}_model_{1}"
 
 def train(model, trainer, train_data, validation_data=None, max_epochs=30):
@@ -142,12 +150,10 @@ if __name__ == "__main__":
     print("building index...", end=" ")
     index = create_index(create_dictionary(read_conllu(train_filename), fields + (DEPREL,)))
     print("done")
-    train_data = list(map_to_instances(read_conllu(train_filename), index, fields))
-    print("training sentences: {0}, tokens: {1}".format(len(train_data), sum([len(tree) for tree in train_data])))
+    train_data = load_data(train_filename, index, fields, "training sentences: {0}, tokens: {1}")
 
     if validation_filename:
-        validation_data = list(map_to_instances(read_conllu(validation_filename), index, fields))
-        print("validation sentences: {0}, tokens: {1}".format(len(validation_data), sum([len(tree) for tree in validation_data])))
+        validation_data = load_data(validation_filename, index, fields, "validation sentences: {0}, tokens: {1}")
     else:
         validation_data = None
 
@@ -180,8 +186,7 @@ if __name__ == "__main__":
     if best_epoch > 0:
         print("best epoch: {0}, score: {1:.4} uas, {2:.4} las".format(best_epoch, best_score[0], best_score[1]))
     if test_filename:
-        test_data = list(map_to_instances(read_conllu(test_filename), index, fields))
-        print("testing sentences: {0}, tokens: {1}".format(len(test_data), sum([len(tree) for tree in test_data])))
+        test_data = load_data(test_filename, index, fields, "testing sentences: {0}, tokens: {1}")
         if best_epoch > 0:
             pc = dy.ParameterCollection()
             model, = dy.load(_MODEL_FILENAME.format(basename, best_epoch), pc)

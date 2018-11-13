@@ -105,7 +105,6 @@ class Identity(object):
     def disable_dropout(self):
         self.set_dropout(0)
 
-
 class MultiLayerPerceptron(object):
 
     def __init__(self, model, input_dim, hidden_dim, output_dim, num_layers=1, act=dy.rectify, init_gain=math.sqrt(2.), ln=False, dropout=0):
