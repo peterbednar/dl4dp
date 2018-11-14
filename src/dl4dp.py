@@ -13,7 +13,7 @@ import numpy as np
 import time
 from datetime import timedelta
 from models import MLPParser, BiaffineParser
-from utils import create_index, create_dictionary, FORM_NORM, UPOS_FEATS, DEPREL
+from utils import create_index, create_dictionary, FORM_NORM, UPOS_FEATS, DEPREL, STR_TO_FIELD
 from utils import DepTree, map_to_instances, read_conllu, shuffled_stream, count_frequency
 
 def hinge_loss(scores, gold):
@@ -138,6 +138,7 @@ if __name__ == "__main__":
     form_dropout = 0.25
     xpos_dropout = 0.0
     fields = (FORM_NORM, UPOS_FEATS)
+    embeddings_dims = (100, 25)
 
     basename = "../build/" + treebank
     if not os.path.isdir(basename):
@@ -151,13 +152,9 @@ if __name__ == "__main__":
     index = create_index(create_dictionary(read_conllu(train_filename), fields + (DEPREL,)))
     print("done")
     train_data = load_data(train_filename, index, fields, "training sentences: {0}, tokens: {1}")
+    validation_data = load_data(validation_filename, index, fields, "validation sentences: {0}, tokens: {1}") if validation_filename is not None else None
 
-    if validation_filename:
-        validation_data = load_data(validation_filename, index, fields, "validation sentences: {0}, tokens: {1}")
-    else:
-        validation_data = None
-
-    embeddings_dims = [(len(index[FORM_NORM])+1, 100), (len(index[UPOS_FEATS])+1, 25)]
+    embeddings_dims = [(len(index[f])+1, dim) for (f, dim) in zip(fields, embeddings_dims)]
     labels_dim = len(index[DEPREL])
 
     if form_dropout > 0 or xpos_dropout > 0:
