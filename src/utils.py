@@ -165,15 +165,14 @@ def create_dictionary(sentences, fields={FORM, LEMMA, UPOS, XPOS, FEATS, DEPREL}
     return dic
 
 def create_index(dic, min_frequency=1):
+    index = {f: Counter() for f in dic.keys()}
     for f, c in dic.items():
         ordered = c.most_common()
         min_fq = min_frequency[f] if isinstance(min_frequency, (list, tuple, dict)) else min_frequency
         for i, (s, fq) in enumerate(ordered):
             if fq >= min_fq:
-                c[s] = i + 1
-            else:
-                del c[s]
-    return dic
+                index[f][s] = i + 1
+    return index
 
 def create_inverse_index(index):
     return {f: {v: k for k, v in c.items()} for f, c in index.items()}
