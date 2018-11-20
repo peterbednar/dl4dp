@@ -16,6 +16,7 @@ from collections import Counter
 from models import MLPParser, BiaffineParser
 from utils import create_index, create_dictionary, FORM_NORM, UPOS_FEATS, DEPREL, STR_TO_FIELD
 from utils import DepTree, map_to_instances, read_conllu, shuffled_stream, count_frequency
+from utils import progressbar
 
 def hinge_loss(scores, gold):
     error = 0
@@ -32,6 +33,7 @@ def hinge_loss(scores, gold):
 def validate(model, validation_data):
     num_tokens = 0
     correct_ua = correct_la = 0
+    pb = progressbar(len(validation_data))
 
     for i, gold in enumerate(validation_data):
         num_tokens += len(gold)
@@ -41,13 +43,12 @@ def validate(model, validation_data):
                 correct_ua += 1
                 if parsed.labels[n] == gold.labels[n]:
                     correct_la += 1
-        if (i % 100) == 0:
-            print(".", end="")
-            sys.stdout.flush()
+        pb.update(1)
+    pb.finish()
 
     uas = float(correct_ua) / num_tokens
     las = float(correct_la) / num_tokens
-    print("\nuas: {0:.4}, las: {1:.4}".format(uas, las))
+    print("uas: {0:.4}, las: {1:.4}".format(uas, las))
     return uas, las
 
 _MODEL_FILENAME="{0}_model_{1}"

@@ -6,6 +6,8 @@ import numpy as np
 import os
 import re
 import random
+import sys
+import math
 from collections import Counter, OrderedDict, namedtuple, defaultdict
 from functools import total_ordering
 
@@ -292,7 +294,7 @@ def is_projective(heads):
     return True
 
 @total_ordering
-class _Edge(object):
+class _edge(object):
 
     def __init__(self, start, end, weight):
         self.start = start
@@ -352,7 +354,7 @@ def parse_nonprojective(scores, heads=None):
         q[node] = []
         for i in range(nr):
             if i != node:
-                _push(q[node], _Edge(i, node, scores[i, node]))
+                _push(q[node], _edge(i, node, scores[i, node]))
 
     while roots:
         scc_to = roots.pop()
@@ -413,3 +415,25 @@ def parse_nonprojective(scores, heads=None):
 
     return heads
 
+class progressbar(object):
+
+    def __init__(self, total, width=50, bar=".", end="\n"):
+        self.total = total
+        self.value = 0
+        self.width = width
+        self.bar = bar
+        self.end = end
+
+    def update(self, dif):
+        prev = self._bar()
+        self.value += dif
+        next = self._bar()
+        if prev < next:
+            print(self.bar, end="")
+            sys.stdout.flush()
+
+    def finish(self):
+        print(self.end, end="")
+
+    def _bar(self):
+        return math.floor((self.value / float(self.total)) * self.width)
