@@ -1,6 +1,5 @@
 from __future__ import print_function
 
-import codecs
 import heapq
 import numpy as np
 import os
@@ -65,7 +64,7 @@ def splitter_default(field, value):
 
 _CHARS_FIELDS = {FORM: FORM_CHARS, LEMMA: LEMMA_CHARS, FORM_NORM: FORM_NORM_CHARS, LEMMA_NORM: LEMMA_NORM_CHARS}
 
-def read_conllu(filename, skip_empty=True, skip_multiword=True, parse_feats=False, parse_deps=False, upos_feats=True,
+def read_conllu(file, skip_empty=True, skip_multiword=True, parse_feats=False, parse_deps=False, upos_feats=True,
                 normalize=normalize_default, splitter=None):
 
     def _parse_sentence(lines):
@@ -81,7 +80,6 @@ def read_conllu(filename, skip_empty=True, skip_multiword=True, parse_feats=Fals
 
     def _parse_token(line):
         fields = line.split("\t")
-        
         fields = fields[:MISC + 1]
         fields += [None] * (LEMMA_NORM_CHARS - MISC)
 
@@ -139,8 +137,10 @@ def read_conllu(filename, skip_empty=True, skip_multiword=True, parse_feats=Fals
         return list(map(lambda rel: (int(rel[0]), rel[1]), [rel.split(":") for rel in str.split("|")]))
 
     lines = []
-    with codecs.open(filename, "r", "utf-8") as fp:
-        for line in fp:
+    if isinstance(file, str):
+        file = open(file, "rt", encoding="utf-8")
+    with file:
+        for line in file:
             line = line.rstrip("\r\n")
             if line.startswith("#"):
                 continue
@@ -189,7 +189,7 @@ def write_index(basename, index, fields=None):
     index = create_inverse_index(index)
     for f in fields:
         filename = INDEX_FILENAME.format(basename, FIELD_TO_STR[f])
-        with codecs.open(filename, "w", "utf-8") as fp:
+        with open(filename, "wt", encoding="utf-8") as fp:
             c = index[f]
             for i in range(1, len(c) + 1):
                 token = c[i]
@@ -204,7 +204,7 @@ def read_index(basename, fields=None):
     for f in fields:
         filename = INDEX_FILENAME.format(basename, FIELD_TO_STR[f])
         if os.path.isfile(filename):
-            with codecs.open(filename, "r", "utf-8") as fp:
+            with open(filename, "rt", "utf-8") as fp:
                 index[f] = Counter()
                 i = 1
                 for line in fp:
@@ -424,6 +424,9 @@ class progressbar(object):
         self.bar = bar
         self.end = end
 
+    def _bar(self):
+        return math.floor((self.value / float(self.total)) * self.width)
+
     def update(self, dif):
         prev = self._bar()
         self.value += dif
@@ -434,6 +437,3 @@ class progressbar(object):
 
     def finish(self):
         print(self.end, end="")
-
-    def _bar(self):
-        return math.floor((self.value / float(self.total)) * self.width)

@@ -54,7 +54,7 @@ class Embeddings(object):
 def leaky_relu(x):
     return dy.bmax(0.1 * x, x)
 
-_STR_TO_ACT = {"tanh": dy.tanh, "sigmoid": dy.logistic, "relu": dy.rectify, "leaky_relu": leaky_relu}
+_STR_TO_ACT = {"tanh": dy.tanh, "logistic": dy.logistic, "relu": dy.rectify, "leaky_relu": leaky_relu}
 
 class Dense(object):
 
