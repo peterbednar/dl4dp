@@ -159,7 +159,7 @@ def create_dictionary(sentences, fields={FORM, LEMMA, UPOS, XPOS, FEATS, DEPREL}
         for token in sentence:
             for f in fields:
                 s = token[f]
-                if isinstance(s, list):
+                if isinstance(s, (list, tuple)):
                     for ch in s:
                         dic[f][ch] += 1
                 else:
@@ -204,7 +204,7 @@ def read_index(basename, fields=None):
     for f in fields:
         filename = INDEX_FILENAME.format(basename, FIELD_TO_STR[f])
         if os.path.isfile(filename):
-            with open(filename, "rt", "utf-8") as fp:
+            with open(filename, "rt", encoding="utf-8") as fp:
                 index[f] = Counter()
                 i = 1
                 for line in fp:
@@ -223,7 +223,7 @@ def count_frequency(sentences, index, fields=None):
         for token in sentence:
             for f in fields:
                 s = token[f]
-                if isinstance(s, list):
+                if isinstance(s, (list, tuple)):
                     for ch in s:
                         i = index[f][ch]
                         count[f][i] += 1
@@ -437,3 +437,4 @@ class progressbar(object):
 
     def finish(self):
         print(self.end, end="")
+        sys.stdout.flush()
