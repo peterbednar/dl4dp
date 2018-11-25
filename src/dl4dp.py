@@ -15,7 +15,7 @@ import time
 from datetime import timedelta
 from collections import Counter
 from models import MLPParser, BiaffineParser
-from utils import load_treebank
+from utils import extract_treebank
 from utils import create_index, create_dictionary, DEPREL, STR_TO_FIELD
 from utils import DepTree, map_to_instances, read_conllu, shuffled_stream
 from utils import progressbar
@@ -50,7 +50,7 @@ def validate(model, validation_data):
 
     uas = float(correct_ua) / num_tokens
     las = float(correct_la) / num_tokens
-    print("uas: {0:.4}, las: {1:.4}".format(uas, las))
+    print("UAS: {0:.4}, LAS: {1:.4}".format(uas, las))
     return uas, las
 
 _MODEL_FILENAME="{0}model_{1}"
@@ -141,8 +141,16 @@ def train(model, trainer, train_data, validation_data=None, max_epochs=30):
     model.disable_dropout()
     return best_epoch, best_score
 
+def _build_index(treebank, fields, basename):
+    train_data = extract_treebank(treebank, "train", basename)
+    print("building index...")
+    dic = create_dictionary(read_conllu(train_data), fields + (DEPREL, ))
+    index = create_index(dic)
+    print("building index done")
+    return index, dic
+
 def _load_data(treebank, dataset, index, fields, basename):
-    file = load_treebank(treebank, dataset, basename)
+    file = extract_treebank(treebank, dataset, basename)
     if file:
         data = list(map_to_instances(read_conllu(file), index, fields))
         num_sentences = len(data)
@@ -153,11 +161,24 @@ def _load_data(treebank, dataset, index, fields, basename):
         return None
 
 def _index_frequencies(dic, index, fields):
-    count = tuple([Counter() for f in fields])
+    counts = tuple([Counter() for f in fields])
     for i, f in enumerate(fields):
         for v, freq in dic[f].items():
-            count[i][index[f][v]] += freq
-    return count
+            counts[i][index[f][v]] += freq
+    return counts
+
+class _input_dropout:
+
+    def __init__(self, frequencies, dropout):
+        self._frequencies = frequencies
+        self._dropout = dropout
+
+    def __call__(self, v, f):
+        if self._dropout[f] > 0:
+            drop = (random.random() < (self._dropout[f] / (self._dropout[f] + self._frequencies[f][v])))
+            return 0 if drop else v
+        else:
+            return v
 
 if __name__ == "__main__":
     basename = "../build/"
@@ -174,25 +195,17 @@ if __name__ == "__main__":
 
     fields = tuple([STR_TO_FIELD[f.lower()] for f in fields])
 
-    print("building index...")
-    dic = create_dictionary(read_conllu(load_treebank(treebank, "train", basename)), fields + (DEPREL, ))
-    index = create_index(dic)
-    print("building index done")
+    index, dic = _build_index(treebank, fields, basename)
+    
     train_data = _load_data(treebank, "train", index, fields, basename)
     validation_data = _load_data(treebank, "dev", index, fields, basename)
 
     embeddings_dims = [(len(index[f])+1, dim) for (f, dim) in zip(fields, embeddings_dims)]
     labels_dim = len(index[DEPREL])
+
     if input_dropout is not None:
         frequencies = _index_frequencies(dic, index, fields)
-        dropout = input_dropout
-        def _input_dropout(v, f):
-            if dropout[f] > 0:
-                drop = (random.random() < (dropout[f] / (dropout[f] + frequencies[f][v])))
-                return 0 if drop else v
-            else:
-                return v
-        input_dropout = _input_dropout
+        input_dropout = _input_dropout(frequencies, input_dropout)
 
     pc = dy.ParameterCollection()
     model = BiaffineParser(pc, embeddings_dims=embeddings_dims, labels_dim=labels_dim, input_dropout=input_dropout)
@@ -202,7 +215,7 @@ if __name__ == "__main__":
     best_epoch, best_score = train(model, trainer, train_data, validation_data, max_epochs)
 
     if best_score is not None:
-        print("best epoch: {0}, score: {1:.4} uas, {2:.4} las".format(best_epoch, best_score[0], best_score[1]))
+        print("best epoch: {0}, score: {1:.4} UAS, {2:.4} LAS".format(best_epoch, best_score[0], best_score[1]))
 
     test_data = _load_data(treebank, "test", index, fields, basename)
     if test_data:

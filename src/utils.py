@@ -450,7 +450,7 @@ def list_treebanks(dataset=None, basename=""):
             datasets[dt.group(1)].add(dt.group(2))
     return datasets
 
-def load_treebank(treebank, dataset="train", basename=""):
+def extract_treebank(treebank, dataset="train", basename=""):
     tar = _open_treebanks(basename)
     f = _find_fileinfo(tar, treebank, dataset)
     if f is not None:
