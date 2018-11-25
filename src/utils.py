@@ -497,7 +497,7 @@ class progressbar(object):
     def reset(self, total=None):
         self.value = 0
         if total is not None:
-            self.max = total
+            self.total = total
 
     def finish(self):
         print(self.end, end="")
