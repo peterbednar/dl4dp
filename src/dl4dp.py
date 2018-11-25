@@ -149,7 +149,7 @@ def _load_data(treebank, dataset, index, fields, basename):
         num_tokens = sum([len(tree) for tree in data])
         print("{0} sentences: {1}, tokens: {2}".format(dataset, num_sentences, num_tokens))
         return data
-    else
+    else:
         return None
 
 def _index_frequencies(dic, index, fields):
