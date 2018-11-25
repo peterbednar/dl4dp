@@ -17,6 +17,7 @@ from models import MLPParser, BiaffineParser
 from utils import create_index, create_dictionary, FORM_NORM, UPOS_FEATS, DEPREL, STR_TO_FIELD
 from utils import DepTree, map_to_instances, read_conllu, shuffled_stream, count_frequency
 from utils import progressbar
+from utils import load_treebank
 
 def hinge_loss(scores, gold):
     error = 0
@@ -125,12 +126,13 @@ def train(model, trainer, train_data, validation_data=None, max_epochs=30):
     model.disable_dropout()
     return best_epoch, best_score
 
-def _load_data(filename, index, fields, msg=None):
-    data = list(map_to_instances(read_conllu(filename), index, fields))
-    if msg is not None:
+def _load_data(treebank, dataset, index, fields, basename):
+    file = load_treebank(treebank, dataset, basename)
+    data = list(map_to_instances(read_conllu(file), index, fields))
+    if data:
         num_sentences = len(data)
         num_tokens = sum([len(tree) for tree in data])
-        print(msg.format(num_sentences, num_tokens))
+        print("{0} sentences: {1}, tokens: {2}".format(dataset, num_sentences, num_tokens))
     return data
 
 def _index_frequencies(dic, index, fields):
@@ -140,29 +142,25 @@ def _index_frequencies(dic, index, fields):
             count[i][index[f][v]] += freq
     return count
 
-if __name__ == "__main__":
-    lang = "en"
-    treebank = "en"
-    max_epochs = 1
+from utils import list_treebanks
 
+if __name__ == "__main__":
+    basename = "../build/"
+    treebank = "en_ewt"
     fields = (FORM_NORM, UPOS_FEATS)
     embeddings_dims = (100, 25)
     input_dropout = (0.25, 0)
-    
-    basename = "../build/" + treebank
-    train_filename = "../treebanks/train/" + lang + "/" + treebank + ".conllu"
-    validation_filename = "../treebanks/dev/" + lang + "/" + treebank + ".conllu"
-    test_filename = "../treebanks/test/" + lang + "/" + treebank + ".conllu"
+    max_epochs = 1
 
     if not os.path.isdir(basename):
         os.makedirs(basename)
 
-    print("building index...", end=" ")
-    dic = create_dictionary(read_conllu(train_filename), fields + (DEPREL, ))
+    print("building index...")
+    dic = create_dictionary(read_conllu(load_treebank(treebank, "train", basename)), fields + (DEPREL, ))
     index = create_index(dic)
-    print("done")
-    train_data = _load_data(train_filename, index, fields, "training sentences: {0}, tokens: {1}")
-    validation_data = _load_data(validation_filename, index, fields, "validation sentences: {0}, tokens: {1}") if validation_filename is not None else None
+    print("building index done")
+    train_data = _load_data(treebank, "train", index, fields, basename)
+    validation_data = _load_data(treebank, "dev", index, fields, basename)
 
     embeddings_dims = [(len(index[f])+1, dim) for (f, dim) in zip(fields, embeddings_dims)]
     labels_dim = len(index[DEPREL])
@@ -186,8 +184,9 @@ if __name__ == "__main__":
 
     if best_epoch > 0:
         print("best epoch: {0}, score: {1:.4} uas, {2:.4} las".format(best_epoch, best_score[0], best_score[1]))
-    if test_filename:
-        test_data = _load_data(test_filename, index, fields, "testing sentences: {0}, tokens: {1}")
+
+    test_data = _load_data(treebank, "test", index, fields, basename)
+    if test_data:
         if best_epoch > 0:
             pc = dy.ParameterCollection()
             model, = dy.load(_MODEL_FILENAME.format(basename, best_epoch), pc)

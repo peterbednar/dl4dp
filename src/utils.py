@@ -9,6 +9,9 @@ import sys
 import math
 from collections import Counter, OrderedDict, namedtuple, defaultdict
 from functools import total_ordering
+import urllib.request
+from io import TextIOWrapper
+import tarfile
 
 ID, FORM, LEMMA, UPOS, XPOS, FEATS, HEAD, DEPREL, DEPS, MISC, FORM_NORM, LEMMA_NORM, UPOS_FEATS, \
 FORM_CHARS, LEMMA_CHARS, FORM_NORM_CHARS, LEMMA_NORM_CHARS = range(17)
@@ -183,7 +186,7 @@ INDEX_FILENAME = "{0}_{1}_index.txt"
 
 _NONE_TOKEN = u"__none__"
 
-def write_index(basename, index, fields=None):
+def write_index(index, fields=None, basename=""):
     if fields is None:
         fields = index.keys()
     index = create_inverse_index(index)
@@ -197,7 +200,7 @@ def write_index(basename, index, fields=None):
                     token = _NONE_TOKEN
                 print(token, file=fp)
 
-def read_index(basename, fields=None):
+def read_index(fields=None, basename=""):
     if fields is None:
         fields = range(len(FIELD_TO_STR))
     index = {}
@@ -414,6 +417,62 @@ def parse_nonprojective(scores, heads=None):
         _invert_max_branching(min[scc], h, visited, heads)
 
     return heads
+
+_TREEBANKS_NAME="ud-treebanks-v2.3"
+_TREEBANKS_FILENAME = _TREEBANKS_NAME + ".tgz"
+_DATASET_FILENAME = "/{0}-ud-{1}.conllu"
+
+def _find_fileinfo(tar, treebank, dataset):
+    dataset_filename = _DATASET_FILENAME.format(treebank, dataset)
+    for f in tar.getmembers():
+        if f.name.endswith(dataset_filename):
+            return f
+    return None
+
+def _open_treebanks(basename):
+    if not os.path.isdir(basename):
+        os.makedirs(basename)
+
+    tar_path = basename + _TREEBANKS_FILENAME
+    if not os.path.isfile(tar_path):
+        download_treebanks(tar_path)
+    
+    return tarfile.open(tar_path, "r:gz")
+
+_DATASET_PATTERN="/([^/]+?)-ud-(.+?)\.conllu"
+
+def list_treebanks(dataset=None, basename=""):
+    tar = _open_treebanks(basename)
+    datasets = defaultdict(set)
+    for f in tar.getnames():
+        if f.endswith(".conllu"):
+            dt = re.search(_DATASET_PATTERN, f)
+            datasets[dt.group(1)].add(dt.group(2))
+    return datasets
+
+def load_treebank(treebank, dataset="train", basename=""):
+    tar = _open_treebanks(basename)
+    f = _find_fileinfo(tar, treebank, dataset)
+    if f is not None:
+        return TextIOWrapper(tar.extractfile(f), encoding="utf-8")
+    else:
+        tar.close()
+        return None
+
+_TREEBANKS_URL = "https://lindat.mff.cuni.cz/repository/xmlui/bitstream/handle/11234/1-2895/" + _TREEBANKS_FILENAME
+
+def download_treebanks(filename, block_size=8192):
+    print("downloading " + _TREEBANKS_FILENAME)
+
+    with urllib.request.urlopen(_TREEBANKS_URL) as r:
+        l = int(r.info()["Content-Length"])
+        pb = progressbar(l)
+        with open(filename, mode="wb") as f:
+            while pb.value < l:
+                block = r.read(block_size)
+                f.write(block)
+                pb.update(len(block))
+        pb.finish()
 
 class progressbar(object):
 
