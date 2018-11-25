@@ -142,8 +142,6 @@ def _index_frequencies(dic, index, fields):
             count[i][index[f][v]] += freq
     return count
 
-from utils import list_treebanks
-
 if __name__ == "__main__":
     basename = "../build/"
     treebank = "en_ewt"

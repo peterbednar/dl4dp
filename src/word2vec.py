@@ -80,10 +80,10 @@ if __name__ == "__main__":
     from gensim.models import Word2Vec
     args = _parse_args()
 
-    print("building index...", end=" ")
+    print("building index...")
     dic = create_dictionary(read_conllu(args.inputfile), fields=args.fields)
     index = create_index(dic, min_frequency=args.min_frequency)
-    print("done")
-    write_index(args.outbasename, index, args.fields)
+    print("building index done")
+    write_index(index, args.fields, args.outbasename)
 
     _word2vec(index, args)
