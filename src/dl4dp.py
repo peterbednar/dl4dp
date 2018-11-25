@@ -8,6 +8,7 @@ random.seed(_rand_seed)
 
 import sys
 import os
+import logging
 import dynet as dy
 import numpy as np
 import time
@@ -63,13 +64,19 @@ def train(model, trainer, train_data, validation_data=None, max_epochs=30):
     num_tokens = 0
 
     best_epoch = 0
-    best_score = (0,0)
+    best_score = None
 
     step = 0
     epoch = 0
     dy.renew_cg()
     start_time = time.time()
+    train_len = len(train_data)
+    pb = progressbar(train_len)
+
     for example in shuffled_stream(train_data):
+        if (step % train_len) == 0:
+            print("epoch {0}".format(epoch + 1))
+
         loss = []
         h = model.transduce(example.feats)
 
@@ -96,30 +103,38 @@ def train(model, trainer, train_data, validation_data=None, max_epochs=30):
 
         num_tokens += len(example)
         step += 1
+        pb.update(1)
+
         if (step % 100) == 0:
             elapsed_time = time.time() - start_time
-            print("{0} {1} {2} {3} {4}".format(step, timedelta(seconds=elapsed_time),
+            logging.info("{0} {1} {2} {3} {4} {5}".format(epoch + 1, step, timedelta(seconds=elapsed_time),
                     step_loss / num_tokens,
                     step_arc_error / num_tokens,
                     step_label_error / num_tokens))
-            sys.stdout.flush()
             step_loss = 0.0
             step_arc_error = 0.0
             step_label_error = 0.0
             num_tokens = 0
 
-        if (step % len(train_data)) == 0:
+        if (step % train_len) == 0:
             epoch += 1
-            print("epoch: {0}".format(epoch))
-            if (epoch % 1) == 0 and validation_data:
+            start_time = time.time()
+            pb.finish()
+            pb.reset()
+
+            dy.save(_MODEL_FILENAME.format(basename, epoch), [model])
+
+            if validation_data:
+                print("validating epoch {0}".format(epoch))
                 model.disable_dropout()
                 score = validate(model, validation_data)
                 model.enable_dropout()
-                if best_score[1] < score[1]:
+                if best_score is None or best_score[1] < score[1]:
                     best_epoch = epoch
                     best_score = score
-            dy.save(_MODEL_FILENAME.format(basename, epoch), [model])
-            start_time = time.time()
+            else:
+                best_epoch = epoch
+
             if epoch >= max_epochs:
                 break
 
@@ -145,13 +160,17 @@ def _index_frequencies(dic, index, fields):
 if __name__ == "__main__":
     basename = "../build/"
     treebank = "en_ewt"
-    fields = (FORM_NORM, UPOS_FEATS)
+    fields = ("FORM_NORM", "UPOS_FEATS")
     embeddings_dims = (100, 25)
     input_dropout = (0.25, 0)
-    max_epochs = 1
+    max_epochs = 2
 
     if not os.path.isdir(basename):
         os.makedirs(basename)
+
+    logging.basicConfig(filename=basename + "train.log", filemode="w", format="%(message)s", level=logging.INFO)
+
+    fields = tuple([STR_TO_FIELD[f.lower()] for f in fields])
 
     print("building index...")
     dic = create_dictionary(read_conllu(load_treebank(treebank, "train", basename)), fields + (DEPREL, ))
@@ -180,7 +199,7 @@ if __name__ == "__main__":
 
     best_epoch, best_score = train(model, trainer, train_data, validation_data, max_epochs)
 
-    if best_epoch > 0:
+    if best_score is not None:
         print("best epoch: {0}, score: {1:.4} uas, {2:.4} las".format(best_epoch, best_score[0], best_score[1]))
 
     test_data = _load_data(treebank, "test", index, fields, basename)

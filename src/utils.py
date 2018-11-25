@@ -493,6 +493,11 @@ class progressbar(object):
         if prev < next:
             print(self.bar, end="")
             sys.stdout.flush()
+    
+    def reset(self, total=None):
+        self.value = 0
+        if total is not None:
+            self.max = total
 
     def finish(self):
         print(self.end, end="")
