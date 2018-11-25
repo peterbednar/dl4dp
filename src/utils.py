@@ -182,7 +182,7 @@ def create_index(dic, min_frequency=1):
 def create_inverse_index(index):
     return {f: {v: k for k, v in c.items()} for f, c in index.items()}
 
-INDEX_FILENAME = "{0}_{1}_index.txt"
+INDEX_FILENAME = "{0}index_{1}.txt"
 
 _NONE_TOKEN = u"__none__"
 
@@ -439,7 +439,7 @@ def _open_treebanks(basename):
     
     return tarfile.open(tar_path, "r:gz")
 
-_DATASET_PATTERN="/([^/]+?)-ud-(.+?)\.conllu"
+_DATASET_PATTERN="/([^/]+?)-ud-([^/]+?)\.conllu$"
 
 def list_treebanks(dataset=None, basename=""):
     tar = _open_treebanks(basename)

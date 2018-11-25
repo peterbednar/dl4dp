@@ -15,10 +15,10 @@ import time
 from datetime import timedelta
 from collections import Counter
 from models import MLPParser, BiaffineParser
-from utils import create_index, create_dictionary, FORM_NORM, UPOS_FEATS, DEPREL, STR_TO_FIELD
-from utils import DepTree, map_to_instances, read_conllu, shuffled_stream, count_frequency
-from utils import progressbar
 from utils import load_treebank
+from utils import create_index, create_dictionary, DEPREL, STR_TO_FIELD
+from utils import DepTree, map_to_instances, read_conllu, shuffled_stream
+from utils import progressbar
 
 def hinge_loss(scores, gold):
     error = 0
@@ -53,7 +53,7 @@ def validate(model, validation_data):
     print("uas: {0:.4}, las: {1:.4}".format(uas, las))
     return uas, las
 
-_MODEL_FILENAME="{0}_model_{1}"
+_MODEL_FILENAME="{0}model_{1}"
 
 def train(model, trainer, train_data, validation_data=None, max_epochs=30):
     model.enable_dropout()
