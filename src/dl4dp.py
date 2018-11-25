@@ -143,12 +143,14 @@ def train(model, trainer, train_data, validation_data=None, max_epochs=30):
 
 def _load_data(treebank, dataset, index, fields, basename):
     file = load_treebank(treebank, dataset, basename)
-    data = list(map_to_instances(read_conllu(file), index, fields))
-    if data:
+    if file:
+        data = list(map_to_instances(read_conllu(file), index, fields))
         num_sentences = len(data)
         num_tokens = sum([len(tree) for tree in data])
         print("{0} sentences: {1}, tokens: {2}".format(dataset, num_sentences, num_tokens))
-    return data
+        return data
+    else
+        return None
 
 def _index_frequencies(dic, index, fields):
     count = tuple([Counter() for f in fields])
