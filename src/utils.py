@@ -442,12 +442,12 @@ def _open_treebanks(basename):
 _DATASET_PATTERN="/([^/]+?)-ud-([^/]+?)\.conllu$"
 
 def list_treebanks(basename=""):
-    tar = _open_treebanks(basename)
     datasets = defaultdict(set)
-    for f in tar.getnames():
-        if f.endswith(".conllu"):
-            dt = re.search(_DATASET_PATTERN, f)
-            datasets[dt.group(1)].add(dt.group(2))
+    with _open_treebanks(basename) as tar:
+        for f in tar.getnames():
+            if f.endswith(".conllu"):
+                dt = re.search(_DATASET_PATTERN, f)
+                datasets[dt.group(1)].add(dt.group(2))
     return datasets
 
 def extract_treebank(treebank, dataset="train", basename=""):
