@@ -423,9 +423,9 @@ _TREEBANKS_FILENAME = _TREEBANKS_NAME + ".tgz"
 _DATASET_FILENAME = "/{0}-ud-{1}.conllu"
 
 def _find_fileinfo(tar, treebank, dataset):
-    dataset_filename = _DATASET_FILENAME.format(treebank, dataset)
+    filename = _DATASET_FILENAME.format(treebank, dataset)
     for f in tar.getmembers():
-        if f.name.endswith(dataset_filename):
+        if f.name.endswith(filename):
             return f
     return None
 
@@ -441,7 +441,7 @@ def _open_treebanks(basename):
 
 _DATASET_PATTERN="/([^/]+?)-ud-([^/]+?)\.conllu$"
 
-def list_treebanks(dataset=None, basename=""):
+def list_treebanks(basename=""):
     tar = _open_treebanks(basename)
     datasets = defaultdict(set)
     for f in tar.getnames():
@@ -494,8 +494,8 @@ class progressbar(object):
             print(self.bar, end="")
             sys.stdout.flush()
     
-    def reset(self, total=None):
-        self.value = 0
+    def reset(self, value=0, total=None):
+        self.value = value
         if total is not None:
             self.total = total
 
