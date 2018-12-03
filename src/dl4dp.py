@@ -9,6 +9,7 @@ random.seed(_rand_seed)
 import sys
 import os
 import logging
+from logging import FileHandler, Formatter
 import dynet as dy
 import numpy as np
 import time
@@ -55,7 +56,8 @@ def validate(model, validation_data):
 
 _MODEL_FILENAME="{0}model_{1}"
 
-def train(model, trainer, train_data, validation_data=None, max_epochs=30):
+def train(model, trainer, params):
+    log = logging.getLogger("dl4dp.train")
     model.enable_dropout()
 
     step_loss = 0.0
@@ -70,10 +72,10 @@ def train(model, trainer, train_data, validation_data=None, max_epochs=30):
     epoch = 0
     dy.renew_cg()
     start_time = time.time()
-    train_len = len(train_data)
+    train_len = len(params.train_data)
     pb = progressbar(train_len)
 
-    for example in shuffled_stream(train_data):
+    for example in shuffled_stream(params.train_data):
         if (step % train_len) == 0:
             print("epoch {0}".format(epoch + 1))
 
@@ -107,7 +109,7 @@ def train(model, trainer, train_data, validation_data=None, max_epochs=30):
 
         if (step % 100) == 0:
             elapsed_time = time.time() - start_time
-            logging.info("{0} {1} {2} {3} {4} {5}".format(epoch + 1, step, timedelta(seconds=elapsed_time),
+            log.info("{0} {1} {2} {3} {4} {5}".format(epoch + 1, step, timedelta(seconds=elapsed_time),
                     step_loss / num_tokens,
                     step_arc_error / num_tokens,
                     step_label_error / num_tokens))
@@ -122,12 +124,12 @@ def train(model, trainer, train_data, validation_data=None, max_epochs=30):
             pb.finish()
             pb.reset()
 
-            dy.save(_MODEL_FILENAME.format(basename, epoch), [model])
+            dy.save(_MODEL_FILENAME.format(params.model_basename, epoch), [model])
 
-            if validation_data:
+            if params.validation_data:
                 print("validating epoch {0}".format(epoch))
                 model.disable_dropout()
-                score = validate(model, validation_data)
+                score = validate(model, params.validation_data)
                 model.enable_dropout()
                 if best_score is None or best_score[1] < score[1]:
                     best_epoch = epoch
@@ -135,37 +137,11 @@ def train(model, trainer, train_data, validation_data=None, max_epochs=30):
             else:
                 best_epoch = epoch
 
-            if epoch >= max_epochs:
+            if epoch >= params.max_epochs:
                 break
 
     model.disable_dropout()
     return best_epoch, best_score
-
-def _build_index(treebank, fields, basename):
-    train_data = extract_treebank(treebank, "train", basename)
-    print("building index...")
-    dic = create_dictionary(read_conllu(train_data), fields + (DEPREL, ))
-    index = create_index(dic)
-    print("building index done")
-    return index, dic
-
-def _load_data(treebank, dataset, index, fields, basename):
-    file = extract_treebank(treebank, dataset, basename)
-    if file:
-        data = list(map_to_instances(read_conllu(file), index, fields))
-        num_sentences = len(data)
-        num_tokens = sum([len(tree) for tree in data])
-        print("{0} sentences: {1}, tokens: {2}".format(dataset, num_sentences, num_tokens))
-        return data
-    else:
-        return None
-
-def _index_frequencies(dic, index, fields):
-    counts = tuple([Counter() for f in fields])
-    for i, f in enumerate(fields):
-        for v, freq in dic[f].items():
-            counts[i][index[f][v]] += freq
-    return counts
 
 class _input_dropout:
 
@@ -180,46 +156,84 @@ class _input_dropout:
         else:
             return v
 
-if __name__ == "__main__":
-    basename = "../build/"
-    treebank = "en_ewt"
-    fields = ("FORM_NORM", "UPOS_FEATS")
-    embeddings_dims = (100, 25)
-    input_dropout = (0.25, 0)
-    max_epochs = 2
+class Params:
 
-    if not os.path.isdir(basename):
-        os.makedirs(basename)
+    def __init__(self, entries):
+        self.__dict__.update(entries)
 
-    logging.basicConfig(filename=basename + "train.log", filemode="w", format="%(message)s", level=logging.INFO)
-
-    fields = tuple([STR_TO_FIELD[f.lower()] for f in fields])
-
-    index, dic = _build_index(treebank, fields, basename)
+    def config(self):
+        self._basic_config()
+        self._set_index()
+        self._set_datasets()
+        self._set_dims()
+        self._set_input_dropout()
     
-    train_data = _load_data(treebank, "train", index, fields, basename)
-    validation_data = _load_data(treebank, "dev", index, fields, basename)
+    def _basic_config(self):
+        self.model_basename = self.basename + self.treebank + "/"
+        if not os.path.isdir(self.model_basename):
+            os.makedirs(self.model_basename)
 
-    embeddings_dims = [(len(index[f])+1, dim) for (f, dim) in zip(fields, embeddings_dims)]
-    labels_dim = len(index[DEPREL])
+        log = logging.getLogger("dl4dp.train")
+        log.setLevel(logging.INFO)
+        log.addHandler(FileHandler(self.model_basename + "train.log", mode="w"))
 
-    if input_dropout is not None:
-        frequencies = _index_frequencies(dic, index, fields)
-        input_dropout = _input_dropout(frequencies, input_dropout)
+    def _set_index(self):
+        self.fields = tuple([STR_TO_FIELD[f.lower()] for f in self.fields])
+
+        train_data = extract_treebank(self.treebank, "train", self.basename)
+        print("building index...")
+        self.index = create_index(create_dictionary(read_conllu(train_data), self.fields + (DEPREL, )))
+        print("building index done")
+
+    def _set_datasets(self):
+        self.train_data = self._load_data("train")
+        self.validation_data = self._load_data("dev")
+        self.test_data = self._load_data("test")
+
+    def _set_dims(self):
+        self.embeddings_dims = [(len(self.index[f])+1, dim) for (f, dim) in zip(self.fields, self.embeddings_dims)]
+        self.labels_dim = len(self.index[DEPREL])
+    
+    def _set_input_dropout(self):
+        # to be implemented
+        pass
+
+    def _load_data(self, dataset):
+        file = extract_treebank(self.treebank, dataset, self.basename)
+        if file:
+            data = list(map_to_instances(read_conllu(file), self.index, self.fields))
+            num_sentences = len(data)
+            num_tokens = sum([len(tree) for tree in data])
+            print("{0} sentences: {1}, tokens: {2}".format(dataset, num_sentences, num_tokens))
+            return data
+        else:
+            return None
+
+if __name__ == "__main__":
+
+    params = Params({
+        "basename" : "../build/",
+        "treebank" : "en_ewt",
+        "fields" : ("FORM_NORM", "UPOS_FEATS"),
+        "embeddings_dims" : (100, 25),
+        #"input_dropout" : (0.25, 0),
+        "max_epochs" : 2
+    })
+
+    params.config()
 
     pc = dy.ParameterCollection()
-    model = BiaffineParser(pc, embeddings_dims=embeddings_dims, labels_dim=labels_dim, input_dropout=input_dropout)
-    #model = MLPParser(pc, embeddings_dims=embeddings_dims, labels_dim=labels_dim, input_dropout=input_dropout)
+    model = BiaffineParser(pc, **params.__dict__)
+    #model = MLPParser(pc, **params.__dict__)
     trainer = dy.AdamTrainer(pc)
 
-    best_epoch, best_score = train(model, trainer, train_data, validation_data, max_epochs)
+    best_epoch, best_score = train(model, trainer, params)
 
     if best_score is not None:
         print("best epoch: {0}, score: {1:.4} UAS, {2:.4} LAS".format(best_epoch, best_score[0], best_score[1]))
 
-    test_data = _load_data(treebank, "test", index, fields, basename)
-    if test_data:
+    if params.test_data:
         if best_epoch > 0:
             pc = dy.ParameterCollection()
-            model, = dy.load(_MODEL_FILENAME.format(basename, best_epoch), pc)
-        validate(model, test_data)
+            model, = dy.load(_MODEL_FILENAME.format(params.model_basename, best_epoch), pc)
+        validate(model, params.test_data)
