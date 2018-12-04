@@ -118,9 +118,11 @@ class MLPParser(MSTParser):
         kwargs, = spec
         return MLPParser(model, **kwargs)
 
-def _build_dense(model, kwargs, prefix, input_dim, output_dim, act):
+def _build_head_dep(model, kwargs, prefix, input_dim, output_dim, act):
     act = kwargs.get(prefix + "_act", act)
-    return Dense(model, input_dim, output_dim, act)
+    head = Dense(model, input_dim, output_dim, act)
+    dep = Dense(model, input_dim, output_dim, act)
+    return (head, dep)
 
 class BiaffineParser(MSTParser):
 
@@ -131,10 +133,8 @@ class BiaffineParser(MSTParser):
         arc_dim = kwargs.get("arc_mlp_dim", 100)
         label_dim = kwargs.get("label_mlp_dim", 100)
 
-        self.arc_head_mlp = _build_dense(self.pc, kwargs, "arc_mlp", lstm_dim, arc_dim, "leaky_relu")
-        self.arc_dep_mlp = _build_dense(self.pc, kwargs, "arc_mlp", lstm_dim, arc_dim, "leaky_relu")
-        self.label_head_mlp = _build_dense(self.pc, kwargs, "label_mlp", lstm_dim, label_dim, "leaky_relu")
-        self.label_dep_mlp = _build_dense(self.pc, kwargs, "label_mlp", lstm_dim, label_dim, "leaky_relu")
+        self.arc_head_mlp, self.arc_dep_mlp = _build_head_dep(self.pc, kwargs, "arc_mlp", lstm_dim, arc_dim, "leaky_relu")
+        self.label_head_mlp, self.label_dep_mlp = _build_head_dep(self.pc, kwargs, "label_mlp", lstm_dim, label_dim, "leaky_relu")
 
         self.arc_biaffine = Biaffine(self.pc, arc_dim, 1)
         self.label_biaffine = Biaffine(self.pc, label_dim, self.labels_dim)
