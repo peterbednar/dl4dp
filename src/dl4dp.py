@@ -57,7 +57,6 @@ def validate(model, validation_data):
 _MODEL_FILENAME="{0}model_{1}"
 
 def train(model, trainer, params):
-    log = logging.getLogger("dl4dp.train")
     model.enable_dropout()
 
     step_loss = 0.0
@@ -109,7 +108,7 @@ def train(model, trainer, params):
 
         if (step % 100) == 0:
             elapsed_time = time.time() - start_time
-            log.info("{0} {1} {2} {3} {4} {5}".format(epoch + 1, step, timedelta(seconds=elapsed_time),
+            params.logger.info("{0} {1} {2} {3} {4} {5}".format(epoch + 1, step, timedelta(seconds=elapsed_time),
                     step_loss / num_tokens,
                     step_arc_error / num_tokens,
                     step_label_error / num_tokens))
@@ -158,8 +157,9 @@ class _input_dropout:
 
 class Params:
 
-    def __init__(self, entries):
-        self.__dict__.update(entries)
+    def __init__(self, params):
+        self.__dict__.update(params)
+        self.model_params = dict(params)
 
     def config(self):
         self._basic_config()
@@ -167,7 +167,7 @@ class Params:
         self._set_datasets()
         self._set_dims()
         self._set_input_dropout()
-    
+
     def _basic_config(self):
         self.model_basename = self.basename + self.treebank + "/"
         if not os.path.isdir(self.model_basename):
@@ -176,6 +176,7 @@ class Params:
         log = logging.getLogger("dl4dp.train")
         log.setLevel(logging.INFO)
         log.addHandler(FileHandler(self.model_basename + "train.log", mode="w"))
+        self.logger = log
 
     def _set_index(self):
         self.fields = tuple([STR_TO_FIELD[f.lower()] for f in self.fields])
@@ -191,8 +192,8 @@ class Params:
         self.test_data = self._load_data("test")
 
     def _set_dims(self):
-        self.embeddings_dims = [(len(self.index[f])+1, dim) for (f, dim) in zip(self.fields, self.embeddings_dims)]
-        self.labels_dim = len(self.index[DEPREL])
+        self.model_params["embeddings_dims"] = [(len(self.index[f])+1, dim) for (f, dim) in zip(self.fields, self.embeddings_dims)]
+        self.model_params["labels_dim"] = len(self.index[DEPREL])
     
     def _set_input_dropout(self):
         # to be implemented
@@ -223,8 +224,7 @@ if __name__ == "__main__":
     params.config()
 
     pc = dy.ParameterCollection()
-    model = BiaffineParser(pc, **params.__dict__)
-    #model = MLPParser(pc, **params.__dict__)
+    model = BiaffineParser(pc, **params.model_params)
     trainer = dy.AdamTrainer(pc)
 
     best_epoch, best_score = train(model, trainer, params)
