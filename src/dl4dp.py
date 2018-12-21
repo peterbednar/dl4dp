@@ -163,8 +163,10 @@ class Params(object):
         self._set_input_dropout()
 
     def dynet_config(self):
-        dynet_config.set(mem=self.dynet_mem, random_seed=self.random_seed)
-        random.seed(self.random_seed)
+        random_seed = getattr(self, "random_seed", 0)
+        dynet_mem = getattr(self, "dynet_mem", 1024)
+        dynet_config.set(mem=dynet_mem, random_seed=random_seed)
+        random.seed(random_seed)
 
     def _basic_config(self):
         self.model_basename = self.basename + self.treebank + "/"
