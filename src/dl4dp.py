@@ -1,25 +1,19 @@
 from __future__ import print_function
 
-_rand_seed = 123456789
-import dynet_config
-dynet_config.set(mem=1024,random_seed=_rand_seed)
-import random
-random.seed(_rand_seed)
-
 import sys
 import os
 import logging
 from logging import FileHandler, Formatter
-import dynet as dy
+import random
 import numpy as np
 import time
 from datetime import timedelta
 from collections import Counter
-from models import MLPParser, BiaffineParser
 from utils import extract_treebank
 from utils import create_index, create_dictionary, DEPREL, STR_TO_FIELD
 from utils import DepTree, map_to_instances, read_conllu, shuffled_stream
 from utils import progressbar
+import dynet_config
 
 def hinge_loss(scores, gold):
     error = 0
@@ -32,27 +26,6 @@ def hinge_loss(scores, gold):
     if scarray[gold] < scarray[best_wrong] + 1.0:
         loss = scores[best_wrong] - scores[gold] + 1.0
     return error, loss
-
-def validate(model, validation_data):
-    num_tokens = 0
-    correct_ua = correct_la = 0
-    pb = progressbar(len(validation_data))
-
-    for i, gold in enumerate(validation_data):
-        num_tokens += len(gold)
-        parsed = model.parse(gold.feats)
-        for n in range(len(gold)):
-            if parsed.heads[n] == gold.heads[n]:
-                correct_ua += 1
-                if parsed.labels[n] == gold.labels[n]:
-                    correct_la += 1
-        pb.update(1)
-    pb.finish()
-
-    uas = float(correct_ua) / num_tokens
-    las = float(correct_la) / num_tokens
-    print("UAS: {0:.4}, LAS: {1:.4}".format(uas, las))
-    return uas, las
 
 _MODEL_FILENAME="{0}model_{1}"
 
@@ -142,7 +115,28 @@ def train(model, trainer, params):
     model.disable_dropout()
     return best_epoch, best_score
 
-class _input_dropout:
+def validate(model, validation_data):
+    num_tokens = 0
+    correct_ua = correct_la = 0
+    pb = progressbar(len(validation_data))
+
+    for i, gold in enumerate(validation_data):
+        num_tokens += len(gold)
+        parsed = model.parse(gold.feats)
+        for n in range(len(gold)):
+            if parsed.heads[n] == gold.heads[n]:
+                correct_ua += 1
+                if parsed.labels[n] == gold.labels[n]:
+                    correct_la += 1
+        pb.update(1)
+    pb.finish()
+
+    uas = float(correct_ua) / num_tokens
+    las = float(correct_la) / num_tokens
+    print("UAS: {0:.4}, LAS: {1:.4}".format(uas, las))
+    return uas, las
+
+class _input_dropout(object):
 
     def __init__(self, frequencies, dropout):
         self._frequencies = frequencies
@@ -155,7 +149,7 @@ class _input_dropout:
         else:
             return v
 
-class Params:
+class Params(object):
 
     def __init__(self, params):
         self.__dict__.update(params)
@@ -177,6 +171,13 @@ class Params:
         log.setLevel(logging.INFO)
         log.addHandler(FileHandler(self.model_basename + "train.log", mode="w"))
         self.logger = log
+
+        dynet_config.set(mem=self.dynet_mem, random_seed=self.random_seed)
+        random.seed(self.random_seed)
+        
+        import dynet as dy
+        from models import MLPParser, BiaffineParser
+
 
     def _set_index(self):
         self.fields = tuple([STR_TO_FIELD[f.lower()] for f in self.fields])
@@ -218,7 +219,9 @@ if __name__ == "__main__":
         "fields" : ("FORM_NORM", "UPOS_FEATS"),
         "embeddings_dims" : (100, 25),
         #"input_dropout" : (0.25, 0),
-        "max_epochs" : 2
+        "max_epochs" : 2,
+        "random_seed" : 123456789,
+        "dynet_mem" : 1024
     })
 
     params.config()
