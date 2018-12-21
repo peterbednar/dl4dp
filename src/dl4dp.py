@@ -162,6 +162,10 @@ class Params(object):
         self._set_dims()
         self._set_input_dropout()
 
+    def dynet_config(self):
+        dynet_config.set(mem=self.dynet_mem, random_seed=self.random_seed)
+        random.seed(self.random_seed)
+
     def _basic_config(self):
         self.model_basename = self.basename + self.treebank + "/"
         if not os.path.isdir(self.model_basename):
@@ -171,13 +175,6 @@ class Params(object):
         log.setLevel(logging.INFO)
         log.addHandler(FileHandler(self.model_basename + "train.log", mode="w"))
         self.logger = log
-
-        dynet_config.set(mem=self.dynet_mem, random_seed=self.random_seed)
-        random.seed(self.random_seed)
-        
-        import dynet as dy
-        from models import MLPParser, BiaffineParser
-
 
     def _set_index(self):
         self.fields = tuple([STR_TO_FIELD[f.lower()] for f in self.fields])
@@ -223,6 +220,10 @@ if __name__ == "__main__":
         "random_seed" : 123456789,
         "dynet_mem" : 1024
     })
+
+    params.dynet_config()
+    import dynet as dy
+    from models import MLPParser, BiaffineParser
 
     params.config()
 
