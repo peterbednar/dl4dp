@@ -5,6 +5,24 @@ import dynet as dy
 from utils import FORM, XPOS
 from word2vec import read_word2vec
 
+
+class InputDropout(object):
+
+    def __init__(self, dropout, frequencies=None):
+        self._frequencies = frequencies
+        self._dropout = dropout
+
+    def __call__(self, v, f):
+        if self._dropout[f] > 0:
+            if self._frequencies is None:
+                drop = (random.random() < self._dropout[f])
+            else:
+                drop = (random.random() < (self._dropout[f] / (self._dropout[f] + self._frequencies[f][v])))
+            return 0 if drop else v
+        else:
+            return v
+
+
 class Embeddings(object):
 
     def __init__(self, model, dims, dropout=0, input_dropout=None, update=True):

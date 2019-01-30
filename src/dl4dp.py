@@ -136,19 +136,6 @@ def validate(model, validation_data):
     print("UAS: {0:.4}, LAS: {1:.4}".format(uas, las))
     return uas, las
 
-class _input_dropout(object):
-
-    def __init__(self, frequencies, dropout):
-        self._frequencies = frequencies
-        self._dropout = dropout
-
-    def __call__(self, v, f):
-        if self._dropout[f] > 0:
-            drop = (random.random() < (self._dropout[f] / (self._dropout[f] + self._frequencies[f][v])))
-            return 0 if drop else v
-        else:
-            return v
-
 class Params(object):
 
     def __init__(self, params):
