@@ -11,6 +11,7 @@ from collections import Counter, OrderedDict, namedtuple, defaultdict
 from functools import total_ordering
 import urllib.request
 from io import TextIOWrapper
+import gzip
 import tarfile
 
 ID, FORM, LEMMA, UPOS, XPOS, FEATS, HEAD, DEPREL, DEPS, MISC, FORM_NORM, LEMMA_NORM, UPOS_FEATS, \
@@ -461,10 +462,36 @@ def extract_treebank(treebank, dataset="train", basename=""):
 
 _TREEBANKS_URL = "https://lindat.mff.cuni.cz/repository/xmlui/bitstream/handle/11234/1-2895/" + _TREEBANKS_FILENAME
 
-def download_treebanks(filename, block_size=8192):
+def download_treebanks(filename):
     print("downloading " + _TREEBANKS_FILENAME)
+    download_url(_TREEBANKS_URL, filename)
 
-    with urllib.request.urlopen(_TREEBANKS_URL) as r:
+def extract_embeddings(lang, basename=""):
+    if not os.path.isdir(basename):
+        os.makedirs(basename)
+
+    filename = basename + _EMBEDDINGS_FILENAME.format(lang)
+    if not os.path.isfile(filename):
+        download_embeddings(filename, lang)
+
+    with gzip.open(filename, mode="rt", encoding="utf-8") as fp:
+        head = fp.readline()
+        for line in fp:
+            tokens = line.rstrip().split(" ")
+            w = tokens[0]
+            v = np.array([float(t) for t in tokens[1:]], dtype=np.float)
+            yield (w, v) 
+
+_EMBEDDINGS_FILENAME = "cc.{0}.300.vec.gz"
+_EMBEDDINGS_URL = "https://dl.fbaipublicfiles.com/fasttext/vectors-crawl/cc.{0}.300.vec.gz"
+
+def download_embeddings(filename, lang):
+    url = _EMBEDDINGS_URL.format(lang)
+    print("downloading " + filename)
+    download_url(url, filename)
+
+def download_url(url, filename, block_size=8192):
+    with urllib.request.urlopen(url) as r:
         l = int(r.info()["Content-Length"])
         pb = progressbar(l)
         with open(filename, mode="wb") as f:
@@ -502,3 +529,7 @@ class progressbar(object):
     def finish(self):
         print(self.end, end="")
         sys.stdout.flush()
+
+if __name__ == "__main__":
+    for (w, v) in extract_embeddings("en", basename="../build/"):
+        print(w, v.shape)

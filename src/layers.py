@@ -14,21 +14,20 @@ class Embeddings(object):
         self.set_update(update)
         self.dim = sum([dim for (_,dim) in dims])
 
+    def _lookup(self, feats, i, f):
+        v = feats[i,f]
+        if self.input_dropout is not None:
+            v = self.input_dropout(v, f)
+        embds = dy.lookup(self.lookup[f], v, update=self.update[f])
+        dropout = self.dropout[f]
+        if dropout > 0:
+            embds = dy.dropout(embds, dropout)
+        return embds
+
     def __call__(self, feats):
-
-        def _lookup(i, f):
-            v = feats[i,f]
-            if self.input_dropout is not None:
-                v = self.input_dropout(v, f)
-            embds = dy.lookup(self.lookup[f], v, update=self.update[f])
-            dropout = self.dropout[f]
-            if dropout > 0:
-                embds = dy.dropout(embds, dropout)
-            return embds
-
         num_tokens, num_feats = feats.shape
         if num_feats > 1:
-            x = [dy.concatenate([_lookup(i,f) for f in range(num_feats)]) for i in range(num_tokens)]
+            x = [dy.concatenate([self._lookup(feats,i,f) for f in range(num_feats)]) for i in range(num_tokens)]
         else:
             x = [_lookup(i,0) for i in range(num_tokens)]
         return x
