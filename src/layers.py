@@ -2,7 +2,7 @@ from __future__ import print_function
 
 import math
 import dynet as dy
-from utils import FORM, XPOS
+from utils import FORM, XPOS, extract_embeddings
 from word2vec import read_word2vec
 
 class Embeddings(object):
@@ -29,7 +29,7 @@ class Embeddings(object):
         if num_feats > 1:
             x = [dy.concatenate([self._lookup(feats,i,f) for f in range(num_feats)]) for i in range(num_tokens)]
         else:
-            x = [_lookup(i,0) for i in range(num_tokens)]
+            x = [self._lookup(feats,i,0) for i in range(num_tokens)]
         return x
 
     def set_dropout(self, dropout, input_dropout=None):
@@ -50,6 +50,16 @@ class Embeddings(object):
         for param, a in zip(self.lookup, arrays):
             param.init_from_array(a)
 
+    def init_from_embeddings(self, embeddings, basename, index, field=0):
+        init_count = 0
+        embds = self.lookup[field]
+        for (w, vec) in extract_embeddings(embeddings, basename):
+            i = index.get(w)
+            if i is not None:
+                embds.init_row(i, vec)
+                init_count += 1
+        return init_count
+            
 def leaky_relu(x):
     return dy.bmax(0.1 * x, x)
 

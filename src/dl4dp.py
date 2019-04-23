@@ -203,7 +203,7 @@ if __name__ == "__main__":
         "basename" : "../build/",
         "treebank" : "en_ewt",
         "fields" : ("FORM_NORM", "UPOS_FEATS"),
-        "embeddings_dims" : (100, 25),
+        "embeddings_dims" : (300, 100),
         #"input_dropout" : (0.25, 0),
         "max_epochs" : 2,
         "random_seed" : 123456789,

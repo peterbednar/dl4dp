@@ -440,7 +440,7 @@ def _open_treebanks(basename):
     
     return tarfile.open(tar_path, "r:gz")
 
-_DATASET_PATTERN="/([^/]+?)-ud-([^/]+?)\.conllu$"
+_DATASET_PATTERN = r"/([^/]+?)-ud-([^/]+?)\.conllu$"
 
 def list_treebanks(basename=""):
     datasets = defaultdict(set)
@@ -466,29 +466,28 @@ def download_treebanks(filename):
     print("downloading " + _TREEBANKS_FILENAME)
     download_url(_TREEBANKS_URL, filename)
 
-def extract_embeddings(lang, basename=""):
+def extract_embeddings(embeddings, basename=""):
     if not os.path.isdir(basename):
         os.makedirs(basename)
 
-    filename = basename + _EMBEDDINGS_FILENAME.format(lang)
+    filename = basename + _EMBEDDINGS_FILENAME.format(embeddings)
     if not os.path.isfile(filename):
-        download_embeddings(filename, lang)
+        download_embeddings(filename, embeddings)
 
     with gzip.open(filename, mode="rt", encoding="utf-8") as fp:
-        head = fp.readline()
+        fp.readline()
         for line in fp:
-            tokens = line.rstrip().split(" ")
+            tokens = line.rstrip("\r\n").split(" ")
             w = tokens[0]
             v = np.array([float(t) for t in tokens[1:]], dtype=np.float)
             yield (w, v) 
 
 _EMBEDDINGS_FILENAME = "cc.{0}.300.vec.gz"
-_EMBEDDINGS_URL = "https://dl.fbaipublicfiles.com/fasttext/vectors-crawl/cc.{0}.300.vec.gz"
+_EMBEDDINGS_URL = "https://dl.fbaipublicfiles.com/fasttext/vectors-crawl/" + _EMBEDDINGS_FILENAME
 
-def download_embeddings(filename, lang):
-    url = _EMBEDDINGS_URL.format(lang)
-    print("downloading " + filename)
-    download_url(url, filename)
+def download_embeddings(filename, embeddings):
+    print("downloading " + _EMBEDDINGS_FILENAME.format(embeddings))
+    download_url(_EMBEDDINGS_URL.format(embeddings), filename)
 
 def download_url(url, filename, block_size=8192):
     with urllib.request.urlopen(url) as r:
