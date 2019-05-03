@@ -9,7 +9,7 @@ import numpy as np
 import time
 from datetime import timedelta
 from collections import Counter
-from utils import extract_treebank
+from utils import open_treebank
 from utils import create_index, create_dictionary, DEPREL, STR_TO_FIELD
 from utils import DepTree, map_to_instances, read_conllu, shuffled_stream
 from utils import progressbar
@@ -168,7 +168,7 @@ class Params(object):
     def _set_index(self):
         self.fields = tuple([STR_TO_FIELD[f.lower()] for f in self.fields])
 
-        train_data = extract_treebank(self.treebank, "train", self.basename)
+        train_data = open_treebank(self.treebank, "train", self.basename)
         print("building index...")
         self.index = create_index(create_dictionary(read_conllu(train_data), self.fields + (DEPREL, )))
         print("building index done")
@@ -187,7 +187,7 @@ class Params(object):
         pass
 
     def _load_data(self, dataset):
-        file = extract_treebank(self.treebank, dataset, self.basename)
+        file = open_treebank(self.treebank, dataset, self.basename)
         if file:
             data = list(map_to_instances(read_conllu(file), self.index, self.fields))
             num_sentences = len(data)

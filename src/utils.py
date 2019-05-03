@@ -434,19 +434,24 @@ def _open_file(filename, f=None):
     return TextIOWrapper(f, encoding="utf-8")
 
 def _open_file_from_archive(filename, tarname, url, basename=""):
+    file_path = basename + filename
+
+    if os.path.isfile(file_path):
+        return _open_file(file_path)
+
     tar_path = basename + tarname
 
     if not os.path.isfile(tar_path):
-        os.makedirs(basename, exist_ok=True)
         print("downloading " + tarname)
         _download_url(url, tar_path)
 
     tar = tarfile.open(tar_path, "r")
     for f in tar.getmembers():
         if f.name.endswith(filename):
+            f = tar.extractfile(f)
             return _open_file(filename, f)
     
-    raise FileNotFoundError()
+    return None
 
 def _download_url(url, filename, block_size=8192):
     with urllib.request.urlopen(url) as r:
@@ -461,13 +466,13 @@ def _download_url(url, filename, block_size=8192):
 
 _DATASET_FILENAME = "/{0}-ud-{1}.conllu"
 
-def extract_treebank(treebank, dataset="train", basename=""):
+def open_treebank(treebank, dataset="train", basename=""):
     filename = _DATASET_FILENAME.format(treebank, dataset)
     return _open_file_from_archive(filename, _TREEBANKS_FILENAME, _TREEBANKS_URL, basename)
 
 _VECTORS_FILENAME = "/{0}.vectors.xz"
 
-def extract_embeddings(lang, basename=""):
+def open_embeddings(lang, basename=""):
     filename = _VECTORS_FILENAME.format(lang)
     return _open_file_from_archive(filename, _EMBEDDINGS_FILENAME, _EMBEDDINGS_URL, basename)
 
@@ -510,5 +515,5 @@ class progressbar(object):
         sys.stdout.flush()
 
 if __name__ == "__main__":
-    for (w, v) in read_embeddings(extract_embeddings("en", "../build/")):
+    for (w, v) in read_embeddings(open_embeddings("en", "../build/")):
         print(w)

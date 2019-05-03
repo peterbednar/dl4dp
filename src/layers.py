@@ -2,7 +2,7 @@ from __future__ import print_function
 
 import math
 import dynet as dy
-from utils import FORM, XPOS, extract_embeddings
+from utils import FORM, XPOS
 from word2vec import read_word2vec
 
 class Embeddings(object):
@@ -50,10 +50,10 @@ class Embeddings(object):
         for param, a in zip(self.lookup, arrays):
             param.init_from_array(a)
 
-    def init_from_embeddings(self, embeddings, basename, index, field=0):
+    def init_from_vectors(self, vectors, index, field=0):
         init_count = 0
         embds = self.lookup[field]
-        for (w, vec) in extract_embeddings(embeddings, basename):
+        for (w, vec) in vectors:
             i = index.get(w)
             if i is not None:
                 embds.init_row(i, vec)
