@@ -13,6 +13,7 @@ import urllib.request
 from io import TextIOWrapper
 import gzip
 import tarfile
+import lzma
 
 ID, FORM, LEMMA, UPOS, XPOS, FEATS, HEAD, DEPREL, DEPS, MISC, FORM_NORM, LEMMA_NORM, UPOS_FEATS, \
 FORM_CHARS, LEMMA_CHARS, FORM_NORM_CHARS, LEMMA_NORM_CHARS = range(17)
@@ -419,77 +420,35 @@ def parse_nonprojective(scores, heads=None):
 
     return heads
 
-_TREEBANKS_NAME="ud-treebanks-v2.3"
-_TREEBANKS_FILENAME = _TREEBANKS_NAME + ".tgz"
-_DATASET_FILENAME = "/{0}-ud-{1}.conllu"
-
-def _find_fileinfo(tar, treebank, dataset):
-    filename = _DATASET_FILENAME.format(treebank, dataset)
-    for f in tar.getmembers():
-        if f.name.endswith(filename):
-            return f
-    return None
-
-def _open_treebanks(basename):
-    if not os.path.isdir(basename):
-        os.makedirs(basename)
-
-    tar_path = basename + _TREEBANKS_FILENAME
-    if not os.path.isfile(tar_path):
-        download_treebanks(tar_path)
-    
-    return tarfile.open(tar_path, "r:gz")
-
-_DATASET_PATTERN = r"/([^/]+?)-ud-([^/]+?)\.conllu$"
-
-def list_treebanks(basename=""):
-    datasets = defaultdict(set)
-    with _open_treebanks(basename) as tar:
-        for f in tar.getnames():
-            if f.endswith(".conllu"):
-                dt = re.search(_DATASET_PATTERN, f)
-                datasets[dt.group(1)].add(dt.group(2))
-    return datasets
-
-def extract_treebank(treebank, dataset="train", basename=""):
-    tar = _open_treebanks(basename)
-    f = _find_fileinfo(tar, treebank, dataset)
-    if f is not None:
-        return TextIOWrapper(tar.extractfile(f), encoding="utf-8")
-    else:
-        tar.close()
-        return None
-
+_TREEBANKS_FILENAME = "ud-treebanks-v2.3.tgz"
 _TREEBANKS_URL = "https://lindat.mff.cuni.cz/repository/xmlui/bitstream/handle/11234/1-2895/" + _TREEBANKS_FILENAME
 
-def download_treebanks(filename):
-    print("downloading " + _TREEBANKS_FILENAME)
-    download_url(_TREEBANKS_URL, filename)
+_EMBEDDINGS_FILENAME = "word-embeddings-conll17.tar"
+_EMBEDDINGS_URL = "https://lindat.mff.cuni.cz/repository/xmlui/bitstream/handle/11234/1-1989/" + _EMBEDDINGS_FILENAME
 
-def extract_embeddings(embeddings, basename=""):
-    if not os.path.isdir(basename):
-        os.makedirs(basename)
+def _open_file(filename, f=None):
+    if f is None:
+        f = file.open(filename, "r")
+    if filename.endswith(".xs"):
+        f = lzma.open(f, "r")
+    return TextIOWrapper(f, encoding="utf-8")
 
-    filename = basename + _EMBEDDINGS_FILENAME.format(embeddings)
-    if not os.path.isfile(filename):
-        download_embeddings(filename, embeddings)
+def _open_file_from_archive(filename, tarname, url, basename=""):
+    tar_path = basename + tarname
 
-    with gzip.open(filename, mode="rt", encoding="utf-8") as fp:
-        fp.readline()
-        for line in fp:
-            tokens = line.rstrip("\r\n").split(" ")
-            w = tokens[0]
-            v = np.array([float(t) for t in tokens[1:]], dtype=np.float)
-            yield (w, v) 
+    if not os.path.isfile(tar_path):
+        os.makedirs(basename, exist_ok=True)
+        print("downloading " + tarname)
+        _download_url(url, tar_path)
 
-_EMBEDDINGS_FILENAME = "cc.{0}.300.vec.gz"
-_EMBEDDINGS_URL = "https://dl.fbaipublicfiles.com/fasttext/vectors-crawl/" + _EMBEDDINGS_FILENAME
+    tar = tarfile.open(tar_path, "r")
+    for f in tar.getmembers():
+        if f.name.endswith(filename):
+            return _open_file(filename, f)
+    
+    raise FileNotFoundError()
 
-def download_embeddings(filename, embeddings):
-    print("downloading " + _EMBEDDINGS_FILENAME.format(embeddings))
-    download_url(_EMBEDDINGS_URL.format(embeddings), filename)
-
-def download_url(url, filename, block_size=8192):
+def _download_url(url, filename, block_size=8192):
     with urllib.request.urlopen(url) as r:
         l = int(r.info()["Content-Length"])
         pb = progressbar(l)
@@ -499,6 +458,27 @@ def download_url(url, filename, block_size=8192):
                 f.write(block)
                 pb.update(len(block))
         pb.finish()
+
+_DATASET_FILENAME = "/{0}-ud-{1}.conllu"
+
+def extract_treebank(treebank, dataset="train", basename=""):
+    filename = _DATASET_FILENAME.format(treebank, dataset)
+    return _open_file_from_archive(filename, _TREEBANKS_FILENAME, _TREEBANKS_URL, basename)
+
+_VECTORS_FILENAME = "/{0}.vectors.xz"
+
+def extract_embeddings(lang, basename=""):
+    filename = _VECTORS_FILENAME.format(lang)
+    return _open_file_from_archive(filename, _EMBEDDINGS_FILENAME, _EMBEDDINGS_URL, basename)
+
+def read_embeddings(fp):
+    with fp:
+        fp.readline()
+        for line in fp:
+            tokens = line.rstrip("\r\n").split(" ")
+            w = tokens[0]
+            v = np.array([float(t) for t in tokens[1:]], dtype=np.float)
+            yield (w, v) 
 
 class progressbar(object):
 
@@ -530,5 +510,5 @@ class progressbar(object):
         sys.stdout.flush()
 
 if __name__ == "__main__":
-    for (w, v) in extract_embeddings("en", basename="../build/"):
-        print(w, v.shape)
+    for (w, v) in read_embeddings(extract_embeddings("en", "../build/")):
+        print(w)
