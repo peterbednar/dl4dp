@@ -24,6 +24,12 @@ FIELD_TO_STR = ["id", "form", "lemma", "upos", "xpos", "feats", "head", "deprel"
                 "form_chars", "lemma_chars", "form_norm_chars", "lemma_norm_chars"]
 STR_TO_FIELD = {k : v for v, k in enumerate(FIELD_TO_STR)}
 
+def str_to_field(s):
+    return STR_TO_FIELD[s.lower()]
+
+def field_to_str(f):
+    return FIELD_TO_STR[f]
+
 def is_empty(token):
     id = token[ID]
     return id[2] == EMPTY if isinstance(id, tuple) else False
@@ -419,15 +425,15 @@ def parse_nonprojective(scores, heads=None):
 
     return heads
 
-def _open_file(filename):
+def _open_file(filename, encoding="utf-8"):
     f = open(filename, "rb")
 
     if filename.endswith(".gz"):
-        f = gzip.open(f, "r")
+        f = gzip.open(f, "rb")
     elif filename.endswith(".xz"):
-        f = lzma.open(f, "r")
+        f = lzma.open(f, "rb")
 
-    return TextIOWrapper(f, encoding="utf-8")
+    return TextIOWrapper(f, encoding=encoding)
 
 def open_treebank(treebank, basename=""):
     filename = basename + treebank
@@ -482,4 +488,4 @@ if __name__ == "__main__":
     vectors = read_embeddings(open_embeddings("en.vectors.xz", "../build/"), skip_size=False)
     print(vectors.__next__())
     for (w, v) in vectors:
-        print(w, len(v), v)
+        pass

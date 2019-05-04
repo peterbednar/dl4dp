@@ -9,7 +9,9 @@ import numpy as np
 import time
 from datetime import timedelta
 from collections import Counter
+from utils import str_to_field
 from utils import open_treebank
+from utils import open_embeddings, read_embeddings
 from utils import create_index, create_dictionary, DEPREL, STR_TO_FIELD
 from utils import DepTree, map_to_instances, read_conllu, shuffled_stream
 from utils import progressbar
@@ -142,12 +144,13 @@ class Params(object):
         self.__dict__.update(params)
         self.model_params = dict(params)
 
-    def config(self):
+    def config(self, pc):
         self._basic_config()
         self._set_index()
         self._set_datasets()
         self._set_dims()
         self._set_input_dropout()
+        return (self._config_model(pc), self._config_trainer(pc))
 
     def dynet_config(self):
         random_seed = getattr(self, "random_seed", 0)
@@ -165,7 +168,7 @@ class Params(object):
         self.logger = log
 
     def _set_index(self):
-        self.fields = tuple([STR_TO_FIELD[f.lower()] for f in self.fields])
+        self.fields = tuple([str_to_field(f) for f in self.fields])
 
         train_data = open_treebank(self.treebanks["train"], self.basename)
         print("building index...")
@@ -184,6 +187,24 @@ class Params(object):
     def _set_input_dropout(self):
         # to be implemented
         pass
+
+    def _config_model(self, pc):
+        model = BiaffineParser(pc, **self.model_params)
+        self._init_embeddings(model)
+        return model
+
+    def _config_trainer(self, pc):
+        return dy.AdamTrainer(pc)
+
+    def _init_embeddings(self, model):
+        for (fs, fn) in self.embeddings.items():
+            f = str_to_field(fs)
+            fi = self.fields.index(f)
+
+            print("initializing {0} embeddings...".format(fs))
+            vectors = read_embeddings(open_embeddings(fn, self.basename))
+            init_count = model.embeddings.init_from_vectors(vectors, fi, self.index[f])
+            print("inicialization done", init_count)
 
     def _load_data(self, dataset):
         file = open_treebank(self.treebanks[dataset], self.basename)
@@ -215,11 +236,8 @@ if __name__ == "__main__":
     import dynet as dy
     from models import MLPParser, BiaffineParser
 
-    params.config()
-
     pc = dy.ParameterCollection()
-    model = BiaffineParser(pc, **params.model_params)
-    trainer = dy.AdamTrainer(pc)
+    model, trainer = params.config(pc)
 
     best_epoch, best_score = train(model, trainer, params)
 
