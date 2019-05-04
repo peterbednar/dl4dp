@@ -12,7 +12,6 @@ from functools import total_ordering
 import urllib.request
 from io import TextIOWrapper
 import gzip
-import tarfile
 import lzma
 
 ID, FORM, LEMMA, UPOS, XPOS, FEATS, HEAD, DEPREL, DEPS, MISC, FORM_NORM, LEMMA_NORM, UPOS_FEATS, \
@@ -420,61 +419,23 @@ def parse_nonprojective(scores, heads=None):
 
     return heads
 
-_TREEBANKS_FILENAME = "ud-treebanks-v2.3.tgz"
-_TREEBANKS_URL = "https://lindat.mff.cuni.cz/repository/xmlui/bitstream/handle/11234/1-2895/" + _TREEBANKS_FILENAME
+def _open_file(filename):
+    f = open(filename, "rb")
 
-_EMBEDDINGS_FILENAME = "word-embeddings-conll17.tar"
-_EMBEDDINGS_URL = "https://lindat.mff.cuni.cz/repository/xmlui/bitstream/handle/11234/1-1989/" + _EMBEDDINGS_FILENAME
-
-def _open_file(filename, f=None):
-    if f is None:
-        f = file.open(filename, "r")
-    if filename.endswith(".xs"):
+    if filename.endswith(".gz"):
+        f = gzip.open(f, "r")
+    elif filename.endswith(".xz"):
         f = lzma.open(f, "r")
+
     return TextIOWrapper(f, encoding="utf-8")
 
-def _open_file_from_archive(filename, tarname, url, basename=""):
-    file_path = basename + filename
+def open_treebank(treebank, basename=""):
+    filename = basename + treebank
+    return _open_file(filename)
 
-    if os.path.isfile(file_path):
-        return _open_file(file_path)
-
-    tar_path = basename + tarname
-
-    if not os.path.isfile(tar_path):
-        print("downloading " + tarname)
-        _download_url(url, tar_path)
-
-    tar = tarfile.open(tar_path, "r")
-    for f in tar.getmembers():
-        if f.name.endswith(filename):
-            f = tar.extractfile(f)
-            return _open_file(filename, f)
-    
-    return None
-
-def _download_url(url, filename, block_size=8192):
-    with urllib.request.urlopen(url) as r:
-        l = int(r.info()["Content-Length"])
-        pb = progressbar(l)
-        with open(filename, mode="wb") as f:
-            while pb.value < l:
-                block = r.read(block_size)
-                f.write(block)
-                pb.update(len(block))
-        pb.finish()
-
-_DATASET_FILENAME = "/{0}-ud-{1}.conllu"
-
-def open_treebank(treebank, dataset="train", basename=""):
-    filename = _DATASET_FILENAME.format(treebank, dataset)
-    return _open_file_from_archive(filename, _TREEBANKS_FILENAME, _TREEBANKS_URL, basename)
-
-_VECTORS_FILENAME = "/{0}.vectors.xz"
-
-def open_embeddings(lang, basename=""):
-    filename = _VECTORS_FILENAME.format(lang)
-    return _open_file_from_archive(filename, _EMBEDDINGS_FILENAME, _EMBEDDINGS_URL, basename)
+def open_embeddings(embeddings, basename=""):
+    filename = basename + embeddings
+    return _open_file(filename)
 
 def read_embeddings(fp):
     with fp:
@@ -515,5 +476,5 @@ class progressbar(object):
         sys.stdout.flush()
 
 if __name__ == "__main__":
-    for (w, v) in read_embeddings(open_embeddings("en", "../build/")):
+    for (w, v) in read_embeddings(open_embeddings("en.vetors.xz", "../build/")):
         print(w)

@@ -156,7 +156,6 @@ class Params(object):
         random.seed(random_seed)
 
     def _basic_config(self):
-        self.model_basename = self.basename + self.treebank + "/"
         if not os.path.isdir(self.model_basename):
             os.makedirs(self.model_basename)
 
@@ -168,7 +167,7 @@ class Params(object):
     def _set_index(self):
         self.fields = tuple([STR_TO_FIELD[f.lower()] for f in self.fields])
 
-        train_data = open_treebank(self.treebank, "train", self.basename)
+        train_data = open_treebank(self.treebanks["train"], self.basename)
         print("building index...")
         self.index = create_index(create_dictionary(read_conllu(train_data), self.fields + (DEPREL, )))
         print("building index done")
@@ -187,7 +186,7 @@ class Params(object):
         pass
 
     def _load_data(self, dataset):
-        file = open_treebank(self.treebank, dataset, self.basename)
+        file = open_treebank(self.treebanks[dataset], self.basename)
         if file:
             data = list(map_to_instances(read_conllu(file), self.index, self.fields))
             num_sentences = len(data)
@@ -201,10 +200,12 @@ if __name__ == "__main__":
 
     params = Params({
         "basename" : "../build/",
-        "treebank" : "en_ewt",
+        "model_basename" : "../build/en_ewt/",
+        "treebanks" : {"train": "en_ewt-ud-train.conllu", "dev": "en_ewt-ud-dev.conllu", "test": "en_ewt-ud-test.conllu"},
         "fields" : ("FORM_NORM", "UPOS_FEATS"),
-        "embeddings_dims" : (300, 100),
-        #"input_dropout" : (0.25, 0),
+        "embeddings_dims" : (100, 100),
+        "embeddings": {"FORM_NORM": "en.vectors.xz"},
+        # "input_dropout" : (0.25, 0),
         "max_epochs" : 2,
         "random_seed" : 123456789,
         "dynet_mem" : 1024
