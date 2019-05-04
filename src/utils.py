@@ -437,11 +437,14 @@ def open_embeddings(embeddings, basename=""):
     filename = basename + embeddings
     return _open_file(filename)
 
-def read_embeddings(fp):
+def read_embeddings(fp, skip_size=True):
     with fp:
-        fp.readline()
-        for line in fp:
-            tokens = line.rstrip("\r\n").split(" ")
+        l = fp.readline()
+        if not skip_size:
+            tokens = l.rstrip(" \r\n").split(" ")
+            yield (int(tokens[0]), int(tokens[1]))
+        for l in fp:
+            tokens = l.rstrip(" \r\n").split(" ")
             w = tokens[0]
             v = np.array([float(t) for t in tokens[1:]], dtype=np.float)
             yield (w, v) 
@@ -476,5 +479,7 @@ class progressbar(object):
         sys.stdout.flush()
 
 if __name__ == "__main__":
-    for (w, v) in read_embeddings(open_embeddings("en.vetors.xz", "../build/")):
-        print(w)
+    vectors = read_embeddings(open_embeddings("en.vectors.xz", "../build/"), skip_size=False)
+    print(vectors.__next__())
+    for (w, v) in vectors:
+        print(w, len(v), v)
