@@ -148,7 +148,7 @@ def read_conllu(file, skip_empty=True, skip_multiword=True, parse_feats=False, p
 
     lines = []
     if isinstance(file, str):
-        file = open(file, "rt", encoding="utf-8")
+        file = _open_file(file)
     with file:
         for line in file:
             line = line.rstrip("\r\n")
@@ -425,7 +425,7 @@ def parse_nonprojective(scores, heads=None):
 
     return heads
 
-def _open_file(filename, encoding="utf-8"):
+def _open_file(filename, encoding="utf-8", errors="strict"):
     f = open(filename, "rb")
 
     if filename.endswith(".gz"):
@@ -433,7 +433,7 @@ def _open_file(filename, encoding="utf-8"):
     elif filename.endswith(".xz"):
         f = lzma.open(f, "rb")
 
-    return TextIOWrapper(f, encoding=encoding)
+    return TextIOWrapper(f, encoding=encoding, errors=errors)
 
 def open_treebank(treebank, basename=""):
     filename = basename + treebank
@@ -441,16 +441,20 @@ def open_treebank(treebank, basename=""):
 
 def open_embeddings(embeddings, basename=""):
     filename = basename + embeddings
-    return _open_file(filename)
+    return _open_file(filename, errors="replace")
 
-def read_embeddings(fp, skip_size=True):
-    with fp:
-        l = fp.readline()
+def read_embeddings(file, skip_size=True):
+
+    def _tokenize(l):
+        return l.rstrip(" \r\n").split(" ")
+
+    with file:
+        l = file.readline()
         if not skip_size:
-            tokens = l.rstrip(" \r\n").split(" ")
+            tokens = _tokenize(l)
             yield (int(tokens[0]), int(tokens[1]))
-        for l in fp:
-            tokens = l.rstrip(" \r\n").split(" ")
+        for l in file:
+            tokens = _tokenize(l)
             w = tokens[0]
             v = np.array([float(t) for t in tokens[1:]], dtype=np.float)
             yield (w, v) 
