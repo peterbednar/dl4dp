@@ -230,7 +230,7 @@ if __name__ == "__main__":
         "lstm_dim": 400,
         "arc_mlp_dim": 100,
         "label_mlp_dim": 100,
-        "embeddings_dropout" : 0.33,
+        "embeddings_dropout": 0.33,
         "lstm_dropout": 0.33,
         "arc_mlp_dropout": 0.33,
         "label_mlp_dropout": 0.33,

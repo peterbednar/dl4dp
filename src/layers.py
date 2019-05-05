@@ -8,7 +8,7 @@ from word2vec import read_word2vec
 
 class Embeddings(object):
 
-    def __init__(self, model, dims, dropout=0, input_dropout=None, update=True):
+    def __init__(self, model, dims, dropout=0, input_dropout=0, update=True):
         self.pc = model.add_subcollection()
         self.lookup = [self.pc.add_lookup_parameters(dim) for dim in dims]
         self.set_dropout(dropout, input_dropout)
