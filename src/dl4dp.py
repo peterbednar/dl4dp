@@ -5,14 +5,14 @@ import os
 import logging
 from logging import FileHandler, Formatter
 import random
-import numpy as np
 import time
+import numpy as np
 from datetime import timedelta
 from collections import Counter
 from utils import str_to_field
 from utils import open_treebank
 from utils import open_embeddings, read_embeddings
-from utils import create_index, create_dictionary, DEPREL, STR_TO_FIELD
+from utils import create_index, create_dictionary, DEPREL, STR_TO_FIELD, write_index
 from utils import DepTree, map_to_instances, read_conllu, shuffled_stream
 from utils import progressbar
 import dynet_config
@@ -83,7 +83,8 @@ def train(model, trainer, params):
 
         if (step % 100) == 0:
             elapsed_time = time.time() - start_time
-            params.logger.info("{0} {1} {2} {3} {4} {5}".format(epoch + 1, step, timedelta(seconds=elapsed_time),
+            params.logger.info("{0} {1} {2} {3} {4} {5} {6}".format(epoch + 1, step, timedelta(seconds=elapsed_time),
+                    num_tokens,
                     step_loss / num_tokens,
                     step_arc_error / num_tokens,
                     step_label_error / num_tokens))
@@ -149,7 +150,6 @@ class Params(object):
         self._set_index()
         self._set_datasets()
         self._set_dims()
-        self._set_input_dropout()
         return (self._config_model(pc), self._config_trainer(pc))
 
     def dynet_config(self):
@@ -173,6 +173,7 @@ class Params(object):
         train_data = open_treebank(self.treebanks["train"], self.basename)
         print("building index...")
         self.index = create_index(create_dictionary(read_conllu(train_data), self.fields + (DEPREL, )))
+        write_index(self.index, basename=self.model_basename)
         print("building index done")
 
     def _set_datasets(self):
@@ -184,10 +185,6 @@ class Params(object):
         self.model_params["embeddings_dims"] = [(len(self.index[f])+1, dim) for (f, dim) in zip(self.fields, self.embeddings_dims)]
         self.model_params["labels_dim"] = len(self.index[DEPREL])
     
-    def _set_input_dropout(self):
-        # to be implemented
-        pass
-
     def _config_model(self, pc):
         model = BiaffineParser(pc, **self.model_params)
         self._init_embeddings(model)
@@ -197,14 +194,17 @@ class Params(object):
         return dy.AdamTrainer(pc)
 
     def _init_embeddings(self, model):
-        for (fs, fn) in self.embeddings.items():
+        if not hasattr(self, "embeddings_vectors"):
+            return
+
+        for (fs, fn) in self.embeddings_vectors.items():
             f = str_to_field(fs)
             fi = self.fields.index(f)
 
             print("initializing {0} embeddings...".format(fs))
             vectors = read_embeddings(open_embeddings(fn, self.basename))
-            init_count = model.embeddings.init_from_vectors(vectors, fi, self.index[f])
-            print("inicialization done", init_count)
+            model.embeddings.init_from_vectors(vectors, fi, self.index[f])
+            print("inicialization done")
 
     def _load_data(self, dataset):
         file = open_treebank(self.treebanks[dataset], self.basename)
@@ -225,8 +225,8 @@ if __name__ == "__main__":
         "treebanks" : {"train": "en_ewt-ud-train.conllu", "dev": "en_ewt-ud-dev.conllu", "test": "en_ewt-ud-test.conllu"},
         "fields" : ("FORM_NORM", "UPOS_FEATS"),
         "embeddings_dims" : (100, 100),
-        "embeddings": {"FORM_NORM": "en.vectors.xz"},
-        # "input_dropout" : (0.25, 0),
+        # "embeddings_vectors": {"FORM_NORM": "en.vectors.xz"},
+        "input_dropout" : (0.25, 0),
         "max_epochs" : 2,
         "random_seed" : 123456789,
         "dynet_mem" : 1024

@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import math
+import random
 import dynet as dy
 from utils import FORM, XPOS
 from word2vec import read_word2vec
@@ -16,8 +17,10 @@ class Embeddings(object):
 
     def _lookup(self, feats, i, f):
         v = feats[i,f]
-        if self.input_dropout is not None:
-            v = self.input_dropout(v, f)
+        dropout = self.input_dropout[f]
+        if dropout > 0 and random.random() < dropout:
+            v = 0
+
         embds = dy.lookup(self.lookup[f], v, update=self.update[f])
         dropout = self.dropout[f]
         if dropout > 0:
@@ -32,34 +35,30 @@ class Embeddings(object):
             x = [self._lookup(feats,i,0) for i in range(num_tokens)]
         return x
 
-    def set_dropout(self, dropout, input_dropout=None):
-        self.input_dropout = input_dropout
+    def set_dropout(self, dropout, input_dropout=0):
+        self.input_dropout = input_dropout if isinstance(input_dropout, (tuple, list)) else [input_dropout] * len(self.lookup)
         self.dropout = dropout if isinstance(dropout, (tuple, list)) else [dropout] * len(self.lookup)
     
     def disable_dropout(self):
-        self.set_dropout(0, None)
+        self.set_dropout(0, 0)
 
     def set_update(self, update):
         self.update = update if isinstance(update, (tuple, list)) else [update] * len(self.lookup)
 
-    def init_from_word2vec(self, basename, fields=(FORM, XPOS), index=None):
-        for fi,i,vec in read_word2vec(basename, fields, index):
-            self.lookup[fi].init_row(i, vec)
-
-    def init_from_array(self, arrays):
+    def init_from_arrays(self, arrays):
         for param, a in zip(self.lookup, arrays):
             param.init_from_array(a)
 
     def init_from_vectors(self, vectors, field, index):
-        embds = self.lookup[field]
+        lookup = self.lookup[field]
         init_count = 0
-        total_count = embds.shape()[0]
-        for (w, vec) in vectors:
+        total_count = lookup.shape()[0]
+        for (w, v) in vectors:
             i = index.get(w)
             if i is not None:
-                embds.init_row(i, vec)
+                lookup.init_row(i, v)
                 init_count += 1
-        return (total_count, init_count)
+        return (init_count, total_count)
             
 def leaky_relu(x):
     return dy.bmax(0.1 * x, x)
