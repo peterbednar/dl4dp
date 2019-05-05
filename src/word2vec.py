@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 import codecs
 import numpy as np
 from argparse import ArgumentParser

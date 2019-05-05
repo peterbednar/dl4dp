@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 import dynet as dy
 import numpy as np
 from layers import Embeddings, BiLSTM, MultiLayerPerceptron, Dense, Biaffine

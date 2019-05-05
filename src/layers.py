@@ -1,10 +1,6 @@
-from __future__ import print_function
-
 import math
 import random
 import dynet as dy
-from utils import FORM, XPOS
-from word2vec import read_word2vec
 
 class Embeddings(object):
 
