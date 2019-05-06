@@ -223,7 +223,7 @@ if __name__ == "__main__":
         "treebanks" : {"train": "en_ewt-ud-train.conllu", "dev": "en_ewt-ud-dev.conllu", "test": "en_ewt-ud-test.conllu"},
         "fields" : ("FORM_NORM", "UPOS_FEATS"),
         "embeddings_dims" : (100, 100),
-        # "embeddings_vectors": {"FORM_NORM": "en.vectors.xz"},
+        # "embeddings_vectors": {"FORM_NORM": "vectors_form_norm.txt"},
         "lstm_num_layers": 3,
         "lstm_dim": 400,
         "arc_mlp_dim": 100,

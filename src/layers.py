@@ -47,14 +47,14 @@ class Embeddings(object):
 
     def init_from_vectors(self, vectors, field, index):
         lookup = self.lookup[field]
-        init_count = 0
-        total_count = lookup.shape()[0]
+        num_init = 0
+        num_rows = lookup.shape()[0]
         for (w, v) in vectors:
-            i = index.get(w)
+            i = index.get(w) if w is not None else 0
             if i is not None:
                 lookup.init_row(i, v)
-                init_count += 1
-        return (init_count, total_count)
+                num_init += 1
+        return (num_init, num_rows)
             
 def leaky_relu(x):
     return dy.bmax(0.1 * x, x)

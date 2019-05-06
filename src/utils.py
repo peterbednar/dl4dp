@@ -454,6 +454,8 @@ def read_embeddings(file, skip_shape=True):
         for l in file:
             tokens = _tokenize(l)
             w = tokens[0]
+            if w == _NONE_TOKEN:
+                w = None
             v = np.array([float(t) for t in tokens[1:]], dtype=np.float)
             yield (w, v) 
 
@@ -487,7 +489,7 @@ class progressbar(object):
         sys.stdout.flush()
 
 if __name__ == "__main__":
-    vectors = read_embeddings(open_embeddings("en.vectors.xz", "../build/"), skip_size=False)
+    vectors = read_embeddings(open_embeddings("vectors_form_norm.txt", "../build/"), skip_shape=False)
     print(vectors.__next__())
     for (w, v) in vectors:
         pass

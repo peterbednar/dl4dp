@@ -1,6 +1,6 @@
 from argparse import ArgumentParser
 from utils import FORM, XPOS
-from utils import str_to_field
+from utils import str_to_field, field_to_str
 from utils import read_conllu, create_dictionary, create_index, write_index, read_index
 
 UNKNOWN_TOKEN = u"__unknown__"
@@ -42,7 +42,7 @@ def _parse_args():
     parser = ArgumentParser()
 
     parser.add_argument("--inputfile", required=True)
-    parser.add_argument("--outbasename", required=True)
+    parser.add_argument("--outbasename", default="")
     parser.add_argument("--fields", default=("FORM", "XPOS"), nargs='+')
     parser.add_argument("--size", default=(100, 100), type=int, nargs='+')
     parser.add_argument("--min_frequency", default=5, type=int)
