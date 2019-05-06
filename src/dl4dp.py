@@ -10,7 +10,7 @@ from collections import Counter
 from utils import str_to_field
 from utils import open_treebank
 from utils import open_embeddings, read_embeddings
-from utils import create_index, create_dictionary, DEPREL, STR_TO_FIELD, write_index
+from utils import create_index, create_dictionary, DEPREL, write_index
 from utils import DepTree, map_to_instances, read_conllu, shuffled_stream
 from utils import progressbar
 import dynet_config
@@ -205,8 +205,8 @@ class Params(object):
             print("inicialization done")
 
     def _load_data(self, dataset):
-        file = open_treebank(self.treebanks[dataset], self.basename)
-        if file:
+        if dataset in self.treebanks:
+            file = open_treebank(self.treebanks[dataset], self.basename)
             data = list(map_to_instances(read_conllu(file), self.index, self.fields))
             num_sentences = len(data)
             num_tokens = sum([len(tree) for tree in data])
@@ -228,6 +228,7 @@ if __name__ == "__main__":
         "lstm_dim": 400,
         "arc_mlp_dim": 100,
         "label_mlp_dim": 100,
+        "input_dropouts": 0.33,
         "embeddings_dropout": 0.33,
         "lstm_dropout": 0.33,
         "arc_mlp_dropout": 0.33,

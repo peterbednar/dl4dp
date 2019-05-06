@@ -196,7 +196,7 @@ def write_index(index, fields=None, basename=""):
         fields = index.keys()
     index = create_inverse_index(index)
     for f in fields:
-        filename = INDEX_FILENAME.format(basename, FIELD_TO_STR[f])
+        filename = INDEX_FILENAME.format(basename, field_to_str(f))
         with open(filename, "wt", encoding="utf-8") as fp:
             c = index[f]
             for i in range(1, len(c) + 1):
@@ -210,7 +210,7 @@ def read_index(fields=None, basename=""):
         fields = range(len(FIELD_TO_STR))
     index = {}
     for f in fields:
-        filename = INDEX_FILENAME.format(basename, FIELD_TO_STR[f])
+        filename = INDEX_FILENAME.format(basename, field_to_str(f))
         if os.path.isfile(filename):
             with open(filename, "rt", encoding="utf-8") as fp:
                 index[f] = Counter()
@@ -441,14 +441,14 @@ def open_embeddings(embeddings, basename=""):
     filename = basename + embeddings
     return _open_file(filename, errors="replace")
 
-def read_embeddings(file, skip_size=True):
+def read_embeddings(file, skip_shape=True):
 
     def _tokenize(l):
         return l.rstrip(" \r\n").split(" ")
 
     with file:
         l = file.readline()
-        if not skip_size:
+        if not skip_shape:
             tokens = _tokenize(l)
             yield (int(tokens[0]), int(tokens[1]))
         for l in file:
