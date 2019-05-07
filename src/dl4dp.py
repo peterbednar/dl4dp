@@ -15,21 +15,16 @@ from utils import DepTree, map_to_instances, read_conllu, shuffled_stream
 from utils import progressbar
 import dynet_config
 
-def hinge_loss(scores, gold):
-    error = 0
-    loss = None
-    gold = np.asscalar(gold)
-    scarray = scores.npvalue()
-    best_wrong = max([(i, sc) for i, sc in enumerate(scarray) if i != gold], key=lambda x: x[1])[0]
-    if scarray[gold] < scarray[best_wrong]:
-        error = 1
-    if scarray[gold] < scarray[best_wrong] + 1.0:
-        loss = scores[best_wrong] - scores[gold] + 1.0
-    return error, loss
-
 _MODEL_FILENAME="{0}model_{1}"
 
 def train(model, trainer, params):
+
+    def error_and_loss(scores, correct):
+        pred = np.argmax(scores.npvalue())
+        error = 1 if pred != correct else 0
+        loss = params.loss(scores, correct)
+        return error, loss
+
     model.enable_dropout()
 
     step_loss = 0.0
@@ -56,14 +51,14 @@ def train(model, trainer, params):
 
         arc_scores = model.predict_arcs(h)
         for i in range(len(example)):
-            arc_error, arc_loss = hinge_loss(arc_scores[i], example.heads[i])
+            arc_error, arc_loss = error_and_loss(arc_scores[i], example.heads[i])
             step_arc_error += arc_error
             if arc_loss:
                 loss.append(arc_loss)
 
         label_scores = model.predict_labels(example.heads, h)
         for i in range(len(example)):
-            label_error, label_loss = hinge_loss(label_scores[i], example.labels[i] - 1)
+            label_error, label_loss = error_and_loss(label_scores[i], example.labels[i] - 1)
             step_label_error += label_error
             if label_loss:
                 loss.append(label_loss)
@@ -121,7 +116,7 @@ def validate(model, validation_data):
     correct_ua = correct_la = 0
     pb = progressbar(len(validation_data))
 
-    for i, gold in enumerate(validation_data):
+    for gold in validation_data:
         num_tokens += len(gold)
         parsed = model.parse(gold.feats)
         for n in range(len(gold)):
@@ -184,6 +179,12 @@ class Params(object):
         self.model_params["labels_dim"] = len(self.index[DEPREL])
     
     def _config_model(self, pc):
+        loss = getattr(self, "loss", "crossentropy")
+        if loss == "hinge":
+            self.loss = dy.hinge
+        elif loss == "crossentropy":
+            self.index = dy.pickneglogsoftmax
+
         model = BiaffineParser(pc, **self.model_params)
         self._init_embeddings(model)
         return model
@@ -234,6 +235,7 @@ if __name__ == "__main__":
         "arc_mlp_dropout": 0.33,
         "label_mlp_dropout": 0.33,
         "max_epochs" : 2,
+        "loss": "hinge",
         "random_seed" : 123456789,
         "dynet_mem" : 1024
     })
