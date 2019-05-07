@@ -184,6 +184,8 @@ class Params(object):
             self.loss = dy.hinge
         elif loss == "crossentropy":
             self.loss = dy.pickneglogsoftmax
+        else:
+            raise ValueError("unknown loss function: {0}".format(loss))
 
         model = BiaffineParser(pc, **self.model_params)
         self._init_embeddings(model)
