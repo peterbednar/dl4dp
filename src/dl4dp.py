@@ -183,7 +183,7 @@ class Params(object):
         if loss == "hinge":
             self.loss = dy.hinge
         elif loss == "crossentropy":
-            self.index = dy.pickneglogsoftmax
+            self.loss = dy.pickneglogsoftmax
 
         model = BiaffineParser(pc, **self.model_params)
         self._init_embeddings(model)
@@ -235,7 +235,7 @@ if __name__ == "__main__":
         "arc_mlp_dropout": 0.33,
         "label_mlp_dropout": 0.33,
         "max_epochs" : 2,
-        "loss": "hinge",
+        "loss": "crossentropy",
         "random_seed" : 123456789,
         "dynet_mem" : 1024
     })
