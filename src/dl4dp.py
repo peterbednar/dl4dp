@@ -6,7 +6,6 @@ import random
 import time
 import numpy as np
 from datetime import timedelta
-from collections import Counter
 from utils import str_to_field
 from utils import open_treebank
 from utils import open_embeddings, read_embeddings
