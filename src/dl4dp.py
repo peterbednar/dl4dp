@@ -1,7 +1,6 @@
-import sys
 import os
 import logging
-from logging import FileHandler, Formatter
+from logging import FileHandler
 import random
 import time
 import numpy as np
@@ -10,7 +9,7 @@ from utils import str_to_field
 from utils import open_treebank
 from utils import open_embeddings, read_embeddings
 from utils import create_index, create_dictionary, DEPREL, write_index
-from utils import DepTree, map_to_instances, read_conllu, shuffled_stream
+from utils import map_to_instances, read_conllu, shuffled_stream
 from utils import progressbar
 import dynet_config
 
@@ -151,8 +150,7 @@ class Params(object):
         random.seed(random_seed)
 
     def _basic_config(self):
-        if not os.path.isdir(self.model_basename):
-            os.makedirs(self.model_basename)
+        os.makedirs(self.model_basename, exist_ok=True)
 
         log = logging.getLogger("dl4dp.train")
         log.setLevel(logging.INFO)
@@ -243,7 +241,7 @@ if __name__ == "__main__":
 
     params.dynet_config()
     import dynet as dy
-    from models import MLPParser, BiaffineParser
+    from models import BiaffineParser
 
     pc = dy.ParameterCollection()
     model, trainer = params.config(pc)

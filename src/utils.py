@@ -7,7 +7,6 @@ import sys
 import math
 from collections import Counter, OrderedDict, namedtuple, defaultdict
 from functools import total_ordering
-import urllib.request
 from io import TextIOWrapper
 import gzip
 import lzma
@@ -48,7 +47,7 @@ def normalize_lower(field, value):
     return value
 
 def normalize_default(field, value):
-    if value == None:
+    if value is None:
         return None
     if field == FORM:
         if _NUM_REGEX.match(value):
@@ -57,7 +56,7 @@ def normalize_default(field, value):
     return value
 
 def splitter_form(field, value):
-    if value == None:
+    if value is None:
         return None
     if field == FORM:
         return tuple(value)

@@ -1,7 +1,7 @@
 from argparse import ArgumentParser
-from utils import FORM, XPOS
+from gensim.models import Word2Vec
 from utils import str_to_field, field_to_str
-from utils import read_conllu, create_dictionary, create_index, write_index, read_index
+from utils import read_conllu, create_dictionary, create_index, write_index
 
 UNKNOWN_TOKEN = u"__unknown__"
 NONE_TOKEN = u"__none__"
@@ -55,7 +55,6 @@ def _parse_args():
     return args
 
 if __name__ == "__main__":
-    from gensim.models import Word2Vec
     args = _parse_args()
 
     print("building index...")

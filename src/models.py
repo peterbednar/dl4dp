@@ -1,7 +1,7 @@
 import dynet as dy
 import numpy as np
 from layers import Embeddings, BiLSTM, MultiLayerPerceptron, Dense, Biaffine
-from utils import FORM, XPOS, DEPREL, read_index, parse_nonprojective, DepTree
+from utils import parse_nonprojective, DepTree
 from abc import ABCMeta, abstractmethod
 
 class MSTParser(object):
