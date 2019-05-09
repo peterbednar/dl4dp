@@ -13,10 +13,9 @@ class Embeddings(object):
 
     def _lookup(self, feats, i, f):
         v = feats[i,f]
-        dropout = self.input_dropout[f]
-        if dropout > 0 and random.random() < dropout:
+        input_dropout = self.input_dropout[f]
+        if input_dropout > 0 and random.random() < input_dropout:
             v = 0
-
         embds = dy.lookup(self.lookup[f], v, update=self.update[f])
         dropout = self.dropout[f]
         if dropout > 0:
@@ -45,7 +44,7 @@ class Embeddings(object):
         for param, a in zip(self.lookup, arrays):
             param.init_from_array(a)
 
-    def init_from_vectors(self, vectors, field, index):
+    def init_from_word2vec(self, vectors, field, index):
         lookup = self.lookup[field]
         num_init = 0
         num_rows = lookup.shape()[0]

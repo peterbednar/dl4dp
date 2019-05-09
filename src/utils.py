@@ -440,7 +440,7 @@ def open_embeddings(embeddings, basename=""):
     filename = basename + embeddings
     return _open_file(filename, errors="replace")
 
-def read_embeddings(file, skip_shape=True):
+def read_word2vec(file, skip_shape=True):
 
     def _tokenize(l):
         return l.rstrip(" \r\n").split(" ")
@@ -488,7 +488,7 @@ class progressbar(object):
         sys.stdout.flush()
 
 if __name__ == "__main__":
-    vectors = read_embeddings(open_embeddings("vectors_form_norm.txt", "../build/"), skip_shape=False)
+    vectors = read_word2vec(open_embeddings("vectors_form_norm.txt", "../build/"), skip_shape=False)
     print(vectors.__next__())
     for (w, v) in vectors:
         pass
