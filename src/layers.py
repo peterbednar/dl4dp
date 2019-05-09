@@ -173,8 +173,8 @@ class BiLSTM(object):
             self.ROOT = self.pc.add_parameters(input_dim)
 
         def _build_layer(input_dim, hidden_dim, rnn_builder=dy.VanillaLSTMBuilder):
-            f = rnn_builder(1, input_dim, hidden_dim / 2, self.pc, ln)
-            b = rnn_builder(1, input_dim, hidden_dim / 2, self.pc, ln)
+            f = rnn_builder(1, input_dim, hidden_dim // 2, self.pc, ln)
+            b = rnn_builder(1, input_dim, hidden_dim // 2, self.pc, ln)
             return (f, b)
 
         self.layers = [_build_layer(input_dim, hidden_dim)]
