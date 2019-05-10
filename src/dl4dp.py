@@ -200,7 +200,7 @@ class Params(object):
             fi = self.fields.index(f)
 
             print("initializing {0} embeddings...".format(fs))
-            vectors = index_word2vec(read_word2vec(open_embeddings(fn, self.basename)), self.index)
+            vectors = index_word2vec(read_word2vec(open_embeddings(fn, self.basename)), self.index[f])
             model.embeddings.init_from_vectors(fi, vectors)
             print("inicialization done")
 
