@@ -40,10 +40,6 @@ class Embeddings(object):
     def set_update(self, update):
         self.update = update if isinstance(update, (tuple, list)) else [update] * len(self.lookup)
 
-    def init_from_arrays(self, arrays):
-        for param, a in zip(self.lookup, arrays):
-            param.init_from_array(a)
-
     def init_from_word2vec(self, feature, vectors):
         lookup = self.lookup[feature]
         num_init = 0
