@@ -468,9 +468,3 @@ class progressbar(object):
     def finish(self):
         print(self.end, end="")
         sys.stdout.flush()
-
-if __name__ == "__main__":
-    vectors = read_word2vec(open_embeddings("vectors_form_norm.txt", "../build/"), skip_shape=False)
-    print(vectors.__next__())
-    for (w, v) in vectors:
-        pass
