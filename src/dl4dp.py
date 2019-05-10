@@ -6,10 +6,11 @@ import time
 import numpy as np
 from datetime import timedelta
 from utils import str_to_field
-from utils import open_treebank, open_embeddings, read_word2vec
+from utils import open_treebank, open_embeddings
 from utils import create_index, create_dictionary, DEPREL, write_index
 from utils import read_conllu, map_to_instances, shuffled_stream
 from utils import progressbar
+from word2vec import read_word2vec, index_word2vec
 import dynet_config
 
 _MODEL_FILENAME="{0}model_{1}"
@@ -199,8 +200,8 @@ class Params(object):
             fi = self.fields.index(f)
 
             print("initializing {0} embeddings...".format(fs))
-            vectors = read_word2vec(open_embeddings(fn, self.basename))
-            model.embeddings.init_from_vectors(vectors, fi, self.index[f])
+            vectors = index_word2vec(read_word2vec(open_embeddings(fn, self.basename)), self.index)
+            model.embeddings.init_from_vectors(fi, vectors)
             print("inicialization done")
 
     def _load_data(self, dataset):

@@ -1,10 +1,35 @@
 from argparse import ArgumentParser
 from gensim.models import Word2Vec
+import numpy as np
 from utils import str_to_field, field_to_str
 from utils import read_conllu, create_dictionary, create_index, write_index
 
 UNKNOWN_TOKEN = u"__unknown__"
 NONE_TOKEN = u"__none__"
+
+def read_word2vec(file, skip_shape=True):
+
+    def _tokenize(l):
+        return l.rstrip(" \r\n").split(" ")
+
+    with file:
+        l = file.readline()
+        if not skip_shape:
+            tokens = _tokenize(l)
+            yield (int(tokens[0]), int(tokens[1]))
+        for l in file:
+            tokens = _tokenize(l)
+            w = tokens[0]
+            if w == NONE_TOKEN:
+                w = None
+            v = np.array([float(t) for t in tokens[1:]], dtype=np.float)
+            yield (w, v)
+
+def index_word2vec(vectors, index):
+    for w, v in vectors:
+        i = 0 if w == UNKNOWN_TOKEN else index.get(w)
+        if i is not None:
+            yield (i, v)
 
 VECTORS_FILENAME = "{0}vectors_{1}.txt"
 

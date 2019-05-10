@@ -44,15 +44,13 @@ class Embeddings(object):
         for param, a in zip(self.lookup, arrays):
             param.init_from_array(a)
 
-    def init_from_word2vec(self, vectors, field, index):
-        lookup = self.lookup[field]
+    def init_from_word2vec(self, feature, vectors):
+        lookup = self.lookup[feature]
         num_init = 0
         num_rows = lookup.shape()[0]
-        for (w, v) in vectors:
-            i = index.get(w) if w is not None else 0
-            if i is not None:
-                lookup.init_row(i, v)
-                num_init += 1
+        for (i, v) in vectors:
+            lookup.init_row(i, v)
+            num_init += 1
         return (num_init, num_rows)
             
 def leaky_relu(x):

@@ -145,7 +145,7 @@ def read_conllu(file, skip_empty=True, skip_multiword=True, parse_feats=False, p
 
     lines = []
     if isinstance(file, str):
-        file = _open_file(file)
+        file = open_file(file)
     with file:
         for line in file:
             line = line.rstrip("\r\n")
@@ -422,7 +422,7 @@ def parse_nonprojective(scores, heads=None):
 
     return heads
 
-def _open_file(filename, encoding="utf-8", errors="strict"):
+def open_file(filename, encoding="utf-8", errors="strict"):
     f = open(filename, "rb")
 
     if filename.endswith(".gz"):
@@ -434,29 +434,11 @@ def _open_file(filename, encoding="utf-8", errors="strict"):
 
 def open_treebank(treebank, basename=""):
     filename = basename + treebank
-    return _open_file(filename)
+    return open_file(filename)
 
 def open_embeddings(embeddings, basename=""):
     filename = basename + embeddings
-    return _open_file(filename, errors="replace")
-
-def read_word2vec(file, skip_shape=True):
-
-    def _tokenize(l):
-        return l.rstrip(" \r\n").split(" ")
-
-    with file:
-        l = file.readline()
-        if not skip_shape:
-            tokens = _tokenize(l)
-            yield (int(tokens[0]), int(tokens[1]))
-        for l in file:
-            tokens = _tokenize(l)
-            w = tokens[0]
-            if w == _NONE_TOKEN:
-                w = None
-            v = np.array([float(t) for t in tokens[1:]], dtype=np.float)
-            yield (w, v) 
+    return open_file(filename, errors="replace")
 
 class progressbar(object):
 
