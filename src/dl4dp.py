@@ -126,7 +126,7 @@ def validate(model, validation_data):
 
     uas = float(correct_ua) / num_tokens
     las = float(correct_la) / num_tokens
-    print("UAS: {0:.4}, LAS: {1:.4}".format(uas, las))
+    print(f"UAS: {uas:.4f}, LAS: {las:.4f}")
     return uas, las
 
 class Params(object):
