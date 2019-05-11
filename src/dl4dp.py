@@ -252,7 +252,7 @@ if __name__ == "__main__":
     best_epoch, best_score = train(model, trainer, params)
 
     if best_score is not None:
-        print("best epoch: {0}, score: {1:.4} UAS, {2:.4} LAS".format(best_epoch, best_score[0], best_score[1]))
+        print(f"best epoch: {best_epoch}, score: {best_score[0]:.4f} UAS, {best_score[1]:.4f} LAS")
 
     if params.test_data:
         if best_epoch > 0:
