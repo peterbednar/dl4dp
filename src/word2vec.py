@@ -1,8 +1,8 @@
+import numpy as np
 from argparse import ArgumentParser
 from gensim.models import Word2Vec
-import numpy as np
 from utils import str_to_field, field_to_str
-from utils import read_conllu, create_dictionary, create_index, write_index
+from utils import read_conllu, create_dictionary, create_index, write_index, open_file
 
 UNKNOWN_TOKEN = u"__unknown__"
 NONE_TOKEN = u"__none__"
@@ -12,6 +12,8 @@ def read_word2vec(file, skip_shape=True):
     def _tokenize(l):
         return l.rstrip(" \r\n").split(" ")
 
+    if isinstance(file, str):
+        file = open_file(file)
     with file:
         l = file.readline()
         if not skip_shape:
@@ -57,7 +59,7 @@ class _Tokens(object):
 def _word2vec(index, args):
     for i, f in enumerate(args.fields):
         if args.size[i] > 0:
-            print("building {0}[{1}] vectors...".format(field_to_str(f).upper(), args.size[i]))
+            print(f"building {field_to_str(f).upper()}[{args.size[i]}] vectors...")
             tokens = _Tokens(args.inputfile, f, index)
             model = Word2Vec(tokens, sg=1 if args.sg else 0, size=args.size[i], window=args.window, min_count=1, workers=4, seed=args.seed)
             model.wv.save_word2vec_format(VECTORS_FILENAME.format(args.outbasename, field_to_str(f)))
