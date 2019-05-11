@@ -432,14 +432,6 @@ def open_file(filename, encoding="utf-8", errors="strict"):
 
     return TextIOWrapper(f, encoding=encoding, errors=errors)
 
-def open_treebank(treebank, basename=""):
-    filename = basename + treebank
-    return open_file(filename)
-
-def open_embeddings(embeddings, basename=""):
-    filename = basename + embeddings
-    return open_file(filename, errors="replace")
-
 class progressbar(object):
 
     def __init__(self, total, width=50, bar=".", end="\n"):

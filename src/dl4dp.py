@@ -6,8 +6,7 @@ import time
 import numpy as np
 from datetime import timedelta
 from utils import str_to_field
-from utils import open_treebank, open_embeddings
-from utils import create_index, create_dictionary, DEPREL, write_index
+from utils import create_index, create_dictionary, DEPREL, write_index, open_file
 from utils import read_conllu, map_to_instances, shuffled_stream
 from utils import progressbar
 from word2vec import read_word2vec, index_word2vec
@@ -42,7 +41,7 @@ def train(model, trainer, params):
 
     for example in shuffled_stream(params.train_data):
         if (step % train_len) == 0:
-            print("epoch {0}".format(epoch + 1))
+            print(f"epoch {epoch + 1}")
 
         loss = []
         h = model.transduce(example.feats)
@@ -93,7 +92,7 @@ def train(model, trainer, params):
             dy.save(_MODEL_FILENAME.format(params.model_basename, epoch), [model])
 
             if params.validation_data:
-                print("validating epoch {0}".format(epoch))
+                print(f"validating epoch {epoch}")
                 model.disable_dropout()
                 score = validate(model, params.validation_data)
                 model.enable_dropout()
@@ -140,7 +139,6 @@ class Params(object):
         self._basic_config()
         self._set_index()
         self._set_datasets()
-        self._set_dims()
         return (self._config_model(pc), self._config_trainer(pc))
 
     def dynet_config(self):
@@ -171,38 +169,35 @@ class Params(object):
         self.validation_data = self._load_data("dev")
         self.test_data = self._load_data("test")
 
-    def _set_dims(self):
-        self.model_params["embeddings_dims"] = [(len(self.index[f])+1, dim) for (f, dim) in zip(self.fields, self.embeddings_dims)]
-        self.model_params["labels_dim"] = len(self.index[DEPREL])
-    
     def _config_model(self, pc):
+        self.model_params["embeddings_dims"] = [(len(self.index[f]) + 1, dim) for (f, dim) in zip(self.fields, self.embeddings_dims)]
+        self.model_params["labels_dim"] = len(self.index[DEPREL])
+
+        model = BiaffineParser(pc, **self.model_params)
+        if hasattr(self, "embeddings_vectors"):            
+            self._init_embeddings(model)
+        return model
+
+    def _config_trainer(self, pc):
         loss = getattr(self, "loss", "crossentropy")
         if loss == "hinge":
             self.loss = dy.hinge
         elif loss == "crossentropy":
             self.loss = dy.pickneglogsoftmax
         else:
-            raise ValueError("unknown loss function: {0}".format(loss))
+            raise ValueError(f"unknown loss function: {loss}")
 
-        model = BiaffineParser(pc, **self.model_params)
-        self._init_embeddings(model)
-        return model
-
-    def _config_trainer(self, pc):
         return dy.AdamTrainer(pc)
 
     def _init_embeddings(self, model):
-        if not hasattr(self, "embeddings_vectors"):
-            return
-
         for (fs, fn) in self.embeddings_vectors.items():
             f = str_to_field(fs)
             fi = self.fields.index(f)
 
-            print("initializing {0} embeddings...".format(fs))
+            print(f"initializing {fs} embeddings...")
             vectors = index_word2vec(read_word2vec(open_embeddings(fn, self.basename)), self.index[f])
-            model.embeddings.init_from_vectors(fi, vectors)
-            print("inicialization done")
+            num_init, num_vec = model.embeddings.init_from_word2vec(fi, vectors)
+            print(f"initialized {num_init}/{num_vec} vectors")
 
     def _load_data(self, dataset):
         if dataset in self.treebanks:
@@ -210,10 +205,18 @@ class Params(object):
             data = list(map_to_instances(read_conllu(file), self.index, self.fields))
             num_sentences = len(data)
             num_tokens = sum([len(tree) for tree in data])
-            print("{0} sentences: {1}, tokens: {2}".format(dataset, num_sentences, num_tokens))
+            print(f"{dataset} sentences: {num_sentences}, tokens: {num_tokens}")
             return data
         else:
             return None
+
+def open_treebank(treebank, basename=""):
+    filename = basename + treebank
+    return open_file(filename)
+
+def open_embeddings(embeddings, basename=""):
+    filename = basename + embeddings
+    return open_file(filename, errors="replace")
 
 if __name__ == "__main__":
 
@@ -223,7 +226,7 @@ if __name__ == "__main__":
         "treebanks" : {"train": "en_ewt-ud-train.conllu", "dev": "en_ewt-ud-dev.conllu", "test": "en_ewt-ud-test.conllu"},
         "fields" : ("FORM_NORM", "UPOS_FEATS"),
         "embeddings_dims" : (100, 100),
-        # "embeddings_vectors": {"FORM_NORM": "vectors_form_norm.txt"},
+        "embeddings_vectors": {"FORM_NORM": "vectors_form_norm.txt"},
         "lstm_num_layers": 3,
         "lstm_dim": 400,
         "arc_mlp_dim": 100,
