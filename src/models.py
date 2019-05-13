@@ -2,9 +2,9 @@ import dynet as dy
 import numpy as np
 from layers import Embeddings, BiLSTM, MultiLayerPerceptron, Dense, Biaffine
 from utils import parse_nonprojective, DepTree
-from abc import ABCMeta, abstractmethod
+from abc import ABC, abstractmethod
 
-class MSTParser(object):
+class MSTParser(ABC):
 
     def __init__(self, model, **kwargs):
         self.pc = model.add_subcollection()
@@ -75,8 +75,6 @@ class MSTParser(object):
     def param_collection(self):
         return self.pc
 
-    __metaclass__ = ABCMeta
-
 def _build_mlp(model, kwargs, prefix, input_dim, hidden_dim, output_dim, num_layers, act):
     hidden_dim = kwargs.get(prefix + "_dim", hidden_dim)
     num_layers = kwargs.get(prefix + "_num_layers", num_layers)
@@ -86,7 +84,7 @@ def _build_mlp(model, kwargs, prefix, input_dim, hidden_dim, output_dim, num_lay
 class MLPParser(MSTParser):
 
     def __init__(self, model, **kwargs):
-        super(MLPParser, self).__init__(model, **kwargs)
+        super().__init__(model, **kwargs)
         lstm_dim = self.lstm.dims[1]
         self.arc_mlp = _build_mlp(self.pc, kwargs, "arc_mlp", lstm_dim * 2, 100, 1, 1, "tanh")
         self.label_mlp = _build_mlp(self.pc, kwargs, "label_mlp", lstm_dim * 2, 100, self.labels_dim, 1, "tanh")
@@ -102,12 +100,12 @@ class MLPParser(MSTParser):
         return y
 
     def disable_dropout(self):
-        super(MLPParser, self).disable_dropout()
+        super().disable_dropout()
         self.arc_mlp.disable_dropout()
         self.label_mlp.disable_dropout()
 
     def enable_dropout(self):
-        super(MLPParser, self).enable_dropout()
+        super().enable_dropout()
         self.arc_mlp.set_dropout(self.kwargs.get("arc_mlp_dropout", 0))
         self.label_mlp.set_dropout(self.kwargs.get("label_mlp_dropout", 0))        
 
@@ -125,7 +123,7 @@ def _build_head_dep(model, kwargs, prefix, input_dim, output_dim, act):
 class BiaffineParser(MSTParser):
 
     def __init__(self, model, **kwargs):
-        super(BiaffineParser, self).__init__(model, **kwargs)
+        super().__init__(model, **kwargs)
         lstm_dim = self.lstm.dims[1]
 
         arc_dim = kwargs.get("arc_mlp_dim", 100)
@@ -148,14 +146,14 @@ class BiaffineParser(MSTParser):
         return self.label_biaffine(x, y)
 
     def disable_dropout(self):
-        super(BiaffineParser, self).disable_dropout()
+        super().disable_dropout()
         self.arc_head_mlp.disable_dropout()
         self.arc_dep_mlp.disable_dropout()
         self.label_head_mlp.disable_dropout()
         self.label_dep_mlp.disable_dropout()
 
     def enable_dropout(self):
-        super(BiaffineParser, self).enable_dropout()
+        super().enable_dropout()
         self.arc_head_mlp.set_dropout(self.kwargs.get("arc_mlp_dropout", 0))
         self.arc_dep_mlp.set_dropout(self.kwargs.get("arc_mlp_dropout", 0))
         self.label_head_mlp.set_dropout(self.kwargs.get("label_mlp_dropout", 0))
