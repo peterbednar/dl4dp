@@ -170,12 +170,19 @@ class Params(object):
         self.test_data = self._load_data("test")
 
     def _config_model(self, pc):
+        if hasattr(self, "model_filename"):
+            filename = getattr(self, "model_filename")
+            print(f"loading model '{filename}'")
+            model, = dy.load(filename, pc)
+            return model
+
         self.model_params["embeddings_dims"] = [(len(self.index[f]) + 1, dim) for (f, dim) in zip(self.fields, self.embeddings_dims)]
         self.model_params["labels_dim"] = len(self.index[DEPREL])
 
         model = BiaffineParser(pc, **self.model_params)
-        if hasattr(self, "embeddings_vectors"):            
+        if hasattr(self, "embeddings_vectors"):
             self._init_embeddings(model)
+
         return model
 
     def _config_trainer(self, pc):
@@ -223,6 +230,7 @@ if __name__ == "__main__":
     params = Params({
         "basename" : "../build/",
         "model_basename" : "../build/en_ewt/",
+        "model_filename" : "../build/en_ewt/model_1",
         "treebanks" : {"train": "en_ewt-ud-train.conllu", "dev": "en_ewt-ud-dev.conllu", "test": "en_ewt-ud-test.conllu"},
         "fields" : ("FORM_NORM", "UPOS_FEATS"),
         "embeddings_dims" : (100, 100),
