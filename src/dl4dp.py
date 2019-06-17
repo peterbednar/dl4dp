@@ -187,10 +187,10 @@ class Params(object):
 
     def _config_trainer(self, pc):
         loss = getattr(self, "loss", "crossentropy")
-        if loss == "hinge":
-            self.loss = dy.hinge
-        elif loss == "crossentropy":
+        if loss == "crossentropy":
             self.loss = dy.pickneglogsoftmax
+        elif loss == "hinge":
+            self.loss = dy.hinge
         else:
             raise ValueError(f"unknown loss function: {loss}")
 
