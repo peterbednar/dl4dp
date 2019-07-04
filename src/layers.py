@@ -11,8 +11,8 @@ class Embeddings(object):
         self.set_update(update)
         self.dim = sum([dim for (_,dim) in dims])
 
-    def _lookup(self, feats, i, f):
-        v = feats[i,f]
+    def _lookup(self, feats, f, i):
+        v = feats[f][i]
         input_dropout = self.input_dropout[f]
         if input_dropout > 0 and random.random() < input_dropout:
             v = 0
@@ -23,11 +23,12 @@ class Embeddings(object):
         return embds
 
     def __call__(self, feats):
-        num_tokens, num_feats = feats.shape
+        num_tokens = len(feats[0])
+        num_feats = len(feats)
         if num_feats > 1:
-            x = [dy.concatenate([self._lookup(feats,i,f) for f in range(num_feats)]) for i in range(num_tokens)]
+            x = [dy.concatenate([self._lookup(feats,f,i) for f in range(num_feats)]) for i in range(num_tokens)]
         else:
-            x = [self._lookup(feats,i,0) for i in range(num_tokens)]
+            x = [self._lookup(feats,0,i) for i in range(num_tokens)]
         return x
 
     def set_dropout(self, dropout, input_dropout=0):

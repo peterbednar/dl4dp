@@ -5,7 +5,7 @@ import re
 import random
 import sys
 import math
-from collections import Counter, OrderedDict, namedtuple, defaultdict
+from collections import Counter, OrderedDict, defaultdict
 from functools import total_ordering
 from io import TextIOWrapper
 import gzip
@@ -36,8 +36,8 @@ def is_multiword(token):
     return id[2] == MULTIWORD if isinstance(id, tuple) else False
     
 _NUM_REGEX = re.compile("[0-9]+|[0-9]+\\.[0-9]+|[0-9]+[0-9,]+")
-NUM_FORM = u"__number__"
-_NUM_FORM_CHARS = (u"0",)
+NUM_NORM = u"__number__"
+_NUM_NORM_CHARS = (u"0",)
 
 def normalize_lower(field, value):
     if value is None:
@@ -49,9 +49,9 @@ def normalize_lower(field, value):
 def normalize_default(field, value):
     if value is None:
         return None
-    if field == FORM:
+    if field == FORM or field == LEMMA:
         if _NUM_REGEX.match(value):
-            return NUM_FORM
+            return NUM_NORM
         return value.lower()
     return value
 
@@ -65,14 +65,14 @@ def splitter_form(field, value):
 def splitter_default(field, value):
     if value is None:
         return None
-    if field == FORM_NORM and value == NUM_FORM:
-        return _NUM_FORM_CHARS
+    if (field == FORM_NORM or field == LEMMA_NORM) and value == NUM_NORM:
+        return _NUM_NORM_CHARS
     return tuple(value)
 
 _CHARS_FIELDS = {FORM: FORM_CHARS, LEMMA: LEMMA_CHARS, FORM_NORM: FORM_NORM_CHARS, LEMMA_NORM: LEMMA_NORM_CHARS}
 
 def read_conllu(file, skip_empty=True, skip_multiword=True, parse_feats=False, parse_deps=False, upos_feats=True,
-                normalize=normalize_default, splitter=None):
+                normalize=normalize_default, splitter=splitter_default):
 
     def _parse_sentence(lines):
         sentence = []
@@ -245,37 +245,46 @@ def shuffled_stream(data):
         for d in data:
             yield d
 
-class DepTree(namedtuple("DepTree", "chars, feats, heads, labels")):
+class Instance:
 
-    def __new__(cls, num_tokens, num_feats=0, chars_field=False):
-        return super(cls, DepTree).__new__(cls,
-                np.empty(num_tokens, dtype=np.object) if chars_field else None,
-                np.empty((num_tokens, num_feats), dtype=np.int) if num_feats > 0 else None,
-                np.full(num_tokens, -1, dtype=np.int),
-                np.full(num_tokens, -1, dtype=np.int))
+    def __init__(self, num_tokens):
+        self.form_chars = np.empty(num_tokens, dtype=np.object)
+        self.lemma_chars = np.empty(num_tokens, dtype=np.object)
+        self.forms = np.empty(num_tokens, dtype=np.int)
+        self.upos_feats = np.empty(num_tokens, dtype=np.int)
+        self.heads = np.full(num_tokens, -1, dtype=np.int)
+        self.labels = np.full(num_tokens, -1, dtype=np.int)
+        self.feats = (self.forms, self.upos_feats)
 
     def __len__(self):
         return len(self.heads)
 
-def map_to_instance(sentence, index, fields=(FORM, UPOS, FEATS), chars_field=None):
+def map_to_instance(sentence, index):
+
+    def map_chars(token, field):
+        if token[field] is None:
+            return None
+        chars = [index[field][ch] for ch in token[field]]
+        return np.array(chars, dtype=np.int)
+
     num_tokens = len(sentence)
-    num_feats = len(fields)
-    tree = DepTree(num_tokens, num_feats, chars_field is not None)
+    tree = Instance(num_tokens)
 
     for i, token in enumerate(sentence):
-        if chars_field:
-            chars = [index[chars_field][ch] for ch in token[chars_field]]
-            tree.chars[i] = np.array(chars, dtype=np.int)
-        for j, f in enumerate(fields):
-            tree.feats[i][j] = index[f][token[f]]
+        tree.form_chars[i] = map_chars(token, FORM_NORM_CHARS)
+        tree.lemma_chars[i] = map_chars(token, LEMMA_NORM_CHARS)
+
+        tree.forms[i] = index[FORM_NORM][token[FORM_NORM]]
+        tree.upos_feats[i] = index[UPOS_FEATS][token[UPOS_FEATS]]
+
         tree.heads[i] = token[HEAD]
         tree.labels[i] = index[DEPREL][token[DEPREL]]
             
     return tree
 
-def map_to_instances(sentences, index, fields=(FORM, UPOS, FEATS), chars_field=None):
+def map_to_instances(sentences, index):
     for sentence in sentences:
-        yield map_to_instance(sentence, index, fields, chars_field)
+        yield map_to_instance(sentence, index)
 
 def is_projective(heads):
     n_len = heads.shape[0]

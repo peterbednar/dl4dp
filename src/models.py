@@ -1,7 +1,7 @@
 import dynet as dy
 import numpy as np
 from layers import Embeddings, BiLSTM, MultiLayerPerceptron, Dense, Biaffine
-from utils import parse_nonprojective, DepTree
+from utils import parse_nonprojective, Instance
 from abc import ABC, abstractmethod
 
 class MSTParser(ABC):
@@ -58,7 +58,7 @@ class MSTParser(ABC):
 
     def parse(self, feats):
         h = self.transduce(feats)
-        tree = DepTree(len(feats))
+        tree = Instance(len(feats[0]))
         self._parse_heads(tree.heads, h)
         self._parse_labels(tree.heads, tree.labels, h)
         dy.renew_cg()

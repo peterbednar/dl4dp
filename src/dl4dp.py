@@ -6,7 +6,7 @@ import time
 import numpy as np
 from datetime import timedelta
 from utils import str_to_field
-from utils import create_index, create_dictionary, DEPREL, write_index, open_file
+from utils import create_index, create_dictionary, DEPREL, FORM_NORM_CHARS, LEMMA_NORM_CHARS, write_index, open_file
 from utils import read_conllu, map_to_instances, shuffled_stream
 from utils import progressbar
 from word2vec import read_word2vec, index_word2vec
@@ -160,7 +160,7 @@ class Params(object):
 
         train_data = open_treebank(self.treebanks["train"], self.basename)
         print("building index...")
-        self.index = create_index(create_dictionary(read_conllu(train_data), self.fields + (DEPREL, )))
+        self.index = create_index(create_dictionary(read_conllu(train_data), self.fields + (DEPREL, FORM_NORM_CHARS, LEMMA_NORM_CHARS)))
         write_index(self.index, basename=self.model_basename)
         print("building index done")
 
@@ -209,7 +209,7 @@ class Params(object):
     def _load_data(self, dataset):
         if dataset in self.treebanks:
             file = open_treebank(self.treebanks[dataset], self.basename)
-            data = list(map_to_instances(read_conllu(file), self.index, self.fields))
+            data = list(map_to_instances(read_conllu(file), self.index))
             num_sentences = len(data)
             num_tokens = sum([len(tree) for tree in data])
             print(f"{dataset} sentences: {num_sentences}, tokens: {num_tokens}")
@@ -230,7 +230,7 @@ if __name__ == "__main__":
     params = Params({
         "basename" : "../build/",
         "model_basename" : "../build/en_ewt/",
-        "model_filename" : "../build/en_ewt/model_1",
+        # "model_filename" : "../build/en_ewt/model_1",
         "treebanks" : {"train": "en_ewt-ud-train.conllu", "dev": "en_ewt-ud-dev.conllu", "test": "en_ewt-ud-test.conllu"},
         "fields" : ("FORM_NORM", "UPOS_FEATS"),
         "embeddings_dims" : (100, 100),
