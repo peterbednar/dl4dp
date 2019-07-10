@@ -1,8 +1,9 @@
 import numpy as np
 from argparse import ArgumentParser
 from gensim.models import Word2Vec
-from utils import str_to_field, field_to_str
-from utils import read_conllu, create_dictionary, create_index, write_index, open_file
+
+from .utils import str_to_field, field_to_str
+from .utils import read_conllu, create_dictionary, create_index, write_index, open_file
 
 UNKNOWN_TOKEN = u"__unknown__"
 NONE_TOKEN = u"__none__"

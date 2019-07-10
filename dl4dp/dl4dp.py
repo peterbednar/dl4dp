@@ -5,12 +5,13 @@ import random
 import time
 import numpy as np
 from datetime import timedelta
-from utils import str_to_field
-from utils import create_index, create_dictionary, DEPREL, FORM_NORM_CHARS, LEMMA_NORM_CHARS, write_index, open_file
-from utils import read_conllu, map_to_instances, shuffled_stream
-from utils import progressbar
-from word2vec import read_word2vec, index_word2vec
 import dynet_config
+
+from .utils import str_to_field
+from .utils import create_index, create_dictionary, DEPREL, FORM_NORM_CHARS, LEMMA_NORM_CHARS, write_index, open_file
+from .utils import read_conllu, map_to_instances, shuffled_stream
+from .utils import progressbar
+from .word2vec import read_word2vec, index_word2vec
 
 _MODEL_FILENAME="{0}model_{1}"
 
@@ -179,6 +180,7 @@ class Params(object):
         self.model_params["embeddings_dims"] = [(len(self.index[f]) + 1, dim) for (f, dim) in zip(self.fields, self.embeddings_dims)]
         self.model_params["labels_dim"] = len(self.index[DEPREL])
 
+        from .parser import BiaffineParser
         model = BiaffineParser(pc, **self.model_params)
         if hasattr(self, "embeddings_vectors"):
             self._init_embeddings(model)
@@ -225,35 +227,7 @@ def open_embeddings(embeddings, basename=""):
     filename = basename + embeddings
     return open_file(filename, errors="replace")
 
-if __name__ == "__main__":
-
-    params = Params({
-        "basename" : "../build/",
-        "model_basename" : "../build/en_ewt/",
-        # "model_filename" : "../build/en_ewt/model_1",
-        "treebanks" : {"train": "en_ewt-ud-train.conllu", "dev": "en_ewt-ud-dev.conllu", "test": "en_ewt-ud-test.conllu"},
-        "fields" : ("FORM_NORM", "UPOS_FEATS"),
-        "embeddings_dims" : (100, 100),
-        "embeddings_vectors": {"FORM_NORM": "vectors_form_norm.txt"},
-        "lstm_num_layers": 3,
-        "lstm_dim": 400,
-        "arc_mlp_dim": 100,
-        "label_mlp_dim": 100,
-        "input_dropouts": 0.33,
-        "embeddings_dropout": 0.33,
-        "lstm_dropout": 0.33,
-        "arc_mlp_dropout": 0.33,
-        "label_mlp_dropout": 0.33,
-        "max_epochs" : 2,
-        "loss": "crossentropy",
-        "random_seed" : 123456789,
-        "dynet_mem" : 1024
-    })
-
-    params.dynet_config()
-    import dynet as dy
-    from models import BiaffineParser
-
+def main(params):
     pc = dy.ParameterCollection()
     model, trainer = params.config(pc)
 
@@ -267,3 +241,30 @@ if __name__ == "__main__":
             pc = dy.ParameterCollection()
             model, = dy.load(_MODEL_FILENAME.format(params.model_basename, best_epoch), pc)
         validate(model, params.test_data)
+
+params = Params({
+    "basename" : "build/",
+    "model_basename" : "build/en_ewt/",
+    # "model_filename" : "build/en_ewt/model_1",
+    "treebanks" : {"train": "en_ewt-ud-train.conllu", "dev": "en_ewt-ud-dev.conllu", "test": "en_ewt-ud-test.conllu"},
+    "fields" : ("FORM_NORM", "UPOS_FEATS"),
+    "embeddings_dims" : (100, 100),
+    "embeddings_vectors": {"FORM_NORM": "vectors_form_norm.txt"},
+    "lstm_num_layers": 3,
+    "lstm_dim": 400,
+    "arc_mlp_dim": 100,
+    "label_mlp_dim": 100,
+    "input_dropouts": 0.33,
+    "embeddings_dropout": 0.33,
+    "lstm_dropout": 0.33,
+    "arc_mlp_dropout": 0.33,
+    "label_mlp_dropout": 0.33,
+    "max_epochs" : 2,
+    "loss": "crossentropy",
+    "random_seed" : 123456789,
+    "dynet_mem" : 1024
+})
+
+params.dynet_config()
+import dynet as dy
+main(params)

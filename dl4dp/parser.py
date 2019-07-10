@@ -1,8 +1,9 @@
 import dynet as dy
 import numpy as np
-from layers import Embeddings, BiLSTM, MultiLayerPerceptron, Dense, Biaffine
-from utils import parse_nonprojective, Instance
 from abc import ABC, abstractmethod
+
+from .layers import Embeddings, BiLSTM, MultiLayerPerceptron, Dense, Biaffine
+from .utils import parse_nonprojective, Instance
 
 class MSTParser(ABC):
 
