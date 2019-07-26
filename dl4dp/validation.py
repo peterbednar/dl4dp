@@ -20,28 +20,40 @@ class Metric(ABC):
         return f"{self.__class__.__name__}: {self.value:.4f}"
 
 class UAS(Metric):
-    
+
     def __init__(self):
         super().__init__()
 
     def __call__(self, gold, parsed):
         for n in range(len(gold)):
-            if gold.heads[n] == parsed.head[n]:
+            if gold.heads[n] == parsed.heads[n]:
                 self.correct += 1
             self.total += 1
 
 class LAS(Metric):
-    
+
     def __init__(self):
         super().__init__()
 
     def __call__(self, gold, parsed):
         for n in range(len(gold)):
-            if gold.heads[n] == parsed.head[n] and gold.labels[n] == parsed.labels[n]:
+            if gold.heads[n] == parsed.heads[n] and gold.labels[n] == parsed.labels[n]:
                 self.correct += 1
             self.total += 1
 
-def validate(model, validation_data, metrics=[UAS, LAS]):
+class EMS(Metric):
+
+    def __init__(self):
+        super().__init__()
+
+    def __call__(self, gold, parsed):
+        self.total += 1
+        for n in range(len(gold)):
+            if gold.heads[n] != parsed.heads[n] or gold.labels[n] != parsed.labels[n]:
+                return
+        self.correct += 1
+
+def validate(model, validation_data, metrics=[UAS, LAS, EMS]):
     metrics = [metric() for metric in metrics]
 
     pb = progressbar(len(validation_data))
@@ -52,5 +64,5 @@ def validate(model, validation_data, metrics=[UAS, LAS]):
         pb.update(1)
     pb.finish()
 
-    print(", ".join(metrics))
+    print(", ".join(str(metric) for metric in metrics))
     return [metric.value for metric in metrics]
