@@ -1,6 +1,5 @@
 import numpy as np
 from argparse import ArgumentParser
-from gensim.models import Word2Vec
 
 from .utils import str_to_field, field_to_str
 from .utils import read_conllu, create_dictionary, create_index, write_index, open_file
@@ -83,6 +82,7 @@ def _parse_args():
     return args
 
 if __name__ == "__main__":
+    from gensim.models import Word2Vec
     args = _parse_args()
 
     print("building index...")

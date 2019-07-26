@@ -11,6 +11,8 @@ from .utils import str_to_field
 from .utils import create_index, create_dictionary, DEPREL, FORM_NORM_CHARS, LEMMA_NORM_CHARS, write_index, open_file
 from .utils import read_conllu, map_to_instances, shuffled_stream
 from .utils import progressbar
+from .validation import validate
+
 from .word2vec import read_word2vec, index_word2vec
 
 _MODEL_FILENAME="{0}model_{1}"
@@ -108,27 +110,6 @@ def train(model, trainer, params):
 
     model.disable_dropout()
     return best_epoch, best_score
-
-def validate(model, validation_data):
-    num_tokens = 0
-    correct_ua = correct_la = 0
-    pb = progressbar(len(validation_data))
-
-    for gold in validation_data:
-        num_tokens += len(gold)
-        parsed = model.parse(gold.feats)
-        for n in range(len(gold)):
-            if parsed.heads[n] == gold.heads[n]:
-                correct_ua += 1
-                if parsed.labels[n] == gold.labels[n]:
-                    correct_la += 1
-        pb.update(1)
-    pb.finish()
-
-    uas = float(correct_ua) / num_tokens
-    las = float(correct_la) / num_tokens
-    print(f"UAS: {uas:.4f}, LAS: {las:.4f}")
-    return uas, las
 
 class Params(object):
 
@@ -249,7 +230,7 @@ params = Params({
     "treebanks" : {"train": "en_ewt-ud-train.conllu", "dev": "en_ewt-ud-dev.conllu", "test": "en_ewt-ud-test.conllu"},
     "fields" : ("FORM_NORM", "UPOS_FEATS"),
     "embeddings_dims" : (100, 100),
-    "embeddings_vectors": {"FORM_NORM": "vectors_form_norm.txt"},
+    # "embeddings_vectors": {"FORM_NORM": "vectors_form_norm.txt"},
     "lstm_num_layers": 3,
     "lstm_dim": 400,
     "arc_mlp_dim": 100,
@@ -259,7 +240,7 @@ params = Params({
     "lstm_dropout": 0.33,
     "arc_mlp_dropout": 0.33,
     "label_mlp_dropout": 0.33,
-    "max_epochs" : 2,
+    "max_epochs" : 10,
     "loss": "crossentropy",
     "random_seed" : 123456789,
     "dynet_mem" : 1024
