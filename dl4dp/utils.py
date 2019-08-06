@@ -286,6 +286,29 @@ def map_to_instances(sentences, index):
     for sentence in sentences:
         yield map_to_instance(sentence, index)
 
+def map_to_sentence(instance, index):
+    sentence = []
+    for i in range(len(instance)):
+        token = [None] * len(FIELD_TO_STR)
+
+        token[FORM_NORM_CHARS] = [index[FORM_NORM_CHARS][ch] for ch in instance.form_chars[i]]
+        token[LEMMA_NORM_CHARS] = [index[LEMMA_NORM_CHARS][ch] for ch in instance.lemma_chars[i]]
+
+        token[FORM_NORM] = index[FORM_NORM][instance.forms[i]]
+        token[UPOS_FEATS] = index[UPOS_FEATS][instance.upos_feats[i]]
+
+        if instance.heads[i] >= 0:
+            token[HEAD] = instance.heads[i]
+        token[DEPREL] = index[DEPREL][instance.labels[i]]
+
+        sentence.append(token)
+
+    return sentence
+
+def map_to_sentences(instances, index):
+    for instance in instances:
+        yield map_to_sentence(instance, index)
+
 def is_projective(heads):
     n_len = heads.shape[0]
     for i in range(n_len):
