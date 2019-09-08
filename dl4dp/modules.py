@@ -1,0 +1,69 @@
+
+import torch
+import torch.nn as nn
+
+class Embedding(nn.Module):
+
+    def __init__(self, dims, input_dropout=0):
+        self.embedding = nn.Embedding(dims[0], dims[1])
+        self.input_dropout = input_dropout
+        self.reset_parameters()
+
+    def forward(self, x):
+        if self.training and self.input_dropout > 0:
+            mask = torch.rand(x.size()) >= self.input_dropout
+            x = x * mask.long()
+        return self.embedding(x)
+
+    def reset_parameters(self):
+        nn.init.xavier_uniform_(self.embedding.weight)
+
+class Embeddings(nn.Module):
+
+    def __init__(self, field_dims, input_dropout=0):
+        self.embeddings = nn.ModuleDict()
+        for f, dim in field_dims.items():
+            dropout = input_dropout.get(f, 0) if isinstance(input_dropout, dict) else input_dropout
+            self.embeddings[f] = Embedding(dim, dropout)
+
+    def forward(self, instances):
+
+        def _lookup(field):
+            s = torch.from_numpy(instance[field]).long()
+            return self.embeddings[field](s)
+
+        batch = []
+        for instance in instances:
+            x = [_lookup(f) for f in self.embeddings.keys()]
+            x = torch.cat(x, 1)
+            batch.append(x)
+        return batch
+
+class LSTM(nn.Module):
+    pass
+
+class MultilayerPerceptron(nn.Module):
+    pass
+
+class Biaffine(nn.Module):
+    
+    def __init__(self, input_size, output_size, bias_x=True, bias_y=True):
+        self.bias_x = bias_x
+        self.bias_y = bias_y
+        self.U = nn.Parameter(torch.Tensor(output_size, input_size + bias_x, input_size + bias_y))
+        self.reset_parameters()
+    
+    def reset_parameters(self):
+        pass
+
+    def forward(self, x, y):
+        if self.bias_x:
+            x = torch.cat([x, x.new_ones(x.shape[:-1]).unsqueeze(-1)], -1)
+        if self.bias_y:
+            y = torch.cat([y, y.new_ones(y.shape[:-1]).unsqueeze(-1)], -1)
+        
+        x = x.unsqueeze(1)
+        y = y.unsqueeze(1)
+        s = x @ self.U @ y.transpose(-1, -2)
+        s = s.squeeze(1)
+        return s
