@@ -1,6 +1,7 @@
 
 import torch
 import torch.nn as nn
+import torch.nn.utils.rnn as rnn
 import numpy as np
 
 class Embedding(nn.Module):
@@ -42,14 +43,29 @@ class Embeddings(nn.Module):
         return batch
 
 class LSTM(nn.Module):
-    pass
 
-class MultilayerPerceptron(nn.Module):
-    pass
+    def __init__(self, input_dim, hidden_dim, num_layers, dropout=0):
+        super().__init__()
+        self.root = torch.Tensor(1, input_dim)
+        self.lstm = nn.LSTM(input_dim, hidden_dim, num_layers, dropout=dropout, bidirectional=True, batch_first=True)
+
+    def forward(self, batch):
+        for i, x in enumerate(batch):
+            batch[i] = torch.cat([self.root, x])
+        x = rnn.pack_sequence(batch)
+        h, _ = self.lstm(x)
+        h, _ = rnn.pad_packed_sequence(h, batch_first=True)
+        return h
+
+class MLP(nn.Module):
+    
+    def __init__(self):
+        super().__init__()
 
 class Biaffine(nn.Module):
     
     def __init__(self, input_size, output_size, bias_x=True, bias_y=True):
+        super().__init__()
         self.bias_x = bias_x
         self.bias_y = bias_y
         self.U = nn.Parameter(torch.Tensor(output_size, input_size + bias_x, input_size + bias_y))
