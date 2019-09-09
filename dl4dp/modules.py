@@ -46,7 +46,7 @@ class LSTM(nn.Module):
 
     def __init__(self, input_dim, hidden_dim, num_layers, dropout=0):
         super().__init__()
-        self.root = torch.Tensor(1, input_dim)
+        self.root = nn.Parameter(torch.Tensor(1, input_dim))
         self.lstm = nn.LSTM(input_dim, hidden_dim, num_layers, dropout=dropout, bidirectional=True, batch_first=True)
 
     def forward(self, batch):
