@@ -1,18 +1,24 @@
 
 import torch
 import torch.nn as nn
+import numpy as np
 
 class Embedding(nn.Module):
 
     def __init__(self, dims, input_dropout=0):
+        super().__init__()
         self.embedding = nn.Embedding(dims[0], dims[1])
         self.input_dropout = input_dropout
         self.reset_parameters()
 
     def forward(self, x):
+        if isinstance(x, np.ndarray):
+            x = torch.from_numpy(x).long()
+
         if self.training and self.input_dropout > 0:
-            mask = torch.rand(x.size()) >= self.input_dropout
+            mask = torch.rand(x.shape) >= self.input_dropout
             x = x * mask.long()
+
         return self.embedding(x)
 
     def reset_parameters(self):
@@ -21,20 +27,16 @@ class Embedding(nn.Module):
 class Embeddings(nn.Module):
 
     def __init__(self, field_dims, input_dropout=0):
+        super().__init__()
         self.embeddings = nn.ModuleDict()
         for f, dim in field_dims.items():
             dropout = input_dropout.get(f, 0) if isinstance(input_dropout, dict) else input_dropout
             self.embeddings[f] = Embedding(dim, dropout)
 
     def forward(self, instances):
-
-        def _lookup(field):
-            s = torch.from_numpy(instance[field]).long()
-            return self.embeddings[field](s)
-
         batch = []
         for instance in instances:
-            x = [_lookup(f) for f in self.embeddings.keys()]
+            x = [self.embeddings[f](instance[f]) for f in self.embeddings.keys()]
             x = torch.cat(x, 1)
             batch.append(x)
         return batch
