@@ -2,7 +2,7 @@ import torch
 import numpy as np
 
 from collections import OrderedDict
-from dl4dp.modules import Embeddings, LSTM
+from dl4dp.modules import Embeddings, LSTM, MLP
 
 def test_embeddings():
     instances = [
@@ -27,3 +27,18 @@ def test_lstm():
     h = lstm(embeddings(instances))
 
     assert h.shape == (2, 7, 5 * 2)
+
+def test_mlp():
+    instances = [
+        {"a":np.array([1, 2, 3, 4, 5, 6], dtype=np.int), "b":np.array([1, 1, 2, 2, 3, 3], np.int)},
+        {"a":np.array([2, 4, 6], dtype=np.int), "b":np.array([1, 2, 3], np.int)}
+    ]
+
+    embeddings = Embeddings(OrderedDict([("a", (7, 4)), ("b", (4, 3))]))
+    lstm = LSTM(7, 5, 1)
+    h = lstm(embeddings(instances))
+
+    mlp = MLP(5 * 2, 6)
+    x = mlp(h)
+
+    assert x.shape == (2, 7, 6)

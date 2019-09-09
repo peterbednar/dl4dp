@@ -23,7 +23,8 @@ class Embedding(nn.Module):
         return self.embedding(x)
 
     def reset_parameters(self):
-        nn.init.xavier_uniform_(self.embedding.weight)
+        gain = nn.init.calculate_gain("leaky_relu", 0.1)
+        nn.init.xavier_uniform_(self.embedding.weight, gain=gain)
 
 class Embeddings(nn.Module):
 
@@ -59,8 +60,20 @@ class LSTM(nn.Module):
 
 class MLP(nn.Module):
     
-    def __init__(self):
+    def __init__(self, input_dim, output_dim, dropout=0):
         super().__init__()
+        self.linear = nn.Linear(input_dim, output_dim)
+        self.act = nn.LeakyReLU(negative_slope=0.1)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x):
+        x = self.act(self.linear(x))
+        x = self.dropout(x)
+        return x
+
+    def reset_parameters(self):
+        nn.init.orthogonal_(self.linear.weight)
+        nn.init.zeros_(self.linear.bias)
 
 class Biaffine(nn.Module):
     
