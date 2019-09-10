@@ -22,6 +22,9 @@ class Embedding(nn.Module):
 
         return self.embedding(x)
 
+    def size(self):
+        return self.embedding.weight.shape
+
     def reset_parameters(self):
         gain = nn.init.calculate_gain("leaky_relu", 0.1)
         nn.init.xavier_uniform_(self.embedding.weight, gain=gain)
@@ -42,6 +45,9 @@ class Embeddings(nn.Module):
             x = torch.cat(x, 1)
             batch.append(x)
         return batch
+
+    def size(self):
+        return sum(embed.size()[1] for embed in self.embeddings.values())
 
 class LSTM(nn.Module):
 

@@ -16,6 +16,8 @@ def test_embeddings():
     assert batch[0].shape == (6, 7)
     assert batch[1].shape == (3, 7)
 
+    assert embeddings.size() == 7
+
 def test_lstm():
     instances = [
         {"a":np.array([1, 2, 3, 4, 5, 6], dtype=np.int), "b":np.array([1, 1, 2, 2, 3, 3], np.int)},
