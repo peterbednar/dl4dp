@@ -16,4 +16,4 @@ def test_biaffine_parser():
     arc_scores, label_scores = parser(instances)
 
     assert arc_scores.shape == (2, 7, 7)
-    assert label_scores.shape == (2, 5, 7, 7)
+    assert label_scores.shape == (2, 7, 7, 5)
