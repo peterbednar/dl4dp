@@ -17,7 +17,7 @@ class Embedding(nn.Module):
             x = torch.from_numpy(x).long()
 
         if self.training and self.input_dropout > 0:
-            mask = torch.rand(x.shape) >= self.input_dropout
+            mask = torch.rand(x.shape) > self.input_dropout
             x = x * mask.long()
 
         return self.embedding(x)
@@ -81,12 +81,9 @@ class Biaffine(nn.Module):
         super().__init__()
         self.bias_x = bias_x
         self.bias_y = bias_y
-        self.U = nn.Parameter(torch.Tensor(output_size, input_size + bias_x, input_size + bias_y))
+        self.weight = nn.Parameter(torch.Tensor(output_size, input_size + bias_x, input_size + bias_y))
         self.reset_parameters()
     
-    def reset_parameters(self):
-        pass
-
     def forward(self, x, y):
         if self.bias_x:
             x = torch.cat([x, x.new_ones(x.shape[:-1]).unsqueeze(-1)], -1)
@@ -95,6 +92,9 @@ class Biaffine(nn.Module):
         
         x = x.unsqueeze(1)
         y = y.unsqueeze(1)
-        s = x @ self.U @ y.transpose(-1, -2)
+        s = x @ self.weight @ y.transpose(-1, -2)
         s = s.squeeze(1)
         return s
+
+    def reset_parameters(self):
+        nn.init.orthogonal_(self.weight)
