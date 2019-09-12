@@ -1,25 +1,22 @@
 
 import torch.nn as nn
-from .modules import Embeddings, LSTM, MLP, Biaffine
+from .modules import Embeddings, LSTM, MLP, Biaffine, Bilinear
 
 class BiaffineParser(nn.Module):
     
-    def __init__(self, **kwargs):
+    def __init__(self,
+                embedding_dims,
+                labels_dim,
+                input_dropout=0,
+                lstm_hidden_dim=100,
+                lstm_num_layers=2,
+                lstm_dropout=0,
+                arc_mlp_dim=100,
+                arc_mlp_dropout=0,
+                label_mlp_dim=100,
+                label_mlp_dropout=0):
         super().__init__()
-
-        embedding_dims = kwargs.get("embedding_dims")
-        labels_dim = kwargs.get("labels_dim")
-        input_dropout = kwargs.get("input_dropout", 0)
-
-        lstm_hidden_dim = kwargs.get("lstm_hidden_dim", 100)
-        lstm_num_layers = kwargs.get("lstm_num_layers", 2)
-        lstm_dropout = kwargs.get("lstm_dropout", 0)
         
-        arc_mlp_dim = kwargs.get("arc_mlp_dim", 100)
-        arc_mlp_dropout = kwargs.get("arc_mlp_dropout", 0)
-        label_mlp_dim = kwargs.get("label_mlp_dim", 100)
-        label_mlp_dropout = kwargs.get("label_mlp_dropout", 0)
-
         self.embeddings = Embeddings(embedding_dims, input_dropout)
         input_dim = self.embeddings.size()
 
@@ -32,7 +29,7 @@ class BiaffineParser(nn.Module):
         self.label_dep_mlp = MLP(lstm_hidden_dim * 2, label_mlp_dim, label_mlp_dropout)
 
         self.arc_biaffine = Biaffine(arc_mlp_dim, 1)
-        self.label_biaffine = Biaffine(label_mlp_dim, labels_dim)
+        self.label_bilinear = Bilinear(label_mlp_dim, labels_dim)
 
     def forward(self, instances):
         x = self.embeddings(instances)
@@ -44,6 +41,6 @@ class BiaffineParser(nn.Module):
 
         label_head = self.label_head_mlp(h)
         label_dep = self.label_dep_mlp(h)
-        label_scores = self.label_biaffine(label_head, label_dep)
+        label_scores = self.label_bilinear(label_head, label_dep)
 
-        return arc_scores, label_scores.permute(0, 2, 3, 1)
+        return arc_scores, label_scores
