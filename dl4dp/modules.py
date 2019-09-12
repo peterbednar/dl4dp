@@ -89,7 +89,7 @@ class Bilinear(nn.Module):
         super().__init__()
         self.weight = nn.Parameter(torch.Tensor(output_size, input_size, input_size))
         self.register_parameter("bias_x", nn.Parameter(torch.Tensor(output_size, input_size)) if bias_x else None)
-        self.register_parameter("bias_y", nn.Parameter(torch.Tensor(output_size, input_size)) if bias_x else None)
+        self.register_parameter("bias_y", nn.Parameter(torch.Tensor(output_size, input_size)) if bias_y else None)
         self.register_parameter("bias", nn.Parameter(torch.Tensor(output_size)) if bias_x else None)
         self.reset_parameters()
     
