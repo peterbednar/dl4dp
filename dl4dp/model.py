@@ -37,10 +37,10 @@ class BiaffineParser(nn.Module):
 
         arc_head = self.arc_head_mlp(h)
         arc_dep = self.arc_dep_mlp(h)
-        arc_scores = self.arc_biaffine(arc_head, arc_dep)
+        arc_scores = self.arc_biaffine(arc_dep, arc_head)
 
         label_head = self.label_head_mlp(h)
         label_dep = self.label_dep_mlp(h)
-        label_scores = self.label_biaffine(label_head, label_dep)
+        label_scores = self.label_biaffine(label_dep, label_head)
 
         return arc_scores, label_scores
