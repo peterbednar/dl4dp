@@ -7,11 +7,11 @@ class BiaffineParser(nn.Module):
     def __init__(self,
                 embedding_dims,
                 labels_dim,
-                input_dropout=0,
-                lstm_hidden_dim=100,
-                lstm_num_layers=2,
+                input_dropout=0.33,
+                lstm_hidden_dim=400,
+                lstm_num_layers=3,
                 lstm_dropout=0.33,
-                arc_mlp_dim=100,
+                arc_mlp_dim=500,
                 arc_mlp_dropout=0.33,
                 label_mlp_dim=100,
                 label_mlp_dropout=0.33):
@@ -33,7 +33,7 @@ class BiaffineParser(nn.Module):
 
     def forward(self, instances):
         x = self.embeddings(instances)
-        h = self.lstm(x)
+        h, batch_lengths = self.lstm(x)
 
         arc_head = self.arc_head_mlp(h)
         arc_dep = self.arc_dep_mlp(h)
@@ -41,6 +41,6 @@ class BiaffineParser(nn.Module):
 
         label_head = self.label_head_mlp(h)
         label_dep = self.label_dep_mlp(h)
-        label_scores = self.label_biaffine(label_dep, label_head)
+        label_scores = self.label_biaffine(label_dep, label_head).permute(0, 2, 3, 1)
 
         return arc_scores, label_scores

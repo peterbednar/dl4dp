@@ -26,9 +26,10 @@ def test_lstm():
 
     embeddings = Embeddings(OrderedDict([("a", (7, 4)), ("b", (4, 3))]))
     lstm = LSTM(7, 5, 1)
-    h = lstm(embeddings(instances))
+    h, batch_lengths = lstm(embeddings(instances))
 
     assert h.shape == (2, 7, 5 * 2)
+    assert torch.all(torch.eq(batch_lengths, torch.LongTensor([7, 4])))
 
 def test_mlp():
     instances = [
@@ -38,7 +39,7 @@ def test_mlp():
 
     embeddings = Embeddings(OrderedDict([("a", (7, 4)), ("b", (4, 3))]))
     lstm = LSTM(7, 5, 1)
-    h = lstm(embeddings(instances))
+    h, _ = lstm(embeddings(instances))
 
     mlp = MLP(5 * 2, 6)
     x = mlp(h)

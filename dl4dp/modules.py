@@ -1,9 +1,7 @@
 
-import math
 import torch
 import torch.nn as nn
 import torch.nn.utils.rnn as rnn
-import torch.nn.functional as F
 import numpy as np
 
 class Embedding(nn.Module):
@@ -55,16 +53,16 @@ class LSTM(nn.Module):
 
     def __init__(self, input_dim, hidden_dim, num_layers, dropout=0):
         super().__init__()
-        self.root = nn.Parameter(torch.Tensor(1, input_dim))
+        self.root = nn.Parameter(torch.Tensor(input_dim))
         self.lstm = nn.LSTM(input_dim, hidden_dim, num_layers, dropout=dropout, bidirectional=True, batch_first=True)
 
     def forward(self, batch):
         for i, x in enumerate(batch):
-            batch[i] = torch.cat([self.root, x])
+            batch[i] = torch.cat([self.root.unsqueeze(0), x])
         x = rnn.pack_sequence(batch)
         h, _ = self.lstm(x)
-        h, _ = rnn.pad_packed_sequence(h, batch_first=True)
-        return h
+        h, batch_lengths = rnn.pad_packed_sequence(h, batch_first=True)
+        return h, batch_lengths
 
 class MLP(nn.Module):
     
