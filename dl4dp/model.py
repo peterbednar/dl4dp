@@ -1,6 +1,6 @@
 
 import torch.nn as nn
-from .modules import Embeddings, LSTM, MLP, Biaffine, Bilinear
+from .modules import Embeddings, LSTM, MLP, Biaffine
 
 class BiaffineParser(nn.Module):
     
@@ -10,11 +10,11 @@ class BiaffineParser(nn.Module):
                 input_dropout=0,
                 lstm_hidden_dim=100,
                 lstm_num_layers=2,
-                lstm_dropout=0,
+                lstm_dropout=0.33,
                 arc_mlp_dim=100,
-                arc_mlp_dropout=0,
+                arc_mlp_dropout=0.33,
                 label_mlp_dim=100,
-                label_mlp_dropout=0):
+                label_mlp_dropout=0.33):
         super().__init__()
         
         self.embeddings = Embeddings(embedding_dims, input_dropout)
@@ -29,7 +29,7 @@ class BiaffineParser(nn.Module):
         self.label_dep_mlp = MLP(lstm_hidden_dim * 2, label_mlp_dim, label_mlp_dropout)
 
         self.arc_biaffine = Biaffine(arc_mlp_dim, 1)
-        self.label_bilinear = Bilinear(label_mlp_dim, labels_dim)
+        self.label_biaffine = Biaffine(label_mlp_dim, labels_dim)
 
     def forward(self, instances):
         x = self.embeddings(instances)
@@ -41,6 +41,6 @@ class BiaffineParser(nn.Module):
 
         label_head = self.label_head_mlp(h)
         label_dep = self.label_dep_mlp(h)
-        label_scores = self.label_bilinear(label_head, label_dep)
+        label_scores = self.label_biaffine(label_head, label_dep)
 
         return arc_scores, label_scores

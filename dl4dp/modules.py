@@ -83,33 +83,25 @@ class MLP(nn.Module):
         nn.init.orthogonal_(self.linear.weight)
         nn.init.zeros_(self.linear.bias)
 
-class Bilinear(nn.Module):
-    
-    def __init__(self, input_size, output_size, bias_x=True, bias_y=True, bias=True):
+class Biaffine(nn.Module):
+
+    def __init__(self, input_size, output_size, bias_x=True, bias_y=True):
         super().__init__()
-        self.weight = nn.Parameter(torch.Tensor(output_size, input_size, input_size))
-        self.register_parameter("bias_x", nn.Parameter(torch.Tensor(output_size, input_size)) if bias_x else None)
-        self.register_parameter("bias_y", nn.Parameter(torch.Tensor(output_size, input_size)) if bias_y else None)
-        self.register_parameter("bias", nn.Parameter(torch.Tensor(output_size)) if bias_x else None)
+        self.bias_x = bias_x
+        self.bias_y = bias_y
+        self.weight = nn.Parameter(torch.Tensor(output_size, input_size + bias_x, input_size + bias_y))
         self.reset_parameters()
     
     def forward(self, x, y):
-        s = F.bilinear(x, y, self.weight, self.bias)
-        if self.bias_x is not None:
-            s += F.linear(x, self.bias_x)
-        if self.bias_y is not None:
-            s += F.linear(y, self.bias_y)
+        if self.bias_x:
+            x = torch.cat([x, x.new_ones(x.shape[:-1]).unsqueeze(-1)], -1)
+        if self.bias_y:
+            y = torch.cat([y, y.new_ones(y.shape[:-1]).unsqueeze(-1)], -1)
+        x = x.unsqueeze(1)
+        y = y.unsqueeze(1)
+        s = x @ self.weight @ y.transpose(-1, -2)
+        s = s.squeeze(1)
         return s
 
     def reset_parameters(self):
-        bound = 1 / math.sqrt(self.weight.size(1))
-        for param in self.parameters():
-            nn.init.uniform_(param, -bound, bound)
-
-class Biaffine(nn.Module):
-
-    def __init__(self, input_size, output_size):
-        super().__init__()
-
-    def forward(self, x, y):
-        return x
+        nn.init.xavier_uniform_(self.weight)
