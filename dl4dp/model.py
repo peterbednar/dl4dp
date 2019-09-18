@@ -1,20 +1,15 @@
 
+import torch
 import torch.nn as nn
+import torch.nn.utils.rnn as rnn
 from .modules import Embeddings, LSTM, MLP, Biaffine
 
 class BiaffineParser(nn.Module):
     
-    def __init__(self,
-                embedding_dims,
-                labels_dim,
-                input_dropout=0.33,
-                lstm_hidden_dim=400,
-                lstm_num_layers=3,
-                lstm_dropout=0.33,
-                arc_mlp_dim=500,
-                arc_mlp_dropout=0.33,
-                label_mlp_dim=100,
-                label_mlp_dropout=0.33):
+    def __init__(self, embedding_dims, labels_dim, input_dropout=0.33,
+                lstm_hidden_dim=400, lstm_num_layers=3, lstm_dropout=0.33,
+                arc_mlp_dim=500, arc_mlp_dropout=0.33,
+                label_mlp_dim=100, label_mlp_dropout=0.33):
         super().__init__()
         
         self.embeddings = Embeddings(embedding_dims, input_dropout)
@@ -44,3 +39,11 @@ class BiaffineParser(nn.Module):
         label_scores = self.label_biaffine(label_dep, label_head).permute(0, 2, 3, 1)
 
         return arc_scores, label_scores
+
+    def _get_gold_arcs(self, instances):
+        heads = [torch.from_numpy(instance["head"]).long() for instance in instances]
+        return rnn.pad_sequence(heads, batch_first=True)
+
+    def _get_gold_labels(self, instances):
+        deps = [torch.from_numpy(instance["deprel"]).long() for instance in instances]
+        return rnn.pad_sequence(deps, batch_first=True)
