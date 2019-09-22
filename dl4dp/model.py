@@ -1,4 +1,6 @@
 
+import math
+
 import torch
 import torch.nn as nn
 import torch.nn.utils.rnn as rnn
@@ -38,7 +40,17 @@ class BiaffineParser(nn.Module):
         label_dep = self.label_dep_mlp(h)
         label_scores = self.label_biaffine(label_dep, label_head).permute(0, 2, 3, 1)
 
-        return arc_scores, label_scores
+        return arc_scores, label_scores, batch_lengths
+
+    def _get_arc_loss(self, arc_scores, gold_arcs, mask):
+        arc_scores.masked_fill(~mask.unsqueeze(1), -math.inf)
+        arc_scores.masked_fill(torch.eye(arc_scores.size(1)).unsqueeze(0) > 0, -math.inf)
+
+    def _get_label_loss(self, label_scores, gold_arcs, gold_labels, mask):
+        pass
+
+    def _get_mask(self, max_length, batch_lengths):
+        return torch.arange(max_length)[None, :] < batch_lengths[:, None]
 
     def _get_gold_arcs(self, instances):
         heads = [torch.from_numpy(instance["head"]).long() for instance in instances]

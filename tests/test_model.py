@@ -23,7 +23,7 @@ def test_biaffine_parser():
     labels_dim = 5
 
     parser = BiaffineParser(embedding_dims=embedding_dims, labels_dim=labels_dim)
-    arc_scores, label_scores = parser(instances)
+    arc_scores, label_scores, batch_lengths = parser(instances)
 
     assert arc_scores.shape == (2, 7, 7)
     assert label_scores.shape == (2, 7, 7, 5)

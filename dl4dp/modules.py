@@ -18,7 +18,7 @@ class Embedding(nn.Module):
 
         if self.training and self.input_dropout > 0:
             mask = torch.rand(x.shape) > self.input_dropout
-            x = x * mask.long()
+            x.masked_fill(~mask, 0)
 
         return self.embedding(x)
 
