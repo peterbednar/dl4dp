@@ -1,4 +1,3 @@
-
 import math
 
 import torch
@@ -8,11 +7,19 @@ from .modules import Embeddings, LSTM, MLP, Biaffine
 
 class BiaffineParser(nn.Module):
     
-    def __init__(self, embedding_dims, labels_dim, input_dropout=0.33,
-                lstm_hidden_dim=400, lstm_num_layers=3, lstm_dropout=0.33,
-                arc_mlp_dim=500, arc_mlp_dropout=0.33,
-                label_mlp_dim=100, label_mlp_dropout=0.33):
+    def __init__(self,
+                embedding_dims,
+                labels_dim,
+                input_dropout=0.33,
+                lstm_hidden_dim=400,
+                lstm_num_layers=3,
+                lstm_dropout=0.33,
+                arc_mlp_dim=500,
+                arc_mlp_dropout=0.33,
+                label_mlp_dim=100,
+                label_mlp_dropout=0.33):
         super().__init__()
+        self.criterion = nn.CrossEntropyLoss(reduction='none')
         
         self.embeddings = Embeddings(embedding_dims, input_dropout)
         input_dim = self.embeddings.size()
@@ -43,8 +50,10 @@ class BiaffineParser(nn.Module):
         return arc_scores, label_scores, batch_lengths
 
     def _get_arc_loss(self, arc_scores, gold_arcs, mask):
-        arc_scores.masked_fill(~mask.unsqueeze(1), -math.inf)
-        arc_scores.masked_fill(torch.eye(arc_scores.size(1)).unsqueeze(0) > 0, -math.inf)
+        arc_scores.masked_fill_(~mask.unsqueeze(1), -math.inf)
+        arc_scores.masked_fill_(torch.eye(arc_scores.size(-1)).bool().unsqueeze(0), -math.inf)
+        loss = self.criterion(arc_scores, gold_arcs)
+        return torch.sum(loss[mask])
 
     def _get_label_loss(self, label_scores, gold_arcs, gold_labels, mask):
         pass
