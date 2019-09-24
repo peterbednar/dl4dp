@@ -1,7 +1,7 @@
 
 import numpy as np
 from collections import OrderedDict
-from dl4dp.model import BiaffineParser
+from dl4dp.model import BiaffineParser, _get_gold_arcs, _get_gold_labels
 
 def test_biaffine_parser():
     instances = [
@@ -28,8 +28,8 @@ def test_biaffine_parser():
     assert arc_scores.shape == (2, 7, 7)
     assert label_scores.shape == (2, 7, 7, 5)
 
-    gold_arcs = parser._get_gold_arcs(instances)
-    gold_deps = parser._get_gold_labels(instances)
+    gold_arcs = _get_gold_arcs(instances)
+    gold_deps = _get_gold_labels(instances)
 
     assert gold_arcs.shape == (2, 6)
     assert gold_deps.shape == (2, 6)
