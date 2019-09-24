@@ -52,8 +52,12 @@ class BiaffineParser(nn.Module):
     def _get_arc_loss(self, arc_scores, gold_arcs, mask):
         arc_scores.masked_fill_(~mask.unsqueeze(1), -math.inf)
         arc_scores.masked_fill_(torch.eye(arc_scores.size(-1)).bool().unsqueeze(0), -math.inf)
+
+        arc_scores = arc_scores[:,1:,:]
+        mask = mask[:,1:]
+
         loss = self.criterion(arc_scores, gold_arcs)
-        return torch.sum(loss[mask])
+        return loss[mask].sum()
 
     def _get_label_loss(self, label_scores, gold_arcs, gold_labels, mask):
         pass
