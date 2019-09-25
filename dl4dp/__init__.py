@@ -1,4 +1,6 @@
 import random
+
+import torch
 from torch.optim import Adam
 
 from conllutils import FORM_NORM, UPOS_FEATS, DEPREL
@@ -30,6 +32,8 @@ class Params(dict):
 
 def main():
     random.seed(1)
+    torch.manual_seed(1)
+
     params = Params({"max_epoch": 1, "batch_size": 100})
     train_data = "build/en_ewt-ud-train.conllu"
 
