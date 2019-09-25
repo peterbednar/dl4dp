@@ -48,6 +48,8 @@ class BiaffineParser(nn.Module):
         self.label_biaffine = Biaffine(label_mlp_dim, labels_dim)
 
     def forward(self, batch):
+        batch.sort(key=len, reverse=True)
+
         x = self.embeddings(batch)
         h, batch_lengths = self.lstm(x)
 
@@ -77,7 +79,7 @@ class BiaffineParser(nn.Module):
         arc_scores.masked_fill_(~mask.unsqueeze(1), -math.inf)
         arc_scores.masked_fill_(torch.eye(arc_scores.size(-1)).bool().unsqueeze(0), -math.inf)
 
-        arc_scores = arc_scores[:,1:,:]
+        arc_scores = arc_scores[:,1:,:].transpose(-2, -1)
         mask = mask[:,1:]
 
         loss = self.criterion(arc_scores, gold_arcs)
