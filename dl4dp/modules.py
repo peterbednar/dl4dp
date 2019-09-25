@@ -78,7 +78,8 @@ class MLP(nn.Module):
         return x
 
     def reset_parameters(self):
-        nn.init.orthogonal_(self.linear.weight)
+        gain = nn.init.calculate_gain("leaky_relu", 0.1)
+        nn.init.xavier_uniform_(self.linear.weight, gain=gain)
         nn.init.zeros_(self.linear.bias)
 
 class Biaffine(nn.Module):
@@ -102,4 +103,5 @@ class Biaffine(nn.Module):
         return s
 
     def reset_parameters(self):
-        nn.init.xavier_uniform_(self.weight)
+        gain = nn.init.calculate_gain("leaky_relu", 0.1)
+        nn.init.xavier_uniform_(self.weight, gain=gain)
