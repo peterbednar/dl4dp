@@ -36,7 +36,7 @@ class Embeddings(object):
             self.embedding[f] = Embedding(self.pc, dims)
         self.set_dropout(dropout, input_dropout)
         self.set_update(update)
-        self.dim = sum([dim for (_,dim) in dims])
+        self.dim = sum([dim for (_,dim) in field_dims.values()])
 
     def __call__(self, instance):
         x = [[self.embedding[f](instance[f][i]) for f in instance.keys()] for i in range(len(instance))]
