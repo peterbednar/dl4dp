@@ -1,54 +1,63 @@
 import math
 import random
 import dynet as dy
+from collections import OrderedDict
 
+class Embedding(object):
+
+    def __init__(self, pc, dims, dropout=0, input_dropout=0, update=True):
+        self.lookup = pc.add_lookup_parameters(dims)
+        self.input_dropout = input_dropout
+        self.dropout = dropout
+        self.update = update
+
+    def __call__(self, index):
+        if self.input_dropout > 0 and random.random() < self.input_dropout:
+            index = 0
+        x = dy.lookup(self.lookup, index, self.update)
+        if self.dropout > 0:
+            x = dy.dropout(x, self.dropout)
+        return x
+
+    def init_from_word2vec(self, vectors):
+        num_init = 0
+        num_rows = self.lookup.shape()[0]
+        for (i, v) in vectors:
+            self.lookup.init_row(i, v)
+            num_init += 1
+        return (num_init, num_rows)
+    
 class Embeddings(object):
 
-    def __init__(self, model, dims, dropout=0, input_dropout=0, update=True):
+    def __init__(self, model, field_dims, dropout=0, input_dropout=0, update=True):
         self.pc = model.add_subcollection()
-        self.lookup = [self.pc.add_lookup_parameters(dim) for dim in dims]
+        self.embedding = OrderedDict()
+        for f, dims in field_dims.items():
+            self.embedding[f] = Embedding(self.pc, dims)
         self.set_dropout(dropout, input_dropout)
         self.set_update(update)
         self.dim = sum([dim for (_,dim) in dims])
 
-    def _lookup(self, feats, f, i):
-        v = feats[f][i]
-        input_dropout = self.input_dropout[f]
-        if input_dropout > 0 and random.random() < input_dropout:
-            v = 0
-        embds = dy.lookup(self.lookup[f], v, update=self.update[f])
-        dropout = self.dropout[f]
-        if dropout > 0:
-            embds = dy.dropout(embds, dropout)
-        return embds
-
-    def __call__(self, feats):
-        num_tokens = len(feats[0])
-        num_feats = len(feats)
-        if num_feats > 1:
-            x = [dy.concatenate([self._lookup(feats,f,i) for f in range(num_feats)]) for i in range(num_tokens)]
-        else:
-            x = [self._lookup(feats,0,i) for i in range(num_tokens)]
+    def __call__(self, instance):
+        x = [[self.embedding[f](instance[f][i]) for f in instance.keys()] for i in range(len(instance))]
+        for i, v in enumerate(x):
+            if len(v) > 1:
+                x[i] = dy.concatenate(v)
+            else:
+                x[i] = v[0]
         return x
 
     def set_dropout(self, dropout, input_dropout=0):
-        self.input_dropout = input_dropout if isinstance(input_dropout, (tuple, list)) else [input_dropout] * len(self.lookup)
-        self.dropout = dropout if isinstance(dropout, (tuple, list)) else [dropout] * len(self.lookup)
+        for f, embds in self.embedding.items():
+            embds.dropout = dropout[f] if isinstance(dropout, dict) else dropout
+            embds.input_dropout = input_dropout[f] if isinstance(input_dropout, dict) else input_dropout
     
     def disable_dropout(self):
         self.set_dropout(0, 0)
 
     def set_update(self, update):
-        self.update = update if isinstance(update, (tuple, list)) else [update] * len(self.lookup)
-
-    def init_from_word2vec(self, feature, vectors):
-        lookup = self.lookup[feature]
-        num_init = 0
-        num_rows = lookup.shape()[0]
-        for (i, v) in vectors:
-            lookup.init_row(i, v)
-            num_init += 1
-        return (num_init, num_rows)
+        for f, embds in self.embedding.items():
+            embds.update = update[f] if isinstance(update, dict) else update
             
 def leaky_relu(x):
     return dy.bmax(0.1 * x, x)
