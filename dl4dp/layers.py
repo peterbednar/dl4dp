@@ -57,14 +57,17 @@ _STR_TO_ACT = {"tanh": dy.tanh, "logistic": dy.logistic, "relu": dy.rectify, "le
 
 class Dense(object):
 
-    def __init__(self, model, input_dim, output_dim, act=dy.rectify, init_gain=math.sqrt(2.), ln=False, dropout=0):
+    def __init__(self, model, input_dim, output_dim, act=dy.rectify, bias=True, init_gain=math.sqrt(2.), ln=False, dropout=0):
         if isinstance(act, str):
             act = _STR_TO_ACT[act]
         self.pc = model.add_subcollection()
         self.act = act
         self.ln = ln
         self.W = self.pc.add_parameters((output_dim, input_dim), init=dy.GlorotInitializer(gain=init_gain))
-        self.b = self.pc.add_parameters(output_dim, init=dy.ConstInitializer(0.))
+        if bias or ln:
+            self.b = self.pc.add_parameters(output_dim, init=dy.ConstInitializer(0.))
+        else:
+            self.b = None
         if ln:
             self.g = self.pc.add_parameters(output_dim, init=dy.ConstInitializer(1.))
         self.dropout = dropout
@@ -72,28 +75,12 @@ class Dense(object):
     def __call__(self, x):
         if self.ln:
             y = dy.layer_norm(self.W * x, self.g, self.b)
-        else:
+        elif self.b is not None:
             y = dy.affine_transform([self.b, self.W, x])
-        y = self.act(y)
-        if self.dropout > 0:
-            y = dy.dropout(y, self.dropout)
-        return y
-
-    def set_dropout(self, dropout):
-        self.dropout = dropout
-
-    def disable_dropout(self):
-        self.set_dropout(0)
-
-class Identity(object):
-
-    def __init__(self, model, input_dim, output_dim, init_gain=math.sqrt(2.), dropout=0):
-        self.pc = model.add_subcollection()
-        self.W = self.pc.add_parameters((output_dim, input_dim), init=dy.GlorotInitializer(gain=init_gain))
-        self.dropout = dropout
-    
-    def __call__(self, x):
-        y = self.W * x
+        else:
+            y = self.W * x
+        if self.act is not None:
+            y = self.act(y)
         if self.dropout > 0:
             y = dy.dropout(y, self.dropout)
         return y
@@ -114,7 +101,7 @@ class MultiLayerPerceptron(object):
         self.layers = []
         for input_dim, output_dim in zip(self.dims, self.dims[1:-1]):
             self.layers.append(Dense(self.pc, input_dim, output_dim, act, init_gain, ln))
-        self.layers.append(Identity(self.pc, self.dims[-2], self.dims[-1], init_gain))
+        self.layers.append(Dense(self.pc, self.dims[-2], self.dims[-1], act=None, bias=False, init_gain=init_gain))
         self.set_dropout(dropout)
 
     def __call__(self, x):
@@ -141,16 +128,22 @@ class Bilinear(object):
 
 class Biaffine(object):
 
-    def __init__(self, model, input_dim, output_dim):
+    def __init__(self, model, input_dim, output_dim, bias_x=True, bias_y=True, bias=True):
         self.pc = model.add_subcollection()
         self.U = [Bilinear(model, input_dim) for _ in range(output_dim)]
-        self.x_bias = self.pc.add_parameters((output_dim, input_dim), init=dy.ConstInitializer(.0))
-        self.y_bias = self.pc.add_parameters((output_dim, input_dim), init=dy.ConstInitializer(.0))
-        self.bias = self.pc.add_parameters(output_dim, init=dy.ConstInitializer(.0))
+        self.bias_x = self.pc.add_parameters((output_dim, input_dim), init=dy.ConstInitializer(.0)) if bias_x else None
+        self.bias_y = self.pc.add_parameters((output_dim, input_dim), init=dy.ConstInitializer(.0)) if bias_y else None
+        self.bias = self.pc.add_parameters(output_dim, init=dy.ConstInitializer(.0)) if bias else None
 
     def __call__(self, x, y):
-        xUy = dy.concatenate([u(x,y) for u in self.U])
-        return xUy + self.x_bias * x + self.y_bias * y + self.bias 
+        z = dy.concatenate([u(x,y) for u in self.U])
+        if self.bias_x is not None:
+            z += self.bias_x * x
+        if self.bias_y is not None:
+            z += self.bias_y * y
+        if self.bias is not None:
+            z += self.bias
+        return z
 
 class BiLSTM(object):
 
