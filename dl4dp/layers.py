@@ -39,7 +39,7 @@ class Embeddings(object):
         self.dim = sum([dim for (_,dim) in field_dims.values()])
 
     def __call__(self, instance):
-        x = [[self.embedding[f](instance[f][i]) for f in instance.keys()] for i in range(len(instance))]
+        x = [[self.embedding[f](instance[f][i]) for f in self.embedding.keys()] for i in range(len(instance))]
         for i, v in enumerate(x):
             if len(v) > 1:
                 x[i] = dy.concatenate(v)

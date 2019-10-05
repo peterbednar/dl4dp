@@ -1,6 +1,7 @@
 
 from abc import ABC, abstractmethod
 from .utils import progressbar
+from conllutils import HEAD, DEPREL
 
 class Metric(ABC):
 
@@ -26,7 +27,7 @@ class UAS(Metric):
 
     def __call__(self, gold, parsed):
         for n in range(len(gold)):
-            if gold.heads[n] == parsed.heads[n]:
+            if gold[HEAD][n] == parsed[HEAD][n]:
                 self.correct += 1
             self.total += 1
 
@@ -37,7 +38,7 @@ class LAS(Metric):
 
     def __call__(self, gold, parsed):
         for n in range(len(gold)):
-            if gold.heads[n] == parsed.heads[n] and gold.labels[n] == parsed.labels[n]:
+            if gold[HEAD][n] == parsed[HEAD][n] and gold[DEPREL][n] == parsed[DEPREL][n]:
                 self.correct += 1
             self.total += 1
 
@@ -49,7 +50,7 @@ class EMS(Metric):
     def __call__(self, gold, parsed):
         self.total += 1
         for n in range(len(gold)):
-            if gold.heads[n] != parsed.heads[n] or gold.labels[n] != parsed.labels[n]:
+            if gold[HEAD][n] != parsed[HEAD][n] or gold[DEPREL][n] != parsed[DEPREL][n]:
                 return
         self.correct += 1
 
@@ -58,7 +59,7 @@ def validate(model, validation_data, metrics=[UAS, LAS, EMS]):
 
     pb = progressbar(len(validation_data))
     for gold in validation_data:
-        parsed = model.parse(gold.feats)
+        parsed = model.parse(gold)
         for metric in metrics:
             metric(gold, parsed)
         pb.update(1)

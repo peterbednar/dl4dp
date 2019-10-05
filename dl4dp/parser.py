@@ -2,8 +2,9 @@ import dynet as dy
 import numpy as np
 from abc import ABC, abstractmethod
 
+from conllutils import Instance, HEAD, DEPREL
 from .layers import Embeddings, BiLSTM, MultiLayerPerceptron, Dense, Biaffine
-from .utils import parse_nonprojective, Instance
+from .utils import parse_nonprojective
 
 class MSTParser(ABC):
 
@@ -48,20 +49,20 @@ class MSTParser(ABC):
         labels = [self._predict_labels(heads[dep-1], dep, h) for dep in range(1, num_nodes)]
         return labels
 
-    def _parse_heads(self, heads, h):
+    def _parse_heads(self, h):
         scores = self.predict_arcs(h)
         scarray = np.transpose(np.vstack([np.zeros(len(h))] + [s.npvalue() for s in scores]))
-        parse_nonprojective(scarray, heads)
+        return parse_nonprojective(scarray)
 
-    def _parse_labels(self, heads, labels, h):
+    def _parse_labels(self, heads, h):
         scores = self.predict_labels(heads, h)
-        labels[:] = [np.argmax(s.npvalue()) + 1 for s in scores]
+        return [np.argmax(s.npvalue()) + 1 for s in scores]
 
     def parse(self, feats):
         h = self.transduce(feats)
-        tree = Instance(len(feats[0]))
-        self._parse_heads(tree.heads, h)
-        self._parse_labels(tree.heads, tree.labels, h)
+        tree = Instance(len(feats), metadata=feats.metadata)
+        tree[HEAD] = self._parse_heads(h)
+        tree[DEPREL] = self._parse_labels(tree[HEAD], h)
         dy.renew_cg()
         return tree
 

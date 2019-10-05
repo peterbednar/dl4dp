@@ -7,10 +7,10 @@ import numpy as np
 from datetime import timedelta
 import dynet_config
 
-from .utils import str_to_field
-from .utils import create_index, create_dictionary, DEPREL, FORM_NORM_CHARS, LEMMA_NORM_CHARS, write_index, open_file
-from .utils import read_conllu, map_to_instances, shuffled_stream
-from .utils import progressbar
+from conllutils import HEAD, DEPREL, FORM_NORM_CHARS, LEMMA_NORM_CHARS
+from conllutils import shuffled_stream, read_conllu, create_dictionary, create_index, write_index, map_to_instances
+
+from .utils import progressbar, open_file
 from .validation import validate
 
 from .word2vec import read_word2vec, index_word2vec
@@ -47,18 +47,18 @@ def train(model, trainer, params):
             print(f"epoch {epoch + 1}")
 
         loss = []
-        h = model.transduce(example.feats)
+        h = model.transduce(example)
 
         arc_scores = model.predict_arcs(h)
         for i in range(len(example)):
-            arc_error, arc_loss = error_and_loss(arc_scores[i], example.heads[i])
+            arc_error, arc_loss = error_and_loss(arc_scores[i], example[HEAD][i])
             step_arc_error += arc_error
             if arc_loss:
                 loss.append(arc_loss)
 
-        label_scores = model.predict_labels(example.heads, h)
+        label_scores = model.predict_labels(example[HEAD], h)
         for i in range(len(example)):
-            label_error, label_loss = error_and_loss(label_scores[i], example.labels[i] - 1)
+            label_error, label_loss = error_and_loss(label_scores[i], example[DEPREL][i] - 1)
             step_label_error += label_error
             if label_loss:
                 loss.append(label_loss)
@@ -138,12 +138,11 @@ class Params(object):
         self.logger = log
 
     def _set_index(self):
-        self.fields = tuple([str_to_field(f) for f in self.fields])
-
+        self.fields = tuple([f.lower() for f in self.fields])
         train_data = open_treebank(self.treebanks["train"], self.basename)
         print("building index...")
         self.index = create_index(create_dictionary(read_conllu(train_data), self.fields + (DEPREL, FORM_NORM_CHARS, LEMMA_NORM_CHARS)))
-        write_index(self.index, basename=self.model_basename)
+        write_index(self.model_basename, self.index)
         print("building index done")
 
     def _set_datasets(self):
@@ -158,7 +157,7 @@ class Params(object):
             model, = dy.load(filename, pc)
             return model
 
-        self.model_params["embeddings_dims"] = [(len(self.index[f]) + 1, dim) for (f, dim) in zip(self.fields, self.embeddings_dims)]
+        self.model_params["embeddings_dims"] = {f: (len(self.index[f]) + 1, dim) for (f, dim) in zip(self.fields, self.embeddings_dims)}
         self.model_params["labels_dim"] = len(self.index[DEPREL])
 
         from .parser import BiaffineParser
@@ -181,12 +180,10 @@ class Params(object):
 
     def _init_embeddings(self, model):
         for (fs, fn) in self.embeddings_vectors.items():
-            f = str_to_field(fs)
-            fi = self.fields.index(f)
-
+            f = fs.lower()
             print(f"initializing {fs} embeddings...")
             vectors = index_word2vec(read_word2vec(open_embeddings(fn, self.basename)), self.index[f])
-            num_init, num_vec = model.embeddings.init_from_word2vec(fi, vectors)
+            num_init, num_vec = model.embeddings.embedding[f].init_from_word2vec(vectors)
             print(f"initialized {num_init}/{num_vec} vectors")
 
     def _load_data(self, dataset):
