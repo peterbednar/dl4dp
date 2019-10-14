@@ -3,11 +3,10 @@ import logging
 from logging import FileHandler
 import random
 import time
-import numpy as np
 from datetime import timedelta
 import dynet_config
 
-from conllutils import HEAD, DEPREL, FORM_NORM_CHARS, LEMMA_NORM_CHARS
+from conllutils import DEPREL, FORM_NORM_CHARS, LEMMA_NORM_CHARS
 from conllutils import shuffled_stream, read_conllu, create_dictionary, create_index, write_index, map_to_instances
 
 from .utils import progressbar, open_file
@@ -18,13 +17,6 @@ from .word2vec import read_word2vec, index_word2vec
 _MODEL_FILENAME="{0}model_{1}"
 
 def train(model, trainer, params):
-
-    def error_and_loss(scores, correct):
-        pred = np.argmax(scores.npvalue())
-        error = 1 if pred != correct else 0
-        loss = params.loss(scores, correct)
-        return error, loss
-
     model.enable_dropout()
 
     step_loss = 0.0
@@ -49,25 +41,16 @@ def train(model, trainer, params):
         loss = []
         h = model.transduce(example)
 
-        arc_scores = model.predict_arcs(h)
-        for i in range(len(example)):
-            arc_error, arc_loss = error_and_loss(arc_scores[i], example[HEAD][i])
-            step_arc_error += arc_error
-            if arc_loss:
-                loss.append(arc_loss)
+        arc_loss, arc_error = model.arc_loss(example, h)
+        label_loss, label_error = model.label_loss(example, h)
 
-        label_scores = model.predict_labels(example[HEAD], h)
-        for i in range(len(example)):
-            label_error, label_loss = error_and_loss(label_scores[i], example[DEPREL][i] - 1)
-            step_label_error += label_error
-            if label_loss:
-                loss.append(label_loss)
+        step_arc_error += arc_error
+        step_label_error += label_error
 
-        if loss:
-            loss = dy.esum(loss)
-            step_loss += loss.value()
-            loss.backward()
-            trainer.update()
+        loss = arc_loss + label_loss
+        step_loss += loss.value()
+        loss.backward()
+        trainer.update()
         dy.renew_cg()
 
         num_tokens += len(example)
@@ -168,14 +151,6 @@ class Params(object):
         return model
 
     def _config_trainer(self, pc):
-        loss = getattr(self, "loss", "crossentropy")
-        if loss == "crossentropy":
-            self.loss = dy.pickneglogsoftmax
-        elif loss == "hinge":
-            self.loss = dy.hinge
-        else:
-            raise ValueError(f"unknown loss function: {loss}")
-
         return dy.AdamTrainer(pc)
 
     def _init_embeddings(self, model):

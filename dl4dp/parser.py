@@ -6,11 +6,27 @@ from conllutils import Instance, HEAD, DEPREL
 from .layers import Embeddings, BiLSTM, MultiLayerPerceptron, Dense, Biaffine
 from .utils import parse_nonprojective
 
+_STR_TO_LOSS = {"crossentropy": dy.pickneglogsoftmax, "hinge": dy.hinge}
+
+def _error_and_loss(scores, targets, floss):
+    error = 0
+    loss = []
+    for i in range(len(scores)):
+        pred = np.argmax(scores[i].npvalue())
+        error += 1 if pred != targets[i] else 0
+        loss.append(floss(scores[i], targets[i]))
+    loss = dy.esum(loss)
+    return loss, error
+
 class MSTParser(ABC):
 
     def __init__(self, model, **kwargs):
         self.pc = model.add_subcollection()
         self.kwargs = kwargs
+
+        self.loss = kwargs.get("loss", "crossentropy")
+        if isinstance(self.loss, str):
+            self.loss = _STR_TO_LOSS[self.loss]
 
         embeddings_dims = kwargs.get("embeddings_dims")
         self.labels_dim = kwargs.get("labels_dim")
@@ -49,6 +65,14 @@ class MSTParser(ABC):
         labels = [self._predict_labels(heads[dep-1], dep, h) for dep in range(1, num_nodes)]
         return labels
 
+    def arc_loss(self, feats, h):
+        scores = self.predict_arcs(h)
+        return _error_and_loss(scores, feats[HEAD], self.loss)
+
+    def label_loss(self, feats, h):
+        scores = self.predict_labels(feats[HEAD], h)
+        return _error_and_loss(scores, feats[DEPREL] - 1, self.loss)
+
     def _parse_heads(self, h):
         scores = self.predict_arcs(h)
         scarray = np.transpose(np.vstack([np.zeros(len(h))] + [s.npvalue() for s in scores]))
@@ -64,7 +88,7 @@ class MSTParser(ABC):
         tree[HEAD] = self._parse_heads(h)
         tree[DEPREL] = self._parse_labels(tree[HEAD], h)
         dy.renew_cg()
-        return tree
+        return tree        
 
     def disable_dropout(self):
         self.embeddings.disable_dropout()
