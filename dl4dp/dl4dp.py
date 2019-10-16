@@ -47,6 +47,7 @@ def train(model, trainer, params):
             batch_loss = dy.esum(batch_loss)
             batch_loss_ = batch_loss.value()
             batch_loss.backward()
+            trainer.update()
             dy.renew_cg()
 
             elapsed_time = time.time() - start_time
