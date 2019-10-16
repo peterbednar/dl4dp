@@ -17,79 +17,59 @@ from .word2vec import read_word2vec, index_word2vec
 _MODEL_FILENAME="{0}model_{1}"
 
 def train(model, trainer, params):
-    model.enable_dropout()
-
-    step_loss = 0.0
-    step_arc_error = 0.0
-    step_label_error = 0.0
-    num_tokens = 0
-
     best_epoch = 0
     best_score = None
+    model.enable_dropout()
+    pb = progressbar(len(params.train_data))
 
-    step = 0
-    epoch = 0
-    dy.renew_cg()
-    start_time = time.time()
-    train_len = len(params.train_data)
-    pb = progressbar(train_len)
+    for epoch in range(params.max_epochs):
+        print(f"epoch {epoch + 1}")
+        start_time = time.time()
 
-    for example in shuffled_stream(params.train_data):
-        if (step % train_len) == 0:
-            print(f"epoch {epoch + 1}")
+        for step, batch in enumerate(shuffled_stream(params.train_data, batch_size=params.batch_size, total_size=len(params.train_data))):
+            batch_loss = []
+            batch_arc_error = 0
+            batch_label_error = 0
+            num_tokens = 0
 
-        loss = []
-        h = model.transduce(example)
+            for example in batch:
+                h = model.transduce(example)
+                arc_loss, arc_error = model.arc_loss(example, h)
+                label_loss, label_error = model.label_loss(example, h)
 
-        arc_loss, arc_error = model.arc_loss(example, h)
-        label_loss, label_error = model.label_loss(example, h)
+                batch_loss.append(arc_loss + label_loss)
+                batch_arc_error += arc_error
+                batch_label_error += label_error
 
-        step_arc_error += arc_error
-        step_label_error += label_error
+                num_tokens += len(example)
+                pb.update(1)
 
-        loss = arc_loss + label_loss
-        step_loss += loss.value()
-        loss.backward()
-        trainer.update()
-        dy.renew_cg()
+            batch_loss = dy.esum(batch_loss)
+            batch_loss_ = batch_loss.value()
+            batch_loss.backward()
+            dy.renew_cg()
 
-        num_tokens += len(example)
-        step += 1
-        pb.update(1)
-
-        if (step % 100) == 0:
             elapsed_time = time.time() - start_time
             params.logger.info("{0} {1} {2} {3} {4} {5} {6}".format(epoch + 1, step, timedelta(seconds=elapsed_time),
                     num_tokens,
-                    step_loss / num_tokens,
-                    step_arc_error / num_tokens,
-                    step_label_error / num_tokens))
-            step_loss = 0.0
-            step_arc_error = 0.0
-            step_label_error = 0.0
-            num_tokens = 0
+                    batch_loss_ / num_tokens,
+                    batch_arc_error / num_tokens,
+                    batch_label_error / num_tokens))
 
-        if (step % train_len) == 0:
-            epoch += 1
-            start_time = time.time()
-            pb.finish()
-            pb.reset()
+        model.save(_MODEL_FILENAME.format(params.model_basename, epoch))
+        pb.finish()
+        pb.reset()
 
-            dy.save(_MODEL_FILENAME.format(params.model_basename, epoch), [model])
-
-            if params.validation_data:
-                print(f"validating epoch {epoch}")
-                model.disable_dropout()
-                score = validate(model, params.validation_data)
-                model.enable_dropout()
-                if best_score is None or best_score[1] < score[1]:
-                    best_epoch = epoch
-                    best_score = score
-            else:
+        if params.validation_data:
+            print(f"validating epoch {epoch + 1}")
+            model.disable_dropout()
+            score = validate(model, params.validation_data)
+            model.enable_dropout()
+            if best_score is None or best_score[1] < score[1]:
                 best_epoch = epoch
-
-            if epoch >= params.max_epochs:
-                break
+                best_score = score
+        else:
+            best_epoch = epoch
 
     model.disable_dropout()
     return best_epoch, best_score
@@ -213,6 +193,7 @@ params = Params({
     "arc_mlp_dropout": 0.33,
     "label_mlp_dropout": 0.33,
     "max_epochs" : 10,
+    "batch_size": 100,
     "loss": "crossentropy",
     "random_seed" : 123456789,
     "dynet_mem" : 1024

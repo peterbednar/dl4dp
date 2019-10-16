@@ -57,12 +57,12 @@ class MSTParser(ABC):
         return heads
 
     @abstractmethod
-    def _predict_labels(self, head, dep, h):
+    def _predict_label(self, head, dep, h):
         raise NotImplementedError()
 
     def predict_labels(self, heads, h):
         num_nodes = len(h)
-        labels = [self._predict_labels(heads[dep-1], dep, h) for dep in range(1, num_nodes)]
+        labels = [self._predict_label(heads[dep-1], dep, h) for dep in range(1, num_nodes)]
         return labels
 
     def arc_loss(self, feats, h):
@@ -101,6 +101,15 @@ class MSTParser(ABC):
     def param_collection(self):
         return self.pc
 
+    def save(self, filename):
+        dy.save(filename, [self])
+
+    @staticmethod
+    def load(filename):
+        pc = dy.ParameterCollection()
+        model, = dy.load(filename, pc)
+        return model
+
 def _build_mlp(model, kwargs, prefix, input_dim, hidden_dim, output_dim, num_layers, act):
     hidden_dim = kwargs.get(prefix + "_dim", hidden_dim)
     num_layers = kwargs.get(prefix + "_num_layers", num_layers)
@@ -120,7 +129,7 @@ class MLPParser(MSTParser):
         y = self.arc_mlp(x)
         return y
 
-    def _predict_labels(self, head, dep, h):
+    def _predict_label(self, head, dep, h):
         x = dy.concatenate([h[head], h[dep]])
         y = self.label_mlp(x)
         return y
@@ -166,7 +175,7 @@ class BiaffineParser(MSTParser):
         y = self.arc_dep_mlp(h[dep])
         return self.arc_biaffine(x, y)
 
-    def _predict_labels(self, head, dep, h):
+    def _predict_label(self, head, dep, h):
         x = self.label_head_mlp(h[head])
         y = self.label_dep_mlp(h[dep])
         return self.label_biaffine(x, y)
