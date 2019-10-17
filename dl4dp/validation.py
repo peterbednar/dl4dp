@@ -20,7 +20,7 @@ class Metric(ABC):
     def value(self):
         return float(self.correct) / self.total
 
-    def __str__(self):
+    def __repr__(self):
         return f"{self.__class__.__name__}: {self.value:.4f}"
 
     def __eq__(self, other):

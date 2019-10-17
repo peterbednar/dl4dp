@@ -176,13 +176,14 @@ def main(params):
     best_epoch, best_score = train(model, trainer, params)
 
     if best_score is not None:
-        print(f"best epoch: {best_epoch}, score: {best_score}")
+        print(f"best epoch: {best_epoch} {best_score}")
 
     if params.test_data:
         if best_epoch > 0:
             pc = dy.ParameterCollection()
             model, = dy.load(_MODEL_FILENAME.format(params.model_basename, best_epoch), pc)
-        validate(model, params.test_data)
+        score = validate(model, params.test_data)
+        print(", ".join(str(metric) for metric in score))
 
 params = Params({
     "basename" : "build/",
