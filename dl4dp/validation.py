@@ -64,7 +64,7 @@ class EMS(Metric):
         self.correct += 1
 
 def validate(model, validation_data, metrics=[UAS, LAS, EMS]):
-    metrics = (metric() for metric in metrics)
+    metrics = tuple(metric() for metric in metrics)
 
     pb = progressbar(len(validation_data))
     for gold in validation_data:
