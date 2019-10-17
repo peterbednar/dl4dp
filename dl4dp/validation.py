@@ -1,8 +1,11 @@
 
 from abc import ABC, abstractmethod
-from .utils import progressbar
-from conllutils import HEAD, DEPREL
+from functools import total_ordering
 
+from conllutils import HEAD, DEPREL
+from .utils import progressbar
+
+@total_ordering
 class Metric(ABC):
 
     def __init__(self):
@@ -19,6 +22,12 @@ class Metric(ABC):
 
     def __str__(self):
         return f"{self.__class__.__name__}: {self.value:.4f}"
+
+    def __eq__(self, other):
+        return self.value == other.value
+
+    def __lt__(self, other):
+        return self.value < other.value
 
 class UAS(Metric):
 
@@ -55,7 +64,7 @@ class EMS(Metric):
         self.correct += 1
 
 def validate(model, validation_data, metrics=[UAS, LAS, EMS]):
-    metrics = [metric() for metric in metrics]
+    metrics = (metric() for metric in metrics)
 
     pb = progressbar(len(validation_data))
     for gold in validation_data:
@@ -65,5 +74,4 @@ def validate(model, validation_data, metrics=[UAS, LAS, EMS]):
         pb.update(1)
     pb.finish()
 
-    print(", ".join(str(metric) for metric in metrics))
-    return [metric.value for metric in metrics]
+    return metrics

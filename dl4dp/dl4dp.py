@@ -57,7 +57,7 @@ def train(model, trainer, params):
             dy.renew_cg()
 
             elapsed_time = time.time() - start_time
-            params.logger.info("{0} {1} {2} {3} {4} {5} {6}".format(epoch + 1, step, timedelta(seconds=elapsed_time),
+            params.logger.info("{0} {1} {2} {3} {4} {5} {6}".format(epoch + 1, step + 1, timedelta(seconds=elapsed_time),
                     num_tokens,
                     batch_loss_value / num_tokens,
                     batch_arc_error / num_tokens,
@@ -72,6 +72,8 @@ def train(model, trainer, params):
             model.disable_dropout()
             score = validate(model, params.validation_data)
             model.enable_dropout()
+            print(", ".join(str(metric) for metric in score))
+
             if best_score is None or best_score[1] < score[1]:
                 best_epoch = epoch
                 best_score = score
@@ -174,7 +176,7 @@ def main(params):
     best_epoch, best_score = train(model, trainer, params)
 
     if best_score is not None:
-        print(f"best epoch: {best_epoch}, score: {best_score[0]:.4f} UAS, {best_score[1]:.4f} LAS")
+        print(f"best epoch: {best_epoch}, score: {best_score}")
 
     if params.test_data:
         if best_epoch > 0:
@@ -199,7 +201,7 @@ params = Params({
     "lstm_dropout": 0.33,
     "arc_mlp_dropout": 0.33,
     "label_mlp_dropout": 0.33,
-    "max_epochs" : 10,
+    "max_epochs" : 1,
     "batch_size": 100,
     "loss": "crossentropy",
     "random_seed" : 123456789,
