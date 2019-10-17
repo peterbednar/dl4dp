@@ -20,13 +20,19 @@ def train(model, trainer, params):
     best_epoch = 0
     best_score = None
     model.enable_dropout()
-    pb = progressbar(len(params.train_data))
+
+    batch_size = params.batch_size
+    total_size = len(params.train_data)
+    if total_size % batch_size != 0:
+        total_size += batch_size - (total_size % batch_size)
+
+    pb = progressbar(total_size)
 
     for epoch in range(params.max_epochs):
         print(f"epoch {epoch + 1}")
         start_time = time.time()
 
-        for step, batch in enumerate(shuffled_stream(params.train_data, batch_size=params.batch_size, total_size=len(params.train_data))):
+        for step, batch in enumerate(shuffled_stream(params.train_data, batch_size=batch_size, total_size=total_size)):
             batch_loss = []
             batch_arc_error = 0
             batch_label_error = 0
