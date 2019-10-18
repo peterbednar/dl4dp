@@ -6,18 +6,22 @@ from collections import OrderedDict
 class Embedding(object):
 
     def __init__(self, pc, dims, dropout=0, input_dropout=0, update=True):
+        self.set_training(False)
         self.lookup = pc.add_lookup_parameters(dims)
         self.input_dropout = input_dropout
         self.dropout = dropout
         self.update = update
 
     def __call__(self, index):
-        if self.input_dropout > 0 and random.random() < self.input_dropout:
+        if self.training and self.input_dropout > 0 and random.random() < self.input_dropout:
             index = 0
         x = dy.lookup(self.lookup, index, self.update)
-        if self.dropout > 0:
+        if self.training and self.dropout > 0:
             x = dy.dropout(x, self.dropout)
         return x
+
+    def set_training(self, training):
+        self.training = training
 
     def init_from_word2vec(self, vectors):
         num_init = 0
@@ -31,9 +35,7 @@ class Embeddings(object):
 
     def __init__(self, model, field_dims, dropout=0, input_dropout=0, update=True):
         self.pc = model.add_subcollection()
-        self.embedding = OrderedDict()
-        for f, dims in field_dims.items():
-            self.embedding[f] = Embedding(self.pc, dims)
+        self.embedding = OrderedDict([(f, Embedding(self.pc, dims)) for f, dims in field_dims.items()])
         self.set_dropout(dropout, input_dropout)
         self.set_update(update)
         self.dim = sum([dim for (_,dim) in field_dims.values()])
@@ -47,14 +49,15 @@ class Embeddings(object):
                 x[i] = v[0]
         return x
 
+    def set_training(self, training):
+        for embds in self.embedding.values():
+            embds.set_training(training)
+
     def set_dropout(self, dropout, input_dropout=0):
         for f, embds in self.embedding.items():
             embds.dropout = dropout[f] if isinstance(dropout, dict) else dropout
             embds.input_dropout = input_dropout[f] if isinstance(input_dropout, dict) else input_dropout
     
-    def disable_dropout(self):
-        self.set_dropout(0, 0)
-
     def set_update(self, update):
         for f, embds in self.embedding.items():
             embds.update = update[f] if isinstance(update, dict) else update
@@ -67,6 +70,7 @@ _STR_TO_ACT = {"tanh": dy.tanh, "logistic": dy.logistic, "relu": dy.rectify, "le
 class Dense(object):
 
     def __init__(self, model, input_dim, output_dim, act=dy.rectify, bias=True, init_gain=math.sqrt(2.), ln=False, dropout=0):
+        self.set_training(False)
         if isinstance(act, str):
             act = _STR_TO_ACT[act]
         self.pc = model.add_subcollection()
@@ -90,15 +94,12 @@ class Dense(object):
             y = self.W * x
         if self.act is not None:
             y = self.act(y)
-        if self.dropout > 0:
+        if self.training and self.dropout > 0:
             y = dy.dropout(y, self.dropout)
         return y
 
-    def set_dropout(self, dropout):
-        self.dropout = dropout
-
-    def disable_dropout(self):
-        self.set_dropout(0)
+    def set_training(self, training):
+        self.training = training
 
 class MultiLayerPerceptron(object):
 
@@ -109,22 +110,17 @@ class MultiLayerPerceptron(object):
         self.dims = [input_dim] + [hidden_dim]*num_layers + [output_dim]
         self.layers = []
         for input_dim, output_dim in zip(self.dims, self.dims[1:-1]):
-            self.layers.append(Dense(self.pc, input_dim, output_dim, act, init_gain, ln))
+            self.layers.append(Dense(self.pc, input_dim, output_dim, act, init_gain, ln, dropout))
         self.layers.append(Dense(self.pc, self.dims[-2], self.dims[-1], act=None, bias=False, init_gain=init_gain))
-        self.set_dropout(dropout)
 
     def __call__(self, x):
         for layer in self.layers:
             x = layer(x)
         return x
 
-    def set_dropout(self, dropout):
+    def set_training(self, training):
         for layer in self.layers:
-            layer.set_dropout(dropout)
-    
-    def disable_dropout(self):
-        for layer in self.layers:
-            layer.disable_dropout()
+            layer.set_training(training)
 
 class Bilinear(object):
 
@@ -159,6 +155,8 @@ class BiLSTM(object):
     def __init__(self, model, input_dim, hidden_dim, num_layers=1, input_dropout=0, output_dropout=0, ln=False, boundary_tokens=True, root_token=True):
         self.pc = model.add_subcollection()
         self.dims = (input_dim, hidden_dim)
+        self.input_dropout = input_dropout
+        self.output_dropout = output_dropout
         self.root_token = root_token
         self.boundary_tokens = boundary_tokens
 
@@ -176,7 +174,7 @@ class BiLSTM(object):
         self.layers = [_build_layer(input_dim, hidden_dim)]
         for _ in range(num_layers - 1):
             self.layers.append(_build_layer(hidden_dim, hidden_dim))
-        self.set_dropouts(input_dropout, output_dropout)
+        self.set_training(False)
 
     def __call__(self, x):
         if self.root_token:
@@ -195,15 +193,11 @@ class BiLSTM(object):
             x = [dy.concatenate([f,b]) for f,b in zip(fs, reversed(bs))]
         return x
 
-    def set_dropout(self, dropout):
-        self.set_dropouts(dropout, dropout)
-
-    def set_dropouts(self, input_dropout, output_dropout):
+    def set_training(self, training):
         for (f,b) in self.layers:
-            f.set_dropouts(input_dropout, output_dropout)
-            b.set_dropouts(input_dropout, output_dropout)
-    
-    def disable_dropout(self):
-        for (f,b) in self.layers:
-            f.disable_dropout()
-            b.disable_dropout()
+            if training:
+                f.set_dropouts(self.input_dropout, self.output_dropout)
+                b.set_dropouts(self.input_dropout, self.output_dropout)
+            else:
+                f.disable_dropout()
+                b.disable_dropout()

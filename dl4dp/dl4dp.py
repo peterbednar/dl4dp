@@ -9,9 +9,7 @@ import dynet_config
 from conllutils import DEPREL, FORM_NORM_CHARS, LEMMA_NORM_CHARS
 from conllutils import shuffled_stream, read_conllu, create_dictionary, create_index, write_index, map_to_instances
 
-from .utils import progressbar, open_file
-from .validation import validate
-
+from .utils import progressbar, open_file, UAS, LAS, EMS
 from .word2vec import read_word2vec, index_word2vec
 
 _MODEL_FILENAME="{0}model_{1}"
@@ -19,7 +17,7 @@ _MODEL_FILENAME="{0}model_{1}"
 def train(model, trainer, params):
     best_epoch = 0
     best_score = None
-    model.enable_dropout()
+    model.set_training(True)
 
     batch_size = params.batch_size
     total_size = len(params.train_data)
@@ -39,11 +37,9 @@ def train(model, trainer, params):
             num_tokens = 0
 
             for example in batch:
-                h = model.transduce(example)
-                arc_loss, arc_error = model.arc_loss(example, h)
-                label_loss, label_error = model.label_loss(example, h)
+                loss, arc_error, label_error = model.loss_and_errors(example)
 
-                batch_loss.append(arc_loss + label_loss)
+                batch_loss.append(loss)
                 batch_arc_error += arc_error
                 batch_label_error += label_error
 
@@ -69,9 +65,9 @@ def train(model, trainer, params):
 
         if params.validation_data:
             print(f"validating epoch {epoch + 1}")
-            model.disable_dropout()
+            model.set_training(False)
             score = validate(model, params.validation_data)
-            model.enable_dropout()
+            model.set_training(True)
             print(", ".join(str(metric) for metric in score))
 
             if best_score is None or best_score[1] < score[1]:
@@ -80,8 +76,21 @@ def train(model, trainer, params):
         else:
             best_epoch = epoch
 
-    model.disable_dropout()
+    model.set_training(False)
     return best_epoch, best_score
+
+def validate(model, validation_data, metrics=[UAS, LAS, EMS]):
+    metrics = tuple(metric() for metric in metrics)
+
+    pb = progressbar(len(validation_data))
+    for gold in validation_data:
+        parsed = model.parse(gold)
+        for metric in metrics:
+            metric(gold, parsed)
+        pb.update(1)
+    pb.finish()
+
+    return metrics
 
 class Params(object):
 
@@ -203,7 +212,7 @@ params = Params({
     "arc_mlp_dropout": 0.33,
     "label_mlp_dropout": 0.33,
     "max_epochs" : 1,
-    "batch_size": 100,
+    "batch_size": 10,
     "loss": "crossentropy",
     "random_seed" : 123456789,
     "dynet_mem" : 1024

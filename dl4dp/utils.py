@@ -2,11 +2,71 @@ import heapq
 import numpy as np
 import sys
 import math
+from abc import ABC, abstractmethod
+from conllutils import HEAD, DEPREL
 from collections import defaultdict
 from functools import total_ordering
 from io import TextIOWrapper
 import gzip
 import lzma
+
+@total_ordering
+class Metric(ABC):
+
+    def __init__(self):
+        self.total = 0
+        self.correct = 0
+
+    @abstractmethod
+    def __call__(self, gold, parsed):
+        raise NotImplementedError()
+
+    @property
+    def value(self):
+        return float(self.correct) / self.total
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}: {self.value:.4f}"
+
+    def __eq__(self, other):
+        return self.value == other.value
+
+    def __lt__(self, other):
+        return self.value < other.value
+
+class UAS(Metric):
+
+    def __init__(self):
+        super().__init__()
+
+    def __call__(self, gold, parsed):
+        for n in range(len(gold)):
+            if gold[HEAD][n] == parsed[HEAD][n]:
+                self.correct += 1
+            self.total += 1
+
+class LAS(Metric):
+
+    def __init__(self):
+        super().__init__()
+
+    def __call__(self, gold, parsed):
+        for n in range(len(gold)):
+            if gold[HEAD][n] == parsed[HEAD][n] and gold[DEPREL][n] == parsed[DEPREL][n]:
+                self.correct += 1
+            self.total += 1
+
+class EMS(Metric):
+
+    def __init__(self):
+        super().__init__()
+
+    def __call__(self, gold, parsed):
+        self.total += 1
+        for n in range(len(gold)):
+            if gold[HEAD][n] != parsed[HEAD][n] or gold[DEPREL][n] != parsed[DEPREL][n]:
+                return
+        self.correct += 1
 
 def is_projective(heads):
     n_len = heads.shape[0]
@@ -74,7 +134,7 @@ def parse_nonprojective(scores, heads=None):
             inverted[v - 1] = node
             _invert_max_branching(v, h, visited, inverted)
 
-    nr, nc = scores.shape
+    nr, _ = scores.shape
 
     roots = list(range(1, nr))
     rset = [0]
