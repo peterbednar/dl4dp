@@ -23,7 +23,7 @@ class Embedding(object):
     def set_training(self, training):
         self.training = training
 
-    def init_from_word2vec(self, vectors):
+    def init_from_vectors(self, vectors):
         num_init = 0
         num_rows = self.lookup.shape()[0]
         for (i, v) in vectors:

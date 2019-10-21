@@ -156,7 +156,7 @@ class Params(object):
             f = fs.lower()
             print(f"initializing {fs} embeddings...")
             vectors = index_word2vec(read_word2vec(open_embeddings(fn, self.basename)), self.index[f])
-            num_init, num_vec = model.embeddings.embedding[f].init_from_word2vec(vectors)
+            num_init, num_vec = model.embeddings.embedding[f].init_from_vectors(vectors)
             print(f"initialized {num_init}/{num_vec} vectors")
 
     def _load_data(self, dataset):
@@ -203,8 +203,8 @@ params = Params({
     "embeddings_dims" : (100, 100),
     # "embeddings_vectors": {"FORM_NORM": "vectors_form_norm.txt"},
     "lstm_num_layers": 3,
-    "lstm_dim": 400,
-    "arc_mlp_dim": 100,
+    "lstm_dim": 800,
+    "arc_mlp_dim": 500,
     "label_mlp_dim": 100,
     "input_dropouts": 0.33,
     "embeddings_dropout": 0.33,
