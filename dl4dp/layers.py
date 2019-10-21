@@ -152,7 +152,7 @@ class Biaffine(object):
 
 class BiLSTM(object):
 
-    def __init__(self, model, input_dim, hidden_dim, num_layers=1, input_dropout=0, output_dropout=0, ln=False, boundary_tokens=True, root_token=True):
+    def __init__(self, model, input_dim, hidden_dim, num_layers=1, input_dropout=0, output_dropout=0, ln=False, boundary_tokens=False, root_token=False):
         self.pc = model.add_subcollection()
         self.dims = (input_dim, hidden_dim)
         self.input_dropout = input_dropout

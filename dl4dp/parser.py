@@ -35,9 +35,9 @@ class MSTParser(ABC):
 
         input_dim = self.embeddings.dim
         lstm_num_layers = kwargs.get("lstm_num_layers", 3)
-        lstm_dim = kwargs.get("lstm_dim", 400)
+        lstm_dim = kwargs.get("lstm_dim", 800)
         lstm_dropout = self.kwargs.get("lstm_dropout", 0) 
-        self.lstm = BiLSTM(self.pc, input_dim, lstm_dim, lstm_num_layers, lstm_dropout, lstm_dropout)
+        self.lstm = BiLSTM(self.pc, input_dim, lstm_dim, lstm_num_layers, lstm_dropout, lstm_dropout, boundary_tokens=True, root_token=True)
 
         self.spec = kwargs,
 
@@ -127,13 +127,13 @@ class BiaffineParser(MSTParser):
         super().__init__(model, **kwargs)
         lstm_dim = self.lstm.dims[1]
 
-        arc_dim = kwargs.get("arc_mlp_dim", 100)
+        arc_dim = kwargs.get("arc_mlp_dim", 500)
         label_dim = kwargs.get("label_mlp_dim", 100)
 
         self.arc_head_mlp, self.arc_dep_mlp = _build_head_dep(self.pc, kwargs, "arc_mlp", lstm_dim, arc_dim)
         self.label_head_mlp, self.label_dep_mlp = _build_head_dep(self.pc, kwargs, "label_mlp", lstm_dim, label_dim)
 
-        self.arc_biaffine = Biaffine(self.pc, arc_dim, 1)
+        self.arc_biaffine = Biaffine(self.pc, arc_dim, 1, bias_y=False, bias=False)
         self.label_biaffine = Biaffine(self.pc, label_dim, self.labels_dim)
 
     def _predict_arc(self, head, dep, h):
