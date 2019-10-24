@@ -19,7 +19,7 @@ def _loss_and_error(scores, targets, floss):
 
 def _build_head_dep(model, kwargs, prefix, input_dim, output_dim):
     act = kwargs.get(prefix + "_act", "leaky_relu")
-    dropout = kwargs.get(prefix + "_dropout", 0)
+    dropout = kwargs.get(prefix + "_dropout", 0.33)
     head = Dense(model, input_dim, output_dim, act, dropout)
     dep = Dense(model, input_dim, output_dim, act, dropout)
     return (head, dep)
@@ -31,28 +31,30 @@ class BiaffineParser(object):
         self.kwargs = kwargs
 
         self.loss = kwargs.get("loss", "crossentropy")
+        embeddings_dims = kwargs.get("embeddings_dims")
+        labels_dim = kwargs.get("labels_dim")
+        input_dropout = self.kwargs.get("input_dropout", 0.33)
+        embeddings_dropout = self.kwargs.get("embeddings_dropout", 0.33)
+        lstm_num_layers = kwargs.get("lstm_num_layers", 3)
+        lstm_dim = kwargs.get("lstm_dim", 800)
+        lstm_dropout = self.kwargs.get("lstm_dropout", 0.33) 
+        arc_mlp_dim = kwargs.get("arc_mlp_dim", 500)
+        label_mlp_dim = kwargs.get("label_mlp_dim", 100)
+
         if isinstance(self.loss, str):
             self.loss = _STR_TO_LOSS[self.loss]
 
-        embeddings_dims = kwargs.get("embeddings_dims")
-        self.labels_dim = kwargs.get("labels_dim")
         self.embeddings = Embeddings(self.pc, embeddings_dims)
-        self.embeddings.set_dropout(self.kwargs.get("embeddings_dropout", 0), self.kwargs.get("input_dropout", 0))
+        self.embeddings.set_dropout(embeddings_dropout, input_dropout)
 
         input_dim = self.embeddings.dim
-        lstm_num_layers = kwargs.get("lstm_num_layers", 3)
-        lstm_dim = kwargs.get("lstm_dim", 800)
-        lstm_dropout = self.kwargs.get("lstm_dropout", 0) 
         self.lstm = BiLSTM(self.pc, input_dim, lstm_dim, lstm_num_layers, lstm_dropout, lstm_dropout, boundary_tokens=True, root_token=True)
 
-        arc_dim = kwargs.get("arc_mlp_dim", 500)
-        label_dim = kwargs.get("label_mlp_dim", 100)
+        self.arc_head_mlp, self.arc_dep_mlp = _build_head_dep(self.pc, kwargs, "arc_mlp", lstm_dim, arc_mlp_dim)
+        self.label_head_mlp, self.label_dep_mlp = _build_head_dep(self.pc, kwargs, "label_mlp", lstm_dim, label_mlp_dim)
 
-        self.arc_head_mlp, self.arc_dep_mlp = _build_head_dep(self.pc, kwargs, "arc_mlp", lstm_dim, arc_dim)
-        self.label_head_mlp, self.label_dep_mlp = _build_head_dep(self.pc, kwargs, "label_mlp", lstm_dim, label_dim)
-
-        self.arc_biaffine = Biaffine(self.pc, arc_dim, 1, bias_y=False, bias=False)
-        self.label_biaffine = Biaffine(self.pc, label_dim, self.labels_dim)
+        self.arc_biaffine = Biaffine(self.pc, arc_mlp_dim, 1, bias_y=False, bias=False)
+        self.label_biaffine = Biaffine(self.pc, label_mlp_dim, labels_dim)
 
         self.spec = kwargs,
 
