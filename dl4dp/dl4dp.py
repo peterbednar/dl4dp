@@ -32,17 +32,14 @@ def train(model, trainer, params):
 
         for step, batch in enumerate(shuffled_stream(params.train_data, batch_size=batch_size, total_size=total_size)):
             batch_loss = []
-            batch_arc_error = 0
-            batch_label_error = 0
+            batch_errors = None
             num_tokens = 0
 
             for example in batch:
-                loss, arc_error, label_error = model.loss_and_errors(example)
+                loss, errors = model.loss_and_errors(example)
 
                 batch_loss.append(loss)
-                batch_arc_error += arc_error
-                batch_label_error += label_error
-
+                batch_errors = errors if batch_errors is None else batch_errors + errors
                 num_tokens += len(example)
                 pb.update(1)
 
@@ -53,11 +50,11 @@ def train(model, trainer, params):
             dy.renew_cg()
 
             elapsed_time = time.time() - start_time
-            params.logger.info("{0} {1} {2} {3} {4} {5} {6}".format(epoch + 1, step + 1, timedelta(seconds=elapsed_time),
-                    num_tokens,
-                    batch_loss_value / num_tokens,
-                    batch_arc_error / num_tokens,
-                    batch_label_error / num_tokens))
+            batch_loss_value /= num_tokens
+            batch_errors /= num_tokens
+
+            params.logger.info("{0} {1} {2} {3} {4} {5}".format(epoch + 1, step + 1, timedelta(seconds=elapsed_time),
+                    num_tokens, batch_loss_value, " ".join([str(error) for error in batch_errors])))
 
         model.save(_MODEL_FILENAME.format(params.model_basename, epoch))
         pb.finish()
@@ -66,7 +63,7 @@ def train(model, trainer, params):
         if params.validation_data:
             print(f"validating epoch {epoch + 1}")
             model.set_training(False)
-            score = validate(model, params.validation_data)
+            score = test(model, params.validation_data)
             model.set_training(True)
             print(", ".join(str(metric) for metric in score))
 
@@ -79,7 +76,7 @@ def train(model, trainer, params):
     model.set_training(False)
     return best_epoch, best_score
 
-def validate(model, validation_data, metrics=[UAS, LAS, EMS]):
+def test(model, validation_data, metrics=[UAS, LAS, EMS]):
     metrics = tuple(metric() for metric in metrics)
 
     pb = progressbar(len(validation_data))
@@ -191,7 +188,7 @@ def main(params):
         if best_epoch > 0:
             pc = dy.ParameterCollection()
             model, = dy.load(_MODEL_FILENAME.format(params.model_basename, best_epoch), pc)
-        score = validate(model, params.test_data)
+        score = test(model, params.test_data)
         print(", ".join(str(metric) for metric in score))
 
 params = Params({

@@ -1,9 +1,8 @@
 import dynet as dy
 import numpy as np
-from abc import ABC, abstractmethod
 
 from conllutils import Instance, HEAD, DEPREL
-from .layers import Embeddings, BiLSTM, MultiLayerPerceptron, Dense, Biaffine
+from .layers import Embeddings, BiLSTM, Dense, Biaffine
 from .utils import parse_nonprojective
 
 _STR_TO_LOSS = {"crossentropy": dy.pickneglogsoftmax, "hinge": dy.hinge}
@@ -18,7 +17,14 @@ def _loss_and_error(scores, targets, floss):
     loss = dy.esum(loss)
     return loss, error
 
-class MSTParser(ABC):
+def _build_head_dep(model, kwargs, prefix, input_dim, output_dim):
+    act = kwargs.get(prefix + "_act", "leaky_relu")
+    dropout = kwargs.get(prefix + "_dropout", 0)
+    head = Dense(model, input_dim, output_dim, act, dropout)
+    dep = Dense(model, input_dim, output_dim, act, dropout)
+    return (head, dep)
+
+class BiaffineParser(object):
 
     def __init__(self, model, **kwargs):
         self.pc = model.add_subcollection()
@@ -39,6 +45,15 @@ class MSTParser(ABC):
         lstm_dropout = self.kwargs.get("lstm_dropout", 0) 
         self.lstm = BiLSTM(self.pc, input_dim, lstm_dim, lstm_num_layers, lstm_dropout, lstm_dropout, boundary_tokens=True, root_token=True)
 
+        arc_dim = kwargs.get("arc_mlp_dim", 500)
+        label_dim = kwargs.get("label_mlp_dim", 100)
+
+        self.arc_head_mlp, self.arc_dep_mlp = _build_head_dep(self.pc, kwargs, "arc_mlp", lstm_dim, arc_dim)
+        self.label_head_mlp, self.label_dep_mlp = _build_head_dep(self.pc, kwargs, "label_mlp", lstm_dim, label_dim)
+
+        self.arc_biaffine = Biaffine(self.pc, arc_dim, 1, bias_y=False, bias=False)
+        self.label_biaffine = Biaffine(self.pc, label_dim, self.labels_dim)
+
         self.spec = kwargs,
 
     def _transduce(self, example):
@@ -46,9 +61,10 @@ class MSTParser(ABC):
         h = self.lstm(x)
         return h
 
-    @abstractmethod
     def _predict_arc(self, head, dep, h):
-        raise NotImplementedError()
+        x = self.arc_head_mlp(h[head])
+        y = self.arc_dep_mlp(h[dep])
+        return self.arc_biaffine(x, y)
 
     def _predict_arcs(self, h):
         num_nodes = len(h)
@@ -58,9 +74,10 @@ class MSTParser(ABC):
         heads = [_predict_heads(dep) for dep in range(1, num_nodes)]
         return heads
 
-    @abstractmethod
     def _predict_label(self, head, dep, h):
-        raise NotImplementedError()
+        x = self.label_head_mlp(h[head])
+        y = self.label_dep_mlp(h[dep])
+        return self.label_biaffine(x, y)
 
     def _predict_labels(self, heads, h):
         num_nodes = len(h)
@@ -88,7 +105,7 @@ class MSTParser(ABC):
         h = self._transduce(example)
         arc_loss, arc_error = self._arc_loss(example, h)
         label_loss, label_error = self._label_loss(example, h)
-        return arc_loss + label_loss, arc_error, label_error
+        return arc_loss + label_loss, np.array([arc_error, label_error], dtype=np.float)
 
     def parse(self, example):
         h = self._transduce(example)
@@ -101,6 +118,8 @@ class MSTParser(ABC):
     def set_training(self, training):
         self.embeddings.set_training(training)
         self.lstm.set_training(training)
+        for mlp in [self.arc_head_mlp, self.arc_dep_mlp, self.label_head_mlp, self.label_dep_mlp]:
+            mlp.set_training(training)
 
     def param_collection(self):
         return self.pc
@@ -113,43 +132,6 @@ class MSTParser(ABC):
         pc = dy.ParameterCollection()
         model, = dy.load(filename, pc)
         return model
-
-def _build_head_dep(model, kwargs, prefix, input_dim, output_dim):
-    act = kwargs.get(prefix + "_act", "leaky_relu")
-    dropout = kwargs.get(prefix + "_dropout", 0)
-    head = Dense(model, input_dim, output_dim, act, dropout)
-    dep = Dense(model, input_dim, output_dim, act, dropout)
-    return (head, dep)
-
-class BiaffineParser(MSTParser):
-
-    def __init__(self, model, **kwargs):
-        super().__init__(model, **kwargs)
-        lstm_dim = self.lstm.dims[1]
-
-        arc_dim = kwargs.get("arc_mlp_dim", 500)
-        label_dim = kwargs.get("label_mlp_dim", 100)
-
-        self.arc_head_mlp, self.arc_dep_mlp = _build_head_dep(self.pc, kwargs, "arc_mlp", lstm_dim, arc_dim)
-        self.label_head_mlp, self.label_dep_mlp = _build_head_dep(self.pc, kwargs, "label_mlp", lstm_dim, label_dim)
-
-        self.arc_biaffine = Biaffine(self.pc, arc_dim, 1, bias_y=False, bias=False)
-        self.label_biaffine = Biaffine(self.pc, label_dim, self.labels_dim)
-
-    def _predict_arc(self, head, dep, h):
-        x = self.arc_head_mlp(h[head])
-        y = self.arc_dep_mlp(h[dep])
-        return self.arc_biaffine(x, y)
-
-    def _predict_label(self, head, dep, h):
-        x = self.label_head_mlp(h[head])
-        y = self.label_dep_mlp(h[dep])
-        return self.label_biaffine(x, y)
-
-    def set_training(self, training):
-        super().set_training(training)
-        for mlp in [self.arc_head_mlp, self.arc_dep_mlp, self.label_head_mlp, self.label_dep_mlp]:
-            mlp.set_training(training)
 
     @staticmethod
     def from_spec(spec, model):
