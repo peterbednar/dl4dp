@@ -30,19 +30,20 @@ class BiaffineParser(object):
         self.pc = model.add_subcollection()
         self.kwargs = kwargs
 
-        self.loss = kwargs.get("loss", "crossentropy")
+        loss = kwargs.get("loss", "crossentropy")
+
         embeddings_dims = kwargs.get("embeddings_dims")
         labels_dim = kwargs.get("labels_dim")
-        input_dropout = self.kwargs.get("input_dropout", 0.33)
-        embeddings_dropout = self.kwargs.get("embeddings_dropout", 0.33)
-        lstm_num_layers = kwargs.get("lstm_num_layers", 3)
         lstm_dim = kwargs.get("lstm_dim", 800)
-        lstm_dropout = self.kwargs.get("lstm_dropout", 0.33) 
+        lstm_num_layers = kwargs.get("lstm_num_layers", 3)
         arc_mlp_dim = kwargs.get("arc_mlp_dim", 500)
         label_mlp_dim = kwargs.get("label_mlp_dim", 100)
 
-        if isinstance(self.loss, str):
-            self.loss = _STR_TO_LOSS[self.loss]
+        input_dropout = self.kwargs.get("input_dropout", 0.33)
+        embeddings_dropout = self.kwargs.get("embeddings_dropout", 0.33)
+        lstm_dropout = self.kwargs.get("lstm_dropout", 0.33) 
+
+        self.loss = _STR_TO_LOSS[loss] if isinstance(loss, str) else loss
 
         self.embeddings = Embeddings(self.pc, embeddings_dims)
         self.embeddings.set_dropout(embeddings_dropout, input_dropout)
