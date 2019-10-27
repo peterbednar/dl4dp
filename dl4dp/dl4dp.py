@@ -56,18 +56,18 @@ def train(model, trainer, params):
             params.logger.info("{0} {1} {2} {3} {4} {5}".format(epoch + 1, step + 1, timedelta(seconds=elapsed_time),
                     num_tokens, batch_loss_value, " ".join([str(error) for error in batch_errors])))
 
-        model.save(_MODEL_FILENAME.format(params.model_basename, epoch))
+        save_model(_MODEL_FILENAME.format(params.model_basename, epoch), model)
         pb.finish()
         pb.reset()
 
         if params.validation_data:
             print(f"validating epoch {epoch + 1}")
             model.set_training(False)
-            score = test(model, params.validation_data)
+            score = test(model, params.validation_data, params.metrics)
             model.set_training(True)
             print(", ".join(str(metric) for metric in score))
 
-            if best_score is None or best_score[1] < score[1]:
+            if best_score is None or best_score[0] < score[0]:
                 best_epoch = epoch
                 best_score = score
         else:
@@ -76,8 +76,10 @@ def train(model, trainer, params):
     model.set_training(False)
     return best_epoch, best_score
 
-def test(model, validation_data, metrics=[UAS, LAS, EMS]):
-    metrics = tuple(metric() for metric in metrics)
+_STR_TO_METRIC = {"LAS": UAS, "UAS": LAS, "EMS": EMS}
+
+def test(model, validation_data, metrics=["UAS", "LAS", "EMS"]):
+    metrics = tuple(_STR_TO_METRIC[metric]() if isinstance(metric, str) else metric() for metric in metrics)
 
     pb = progressbar(len(validation_data))
     for gold in validation_data:
@@ -132,13 +134,12 @@ class Params(object):
         if hasattr(self, "model_filename"):
             filename = getattr(self, "model_filename")
             print(f"loading model '{filename}'")
-            model, = dy.load(filename, pc)
+            model = load_model(filename, pc)
             return model
 
         self.model_params["embeddings_dims"] = {f: (len(self.index[f]) + 1, dim) for (f, dim) in zip(self.fields, self.embeddings_dims)}
         self.model_params["labels_dim"] = len(self.index[DEPREL])
 
-        from .parser import BiaffineParser
         model = BiaffineParser(pc, **self.model_params)
         if hasattr(self, "embeddings_vectors"):
             self._init_embeddings(model)
@@ -182,13 +183,12 @@ def main(params):
     best_epoch, best_score = train(model, trainer, params)
 
     if best_score is not None:
-        print(f"best epoch: {best_epoch} {best_score}")
+        print(f"best epoch: {best_epoch + 1} {best_score}")
 
     if params.test_data:
         if best_epoch > 0:
-            pc = dy.ParameterCollection()
-            model, = dy.load(_MODEL_FILENAME.format(params.model_basename, best_epoch), pc)
-        score = test(model, params.test_data)
+            model = load_model(_MODEL_FILENAME.format(params.model_basename, best_epoch))
+        score = test(model, params.test_data, params.metrics)
         print(", ".join(str(metric) for metric in score))
 
 params = Params({
@@ -211,10 +211,12 @@ params = Params({
     "max_epochs" : 1,
     "batch_size": 10,
     "loss": "crossentropy",
+    "metrics": ("LAS", "UAS", "EMS"),
     "random_seed" : 123456789,
     "dynet_mem" : 1024
 })
 
 params.dynet_config()
 import dynet as dy
+from .parser import load_model, save_model, BiaffineParser
 main(params)

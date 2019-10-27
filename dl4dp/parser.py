@@ -24,6 +24,15 @@ def _build_head_dep(model, kwargs, prefix, input_dim, output_dim):
     dep = Dense(model, input_dim, output_dim, act, dropout)
     return (head, dep)
 
+def save_model(filename, model):
+    dy.save(filename, [model])
+
+def load_model(filename, pc = None):
+    if pc is None:
+        pc = dy.ParameterCollection()
+    model, = dy.load(filename, pc)
+    return model
+
 class BiaffineParser(object):
 
     def __init__(self, model, **kwargs):
@@ -126,15 +135,6 @@ class BiaffineParser(object):
 
     def param_collection(self):
         return self.pc
-
-    def save(self, filename):
-        dy.save(filename, [self])
-
-    @staticmethod
-    def load(filename):
-        pc = dy.ParameterCollection()
-        model, = dy.load(filename, pc)
-        return model
 
     @staticmethod
     def from_spec(spec, model):
