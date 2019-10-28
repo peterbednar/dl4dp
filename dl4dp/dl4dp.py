@@ -76,7 +76,7 @@ def train(model, trainer, params):
     model.set_training(False)
     return best_epoch, best_score
 
-_STR_TO_METRIC = {"LAS": UAS, "UAS": LAS, "EMS": EMS}
+_STR_TO_METRIC = {"LAS": LAS, "UAS": UAS, "EMS": EMS}
 
 def test(model, validation_data, metrics=["UAS", "LAS", "EMS"]):
     metrics = tuple(_STR_TO_METRIC[metric]() if isinstance(metric, str) else metric() for metric in metrics)
