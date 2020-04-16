@@ -10,11 +10,11 @@ def _get_mask(batch_lengths):
     return torch.arange(max_length)[None, :] < batch_lengths[:, None]
 
 def _get_gold_arcs(instances):
-    heads = [torch.from_numpy(instance["head"]).long() for instance in instances]
+    heads = [torch.from_numpy(instance.head).long() for instance in instances]
     return rnn.pad_sequence(heads, batch_first=True)
 
 def _get_gold_labels(instances):
-    deps = [torch.from_numpy(instance["deprel"]).long() for instance in instances]
+    deps = [torch.from_numpy(instance.deprel).long() for instance in instances]
     return rnn.pad_sequence(deps, batch_first=True)
 
 class BiaffineParser(nn.Module):
@@ -76,14 +76,7 @@ class BiaffineParser(nn.Module):
         return arc_loss, label_loss
 
     def _get_arc_loss(self, arc_scores, gold_arcs, mask):
-        arc_scores.masked_fill_(~mask.unsqueeze(1), -math.inf)
-        arc_scores.masked_fill_(torch.eye(arc_scores.size(-1)).bool().unsqueeze(0), -math.inf)
-
-        arc_scores = arc_scores[:,1:,:].transpose(-2, -1)
-        mask = mask[:,1:]
-
-        loss = self.criterion(arc_scores, gold_arcs)
-        return loss[mask].mean()
+        pass
 
     def _get_label_loss(self, label_scores, gold_arcs, gold_labels, mask):
         pass

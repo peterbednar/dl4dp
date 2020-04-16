@@ -4,11 +4,10 @@ import torch
 from torch.optim import Adam
 
 from conllutils import FORM_NORM, UPOS_FEATS, DEPREL
-from conllutils import read_conllu, create_dictionary, create_index, map_to_instances, shuffled_stream
+from conllutils import read_conllu, create_index, map_to_instances, shuffled_stream
 from .model import BiaffineParser
 
 def train(model, optimizer, params):
-
     step = 0
     for epoch in range(params.max_epoch):
         print(f"epoch: {epoch + 1}")
@@ -34,11 +33,11 @@ def main():
     random.seed(1)
     torch.manual_seed(1)
 
-    params = Params({"max_epoch": 1, "batch_size": 100})
+    params = Params(max_epoch=1, batch_size=100)
     train_data = "build/en_ewt-ud-train.conllu"
 
     print("building index...")
-    index = create_index(create_dictionary(read_conllu(train_data), fields={FORM_NORM, UPOS_FEATS, DEPREL}))
+    index = create_index(read_conllu(train_data), fields={FORM_NORM, UPOS_FEATS, DEPREL})
     print("building index done")
     params.train_data = list(map_to_instances(read_conllu(train_data), index))
 
