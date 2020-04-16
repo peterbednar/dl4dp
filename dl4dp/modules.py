@@ -26,7 +26,7 @@ class Embedding(nn.Module):
         return self.embedding.weight.shape
 
     def reset_parameters(self):
-        gain = nn.init.calculate_gain("leaky_relu", 0.1)
+        gain = nn.init.calculate_gain('leaky_relu', 0.1)
         nn.init.xavier_uniform_(self.embedding.weight, gain=gain)
 
 class Embeddings(nn.Module):
@@ -78,7 +78,7 @@ class MLP(nn.Module):
         return x
 
     def reset_parameters(self):
-        gain = nn.init.calculate_gain("leaky_relu", 0.1)
+        gain = nn.init.calculate_gain('leaky_relu', 0.1)
         nn.init.xavier_uniform_(self.linear.weight, gain=gain)
         nn.init.zeros_(self.linear.bias)
 
@@ -103,5 +103,5 @@ class Biaffine(nn.Module):
         return s
 
     def reset_parameters(self):
-        gain = nn.init.calculate_gain("leaky_relu", 0.1)
+        gain = nn.init.calculate_gain('leaky_relu', 0.1)
         nn.init.xavier_uniform_(self.weight, gain=gain)

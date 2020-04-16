@@ -1,21 +1,7 @@
-import math
-
 import torch
 import torch.nn as nn
-import torch.nn.utils.rnn as rnn
+import numpy as np
 from .modules import Embeddings, LSTM, MLP, Biaffine
-
-def _get_mask(batch_lengths):
-    max_length = batch_lengths.max().item()
-    return torch.arange(max_length)[None, :] < batch_lengths[:, None]
-
-def _get_gold_arcs(instances):
-    heads = [torch.from_numpy(instance.head).long() for instance in instances]
-    return rnn.pad_sequence(heads, batch_first=True)
-
-def _get_gold_labels(instances):
-    deps = [torch.from_numpy(instance.deprel).long() for instance in instances]
-    return rnn.pad_sequence(deps, batch_first=True)
 
 class BiaffineParser(nn.Module):
     
@@ -31,7 +17,7 @@ class BiaffineParser(nn.Module):
                  label_mlp_dim=100,
                  label_mlp_dropout=0.33):
         super().__init__()
-        self.criterion = nn.CrossEntropyLoss(reduction='none')
+        self.criterion = nn.CrossEntropyLoss(reduction='sum')
         
         self.embeddings = Embeddings(embedding_dims, input_dropout)
         input_dim = self.embeddings.size()
@@ -48,10 +34,10 @@ class BiaffineParser(nn.Module):
         self.label_biaffine = Biaffine(label_mlp_dim, labels_dim)
 
     def forward(self, batch):
-        batch.sort(key=len, reverse=True)
+        batch.sort(key=lambda x: x.length, reverse=True)
 
         x = self.embeddings(batch)
-        h, batch_lengths = self.lstm(x)
+        h, _ = self.lstm(x)
 
         arc_head = self.arc_head_mlp(h)
         arc_dep = self.arc_dep_mlp(h)
@@ -61,22 +47,44 @@ class BiaffineParser(nn.Module):
         label_dep = self.label_dep_mlp(h)
         label_scores = self.label_biaffine(label_dep, label_head).permute(0, 2, 3, 1)
 
-        return arc_scores, label_scores, batch_lengths
+        return arc_scores, label_scores
 
     def loss(self, batch):
-        arc_scores, label_scores, batch_lengths = self(batch)
+        arc_scores, label_scores = self(batch)
 
-        mask = _get_mask(batch_lengths)
+        indexes = _get_batch_indexes(batch)
         gold_arcs = _get_gold_arcs(batch)
         gold_labels = _get_gold_labels(batch)
 
-        arc_loss = self._get_arc_loss(arc_scores, gold_arcs, mask)
-        label_loss = self._get_label_loss(label_scores, gold_arcs, gold_labels, mask)
+        arc_loss = self._get_arc_loss(arc_scores, gold_arcs, indexes)
+        label_loss = self._get_label_loss(label_scores, gold_arcs, gold_labels, indexes)
 
         return arc_loss, label_loss
 
-    def _get_arc_loss(self, arc_scores, gold_arcs, mask):
-        pass
+    def _get_arc_loss(self, arc_scores, gold_arcs, indexes):
+        arc_scores = arc_scores[indexes[:,0], indexes[:,1], :]
+        return self.criterion(arc_scores, gold_arcs)
 
-    def _get_label_loss(self, label_scores, gold_arcs, gold_labels, mask):
-        pass
+    def _get_label_loss(self, label_scores, gold_arcs, gold_labels, indexes):
+        label_scores = label_scores[indexes[:,0], indexes[:,1], indexes[:,2], :]
+        return self.criterion(label_scores, gold_labels)
+
+def _get_batch_indexes(batch):
+    num_words = sum([instance.length for instance in batch])
+    indexes = np.empty((num_words, 3), dtype=np.int32)
+    i = 0
+    for j, instance in enumerate(batch):
+        for dep in range(instance.length):
+            indexes[i, 0] = j
+            indexes[i, 1] = dep + 1
+            indexes[i, 2] = instance.head[dep]
+            i += 1
+    return indexes
+
+def _get_gold_arcs(instances):
+    heads = [torch.from_numpy(instance.head).long() for instance in instances]
+    return torch.cat(heads, -1)
+
+def _get_gold_labels(instances):
+    deps = [torch.from_numpy(instance.deprel).long() for instance in instances]
+    return torch.cat(deps, -1)
