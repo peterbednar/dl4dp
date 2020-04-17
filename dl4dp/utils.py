@@ -1,5 +1,7 @@
-import numpy as np
+import sys
+import math
 from collections import defaultdict
+import numpy as np
 
 def mst(scores, eps=1e-10):
     """
@@ -103,3 +105,32 @@ def _find_cycle(vertices, edges):
             _strongconnect(v)
 
     return [SCC for SCC in _SCCs if len(SCC) > 1]
+
+class progressbar(object):
+
+    def __init__(self, total, width=50, bar=".", end="\n"):
+        self.total = total
+        self.value = 0
+        self.width = width
+        self.bar = bar
+        self.end = end
+
+    def _bar(self):
+        return math.floor((self.value / float(self.total)) * self.width)
+
+    def update(self, dif=1):
+        prev = self._bar()
+        self.value += dif
+        next = self._bar()
+        if prev < next:
+            print(self.bar, end="")
+            sys.stdout.flush()
+    
+    def reset(self, value=0, total=None):
+        self.value = value
+        if total is not None:
+            self.total = total
+
+    def finish(self):
+        print(self.end, end="")
+        sys.stdout.flush()
