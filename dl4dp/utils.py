@@ -140,9 +140,10 @@ class progressbar(object):
         prev = self._bar()
         self.value += dif
         next = self._bar()
-        if prev < next:
+        while prev < next:
             print(self.bar, end="")
             sys.stdout.flush()
+            prev += 1
     
     def reset(self, value=0, total=None):
         self.value = value

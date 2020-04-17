@@ -1,5 +1,6 @@
 import os
 import time
+import random
 from datetime import timedelta
 import logging
 from logging import FileHandler
@@ -48,8 +49,44 @@ def train(model, optimizer, params):
         pb.finish()
         pb.reset()
 
+        torch.save(model, params.model_basename + 'model.pth')
+
+        if params.validation_data:
+            model.eval()
+            uas, las = validate(model, params)
+            print(f"UAS: {uas}, LAS: {las}")
+            model.train()
+
 def validate(model, params):
-    pass
+    batch_size = params.batch_size
+    validation_data = params.validation_data
+
+    uas_correct = 0
+    las_correct = 0
+    total_count = 0
+
+    pb = progressbar(len(validation_data))
+
+    for index in range(0, len(validation_data), batch_size):
+        batch = validation_data[index:index + batch_size]
+        arcs_pred, labels_pred = model.parse(batch)
+
+        i = 0
+        for instance in batch:
+            for j in range(instance.length):
+                if instance.head[j] == arcs_pred[i]:
+                    uas_correct += 1
+                    if instance.deprel[j] == labels_pred[i]:
+                        las_correct += 1
+                total_count += 1
+                i += 1
+            pb.update()
+
+    pb.finish()
+
+    uas = uas_correct / total_count
+    las = las_correct / total_count
+    return uas, las
 
 class Params(dict):
 
@@ -67,8 +104,10 @@ class Params(dict):
         self.logger = log
 
 def debug(model, params):
-    batch = params.train_data[:10]
-    model.parse(batch)
+    model = torch.load(params.model_basename + 'model.pth')
+    model.eval()
+    uas, las = validate(model, params)
+    print(f"{uas} {las}")
 
 def main():
     np.random.seed(1)
@@ -76,12 +115,26 @@ def main():
 
     params = Params(max_epoch=1, batch_size=100, model_basename='build/en_ewt/')
     train_data = 'build/en_ewt-ud-train.conllu'
+    validation_data = 'build/en_ewt-ud-dev.conllu'
+    test_data = 'build/en_ewt-ud-test.conllu'
 
     print('building index...')
-    sentences = list(read_conllu(train_data, skip_empty=True, skip_multiword=True))
-    index = create_index(sentences, fields={FORM_NORM, UPOS_FEATS, DEPREL})
+    index = create_index(
+        read_conllu(train_data, skip_empty=True, skip_multiword=True), 
+        fields={FORM_NORM, UPOS_FEATS, DEPREL})
+
     print('building index done')
-    params.train_data = list(map_to_instances(sentences, index))
+    params.train_data = list(map_to_instances(
+        read_conllu(train_data, skip_empty=True, skip_multiword=True),
+        index))
+
+    params.validation_data = list(map_to_instances(
+        read_conllu(validation_data, skip_empty=True, skip_multiword=True),
+        index))
+
+    params.test_data = list(map_to_instances(
+        read_conllu(test_data, skip_empty=True, skip_multiword=True),
+        index))
 
     embedding_dims = {FORM_NORM: (len(index[FORM_NORM]) + 1, 100), UPOS_FEATS: (len(index[UPOS_FEATS]) + 1, 100)}
     labels_dim = len(index[DEPREL]) + 1

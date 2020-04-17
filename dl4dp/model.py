@@ -6,7 +6,7 @@ from .modules import Embeddings, LSTM, MLP, Biaffine
 from .utils import tarjan
 
 class BiaffineParser(nn.Module):
-    
+
     def __init__(self,
                  embedding_dims,
                  labels_dim,
@@ -82,7 +82,6 @@ class BiaffineParser(nn.Module):
         indexes, lengths = _get_batch_indexes(batch, training=False)
         pred_arcs = self._parse_arcs(arc_scores, indexes, lengths)
         pred_labels = self._parse_labels(label_scores, indexes, pred_arcs)
-
         return pred_arcs, pred_labels
 
     def _parse_arcs(self, arc_scores, indexes, lengths):
@@ -97,8 +96,8 @@ class BiaffineParser(nn.Module):
         return arc_pred
 
     def _parse_labels(self, label_scores, indexes, arc_pred):
-        label_scores = label_scores[indexes[0,:], indexes[1,:], arc_pred, :].data.numpy()
-        return label_scores.argmax(axis=1)
+        label_scores = label_scores[indexes[0,:], indexes[1,:], arc_pred, :]
+        return label_scores.data.max(1)[1].data.numpy()
 
 def _get_batch_indexes(batch, training=True):
     lengths = [instance.length for instance in batch]
@@ -117,4 +116,3 @@ def _get_batch_indexes(batch, training=True):
             i += 1
 
     return indexes, lengths
-
