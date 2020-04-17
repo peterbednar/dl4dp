@@ -59,7 +59,7 @@ class LSTM(nn.Module):
     def forward(self, batch):
         for i, x in enumerate(batch):
             batch[i] = torch.cat([self.root.unsqueeze(0), x])
-        x = rnn.pack_sequence(batch)
+        x = rnn.pack_sequence(batch, enforce_sorted=False)
         h, _ = self.lstm(x)
         h, batch_lengths = rnn.pad_packed_sequence(h, batch_first=True)
         return h, batch_lengths

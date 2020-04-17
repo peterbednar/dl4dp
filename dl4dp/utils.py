@@ -1,110 +1,128 @@
 import sys
 import math
+import heapq
 from collections import defaultdict
+from functools import total_ordering
 import numpy as np
 
-def mst(scores, eps=1e-10):
-    """
-    Chu-Liu-Edmonds' algorithm for finding minimum spanning arborescence in graphs.
-    Calculates the arborescence with node 0 as root.
-    :param scores: `scores[i][j]` is the weight of edge from node `j` to node `i`.
-    :returns an array containing the head node (node with edge pointing to current node) for each node,
-             with head[0] fixed as 0
-    """
-    scores = scores.T
-    length = scores.shape[0]
-    scores = scores * (1 - np.eye(length)) # mask all the diagonal elements wih a zero
-    heads = np.argmax(scores, axis=1) # THIS MEANS THAT scores[i][j] = score(j -> i)!
-    heads[0] = 0 # the root has a self-loop to make it special
-    tokens = np.arange(1, length)
-    roots = np.where(heads[tokens] == 0)[0] + 1
-    if len(roots) < 1:
-        root_scores = scores[tokens, 0]
-        head_scores = scores[tokens, heads[tokens]]
-        new_root = tokens[np.argmax(root_scores / (head_scores + eps))]
-        heads[new_root] = 0
-    elif len(roots) > 1:
-        root_scores = scores[roots, 0]
-        scores[roots, 0] = 0
-        new_heads = np.argmax(scores[roots][:, tokens], axis=1) + 1
-        new_root = roots[np.argmin(
-            scores[roots, new_heads] / (root_scores + eps))]
-        heads[roots] = new_heads
-        heads[new_root] = 0
+def tarjan(scores, heads=None):
 
-    edges = defaultdict(set) # head -> dep
-    vertices = set((0,))
-    for dep, head in enumerate(heads[tokens]):
-        vertices.add(dep + 1)
-        edges[head].add(dep + 1)
-    for cycle in _find_cycle(vertices, edges):
-        dependents = set()
-        to_visit = set(cycle)
-        while len(to_visit) > 0:
-            node = to_visit.pop()
-            if node not in dependents:
-                dependents.add(node)
-                to_visit.update(edges[node])
-        cycle = np.array(list(cycle))
-        old_heads = heads[cycle]
-        old_scores = scores[cycle, old_heads]
-        non_heads = np.array(list(dependents))
-        scores[np.repeat(cycle, len(non_heads)),
-               np.repeat([non_heads], len(cycle), axis=0).flatten()] = 0
-        new_heads = np.argmax(scores[cycle][:, tokens], axis=1) + 1
-        new_scores = scores[cycle, new_heads] / (old_scores + eps)
-        change = np.argmax(new_scores)
-        changed_cycle = cycle[change]
-        old_head = old_heads[change]
-        new_head = new_heads[change]
-        heads[changed_cycle] = new_head
-        edges[new_head].add(changed_cycle)
-        edges[old_head].remove(changed_cycle)
+    def _push(queue, elm):
+        heapq.heappush(queue, elm)
+    
+    def _pop(queue):
+        if len(queue) == 0:
+            return None
+        return heapq.heappop(queue)
+
+    def _find_disjoint_sets(trees, elm):
+        if trees[elm] != elm:
+            trees[elm] = _find_disjoint_sets(trees, trees[elm])
+        return trees[elm]
+
+    def _union_disjoint_sets(trees, set1, set2):
+        trees[set2] = set1
+
+    def _invert_max_branching(node, h, visited, inverted):
+        visited[node] = True
+        for v in h[node]:
+            if visited[v]:
+                continue
+            inverted[v - 1] = node
+            _invert_max_branching(v, h, visited, inverted)
+
+    nr, _ = scores.shape
+
+    roots = list(range(1, nr))
+    rset = [0]
+
+    q = np.empty(nr, dtype=np.object)
+    enter = np.empty(nr, dtype=np.object)
+
+    min = np.arange(nr, dtype=np.int)
+    s = np.arange(nr, dtype=np.int)
+    w = np.arange(nr, dtype=np.int)
+
+    h = defaultdict(list)
+
+    for node in range(1, nr):
+        q[node] = []
+        for i in range(nr):
+            if i != node:
+                _push(q[node], _edge(i, node, scores[i, node]))
+
+    while roots:
+        scc_to = roots.pop()
+        max_in_edge = _pop(q[scc_to])
+
+        if max_in_edge is None:
+            rset.append(scc_to)
+            continue
+
+        scc_from = _find_disjoint_sets(s, max_in_edge.start)
+        if scc_from == scc_to:
+            roots.append(scc_to)
+            continue
+
+        h[max_in_edge.start].append(max_in_edge.end)
+
+        wss_from = _find_disjoint_sets(w, max_in_edge.start)
+        wss_to = _find_disjoint_sets(w, max_in_edge.end)
+        if wss_from != wss_to:
+            _union_disjoint_sets(w, wss_from, wss_to)
+            enter[scc_to] = max_in_edge
+            continue
+
+        min_weight = np.inf
+        min_scc = -1
+        tmp = max_in_edge
+        while tmp is not None:
+            if tmp.weight < min_weight:
+                min_weight = tmp.weight
+                min_scc = _find_disjoint_sets(s, tmp.end)
+            tmp = enter[_find_disjoint_sets(s, tmp.start)]
+
+        inc = min_weight - max_in_edge.weight
+        for e in q[scc_to]:
+            e.weight += inc
+
+        min[scc_to] = min[min_scc]
+
+        tmp = enter[scc_from]
+        while tmp is not None:
+            inc = min_weight - tmp.weight
+            tmp_scc_to = _find_disjoint_sets(s, tmp.end)
+            for e in q[tmp_scc_to]:
+                e.weight += inc
+                _push(q[scc_to], e)
+
+            _union_disjoint_sets(s, scc_to, tmp_scc_to)
+            q[tmp_scc_to] = None
+            tmp = enter[_find_disjoint_sets(s, tmp.start)]
+
+        roots.append(scc_to)
+
+    visited = np.zeros(nr, dtype=np.bool)
+    if heads is None:
+        heads = np.full(nr - 1, -1, dtype=np.int)
+    for scc in rset:
+        _invert_max_branching(min[scc], h, visited, heads)
 
     return heads
 
+@total_ordering
+class _edge(object):
 
-def _find_cycle(vertices, edges):
-    """
-    https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm  # NOQA
-    https://github.com/tdozat/Parser/blob/0739216129cd39d69997d28cbc4133b360ea3934/lib/etc/tarjan.py  # NOQA
-    """
-    _index = [0]
-    _stack = []
-    _indices = {}
-    _lowlinks = {}
-    _onstack = defaultdict(lambda: False)
-    _SCCs = []
+    def __init__(self, start, end, weight):
+        self.start = start
+        self.end = end
+        self.weight = weight
 
-    def _strongconnect(v):
-        _indices[v] = _index[0]
-        _lowlinks[v] = _index[0]
-        _index[0] += 1
-        _stack.append(v)
-        _onstack[v] = True
+    def __eq__(self, other):
+        return (self.weight, self.start, self.end) == (other.weight, other.start, other.end)
 
-        for w in edges[v]:
-            if w not in _indices:
-                _strongconnect(w)
-                _lowlinks[v] = min(_lowlinks[v], _lowlinks[w])
-            elif _onstack[w]:
-                _lowlinks[v] = min(_lowlinks[v], _indices[w])
-
-        if _lowlinks[v] == _indices[v]:
-            SCC = set()
-            while True:
-                w = _stack.pop()
-                _onstack[w] = False
-                SCC.add(w)
-                if not (w != v):
-                    break
-            _SCCs.append(SCC)
-
-    for v in vertices:
-        if v not in _indices:
-            _strongconnect(v)
-
-    return [SCC for SCC in _SCCs if len(SCC) > 1]
+    def __lt__(self, other):
+        return -self.weight < -other.weight
 
 class progressbar(object):
 

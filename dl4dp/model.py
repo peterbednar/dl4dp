@@ -1,7 +1,9 @@
 import torch
 import torch.nn as nn
 import numpy as np
+
 from .modules import Embeddings, LSTM, MLP, Biaffine
+from .utils import tarjan
 
 class BiaffineParser(nn.Module):
     
@@ -33,8 +35,6 @@ class BiaffineParser(nn.Module):
         self.label_biaffine = Biaffine(label_mlp_dim, labels_dim, bias_x=True, bias_y=True)
 
     def forward(self, batch):
-        batch.sort(key=lambda x: x.length, reverse=True)
-
         x = self.embeddings(batch)
         h, _ = self.lstm(x)
 
@@ -46,12 +46,12 @@ class BiaffineParser(nn.Module):
         arc_scores = self.arc_biaffine(arc_dep, arc_head)
         label_scores = self.label_biaffine(label_dep, label_head).permute(0, 2, 3, 1)
 
-        return arc_scores, label_scores
+        return arc_scores.cpu(), label_scores.cpu()
 
     def loss(self, batch):
         arc_scores, label_scores = self(batch)
 
-        arcs = _get_batch_arcs(batch)
+        arcs, _ = _get_batch_indexes(batch)
         gold_arcs = torch.from_numpy(arcs[2,:])
         gold_labels = torch.from_numpy(arcs[3,:])
 
@@ -76,15 +76,45 @@ class BiaffineParser(nn.Module):
         error = (num_words - label_pred.eq(gold_labels).sum()) / float(num_words)
         return loss, error
 
-def _get_batch_arcs(batch):
-    num_words = sum([instance.length for instance in batch])
-    arcs = np.empty((4, num_words), dtype=np.int64)
+    def parse(self, batch):
+        arc_scores, label_scores = self(batch)
+
+        indexes, lengths = _get_batch_indexes(batch, training=False)
+        pred_arcs = self._parse_arcs(arc_scores, indexes, lengths)
+        pred_labels = self._parse_labels(label_scores, indexes, pred_arcs)
+
+        return pred_arcs, pred_labels
+
+    def _parse_arcs(self, arc_scores, indexes, lengths):
+        arc_scores = arc_scores[indexes[0,:], indexes[1,:], :].data.numpy()
+        arc_pred = np.empty(arc_scores.shape[0], np.int)
+        i = 0
+        for k in lengths:
+            scores = np.vstack([np.zeros(k+1), arc_scores[i:i+k, :k+1]]).transpose()
+            heads = arc_pred[i:i+k]
+            tarjan(scores, heads)
+            i += k
+        return arc_pred
+
+    def _parse_labels(self, label_scores, indexes, arc_pred):
+        label_scores = label_scores[indexes[0,:], indexes[1,:], arc_pred, :].data.numpy()
+        return label_scores.argmax(axis=1)
+
+def _get_batch_indexes(batch, training=True):
+    lengths = [instance.length for instance in batch]
+    cols = sum(lengths)
+    rows = 4 if training else 2
+
     i = 0
+    indexes = np.empty((rows, cols), dtype=np.int64)
     for j, instance in enumerate(batch):
-        for dep in range(instance.length):
-            arcs[0, i] = j
-            arcs[1, i] = dep + 1
-            arcs[2, i] = instance.head[dep]
-            arcs[3, i] = instance.deprel[dep]
+        for k in range(instance.length):
+            indexes[0, i] = j
+            indexes[1, i] = k + 1
+            if training:
+                indexes[2, i] = instance.head[k]
+                indexes[3, i] = instance.deprel[k]
             i += 1
-    return arcs
+
+    return indexes, lengths
+

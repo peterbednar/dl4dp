@@ -48,6 +48,9 @@ def train(model, optimizer, params):
         pb.finish()
         pb.reset()
 
+def validate(model, params):
+    pass
+
 class Params(dict):
 
     def __init__(self, *args, **kwargs):
@@ -62,6 +65,10 @@ class Params(dict):
         log.setLevel(logging.INFO)
         log.addHandler(FileHandler(self.model_basename + 'train.log', mode='w'))
         self.logger = log
+
+def debug(model, params):
+    batch = params.train_data[:10]
+    model.parse(batch)
 
 def main():
     np.random.seed(1)
@@ -82,3 +89,4 @@ def main():
 
     optimizer = Adam(model.parameters())
     train(model, optimizer, params)
+    #debug(model, params)
