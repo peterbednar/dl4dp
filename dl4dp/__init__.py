@@ -61,10 +61,7 @@ def validate(model, params):
     batch_size = params.batch_size
     validation_data = params.validation_data
 
-    uas_correct = 0
-    las_correct = 0
-    total_count = 0
-
+    uas_correct = las_correct = total_count = 0
     pb = progressbar(len(validation_data))
 
     for index in range(0, len(validation_data), batch_size):
@@ -110,8 +107,8 @@ def debug(model, params):
     print(f"{uas} {las}")
 
 def main():
-    np.random.seed(1)
-    torch.manual_seed(1)
+    np.random.seed(0)
+    torch.manual_seed(0)
 
     params = Params(max_epoch=1, batch_size=100, model_basename='build/en_ewt/')
     train_data = 'build/en_ewt-ud-train.conllu'

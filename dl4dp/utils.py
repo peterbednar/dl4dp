@@ -9,7 +9,7 @@ def tarjan(scores, heads=None):
 
     def _push(queue, elm):
         heapq.heappush(queue, elm)
-    
+
     def _pop(queue):
         if len(queue) == 0:
             return None

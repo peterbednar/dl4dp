@@ -50,36 +50,26 @@ class BiaffineParser(nn.Module):
 
     def loss(self, batch):
         arc_scores, label_scores = self(batch)
+        indexes, _ = _get_batch_indexes(batch)
 
-        arcs, _ = _get_batch_indexes(batch)
-        gold_arcs = torch.from_numpy(arcs[2,:])
-        gold_labels = torch.from_numpy(arcs[3,:])
-
-        arc_loss, arc_error = self._get_arc_loss(arc_scores, gold_arcs, arcs)
-        label_loss, label_error = self._get_label_loss(label_scores, gold_arcs, gold_labels, arcs)
-
+        arc_loss, arc_error = self._get_arc_loss(arc_scores, indexes)
+        label_loss, label_error = self._get_label_loss(label_scores, indexes)
         return arc_loss, label_loss, arc_error, label_error
 
-    def _get_arc_loss(self, arc_scores, gold_arcs, arcs):
-        num_words = arcs.shape[1]
-        arc_scores = arc_scores[arcs[0,:], arcs[1,:], :]
-        arc_pred = arc_scores.data.max(1)[1]
-        loss = self.criterion(arc_scores, gold_arcs)
-        error = (num_words - arc_pred.eq(gold_arcs).sum()) / float(num_words)
-        return loss, error
+    def _get_arc_loss(self, arc_scores, indexes):
+        arc_scores = arc_scores[indexes[0,:], indexes[1,:], :]
+        gold_arcs = torch.from_numpy(indexes[2,:])
+        return self._loss_and_error(arc_scores, gold_arcs)
 
-    def _get_label_loss(self, label_scores, gold_arcs, gold_labels, arcs):
-        num_words = arcs.shape[1]
-        label_scores = label_scores[arcs[0,:], arcs[1,:], arcs[2,:], :]
-        label_pred = label_scores.data.max(1)[1]
-        loss = self.criterion(label_scores, gold_labels)
-        error = (num_words - label_pred.eq(gold_labels).sum()) / float(num_words)
-        return loss, error
+    def _get_label_loss(self, label_scores, indexes):
+        label_scores = label_scores[indexes[0,:], indexes[1,:], indexes[2,:], :]
+        gold_labels = torch.from_numpy(indexes[3,:])
+        return self._loss_and_error(label_scores, gold_labels)
 
     def parse(self, batch):
         arc_scores, label_scores = self(batch)
-
         indexes, lengths = _get_batch_indexes(batch, training=False)
+
         pred_arcs = self._parse_arcs(arc_scores, indexes, lengths)
         pred_labels = self._parse_labels(label_scores, indexes, pred_arcs)
         return pred_arcs, pred_labels
@@ -98,6 +88,13 @@ class BiaffineParser(nn.Module):
     def _parse_labels(self, label_scores, indexes, arc_pred):
         label_scores = label_scores[indexes[0,:], indexes[1,:], arc_pred, :]
         return label_scores.data.max(1)[1].data.numpy()
+
+    def _loss_and_error(self, scores, gold):
+        count = gold.size()[0]
+        pred = scores.data.max(1)[1]
+        loss = self.criterion(scores, gold)
+        error = (count - pred.eq(gold).sum()) / float(count)
+        return loss, error
 
 def _get_batch_indexes(batch, training=True):
     lengths = [instance.length for instance in batch]
