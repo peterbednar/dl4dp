@@ -93,10 +93,9 @@ class BiaffineParser(nn.Module):
         return label_scores.max(1)[1].numpy()
 
     def _loss_and_error(self, scores, gold):
-        count = gold.size()[0]
         pred = scores.max(1)[1]
         loss = self.criterion(scores, gold)
-        error = (count - pred.eq(gold).sum()) / float(count)
+        error = 1 - (pred.eq(gold).sum() / float(gold.size()[0]))
         return loss, error
 
     def _get_batch_indexes(self, batch):

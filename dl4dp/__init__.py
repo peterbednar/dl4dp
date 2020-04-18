@@ -43,14 +43,14 @@ def train(model, optimizer, params):
             params.logger.info(f"{epoch + 1} {step + 1} {timedelta(seconds=elapsed_time)} {num_words} {loss.item()} " +
                 " ".join([str(metric.item()) for metric in metrics]))
 
-        torch.save(model, params.model_basename + 'model.pth')
+        torch.save(model, params.model_basename + f'model-{epoch + 1}.pth')
         pb.finish()
         pb.reset()
 
         if params.validation_data:
             print(f"validating epoch {epoch + 1}/{params.max_epoch}")
             model.eval()
-            score, metrics = validate(model, params)
+            score, metrics = validate(model, params.validation_data, params)
             print(", ".join(f"{metric[0]}:{metric[1]:.4f}" for metric in metrics))
             model.train()
 
@@ -65,9 +65,8 @@ def train(model, optimizer, params):
 
     return best_epoch, best_score
 
-def validate(model, params):
+def validate(model, validation_data, params):
     batch_size = params.batch_size
-    validation_data = params.validation_data
 
     uas_correct = las_correct = em_correct = total = 0
     pb = progressbar(len(validation_data))
@@ -98,7 +97,8 @@ def validate(model, params):
     las = las_correct / total
     em = em_correct / len(validation_data)
 
-    return las, (('UAS', uas), ('LAS', las), ('EM', em))
+    metrics = (('UAS', uas), ('LAS', las), ('EM', em))
+    return las, metrics
 
 class Params(dict):
 
@@ -127,7 +127,7 @@ def main():
     print('building index...')
     index = create_index(read_conllu(train_data), fields={FORM_NORM, UPOS_FEATS, DEPREL})
     print('building index done')
-    
+
     params.train_data = list(map_to_instances(read_conllu(train_data), index))
     params.validation_data = list(map_to_instances(read_conllu(validation_data), index))
     #params.test_data = list(map_to_instances(read_conllu(test_data), index))
