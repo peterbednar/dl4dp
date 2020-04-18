@@ -49,10 +49,8 @@ def train(model, optimizer, params):
 
         if params.validation_data:
             print(f"validating epoch {epoch + 1}/{params.max_epoch}")
-            model.eval()
-            score, metrics = validate(model, params.validation_data, params)
+            score, metrics = validate(model, params.validation_data, params.batch_size)
             print(", ".join(f"{metric[0]}:{metric[1]:.4f}" for metric in metrics))
-            model.train()
 
             if best_score is None or best_score < score:
                 best_score = score
@@ -65,14 +63,16 @@ def train(model, optimizer, params):
 
     return best_epoch, best_score
 
-def validate(model, validation_data, params):
-    batch_size = params.batch_size
+def validate(model, validation_data, batch_size=100):
+    mode = model.training
+    model.eval()
 
+    total_size = len(validation_data)
+    pb = progressbar(total_size)
     uas_correct = las_correct = em_correct = total = 0
-    pb = progressbar(len(validation_data))
 
-    for index in range(0, len(validation_data), batch_size):
-        batch = validation_data[index:index + batch_size]
+    for bi in range(0, total_size, batch_size):
+        batch = validation_data[bi:bi + batch_size]
         arcs_pred, labels_pred = model.parse(batch)
 
         i = 0
@@ -95,9 +95,10 @@ def validate(model, validation_data, params):
 
     uas = uas_correct / total
     las = las_correct / total
-    em = em_correct / len(validation_data)
-
+    em = em_correct / total_size
     metrics = (('UAS', uas), ('LAS', las), ('EM', em))
+
+    model.train(mode)
     return las, metrics
 
 class Params(dict):
@@ -110,7 +111,7 @@ class Params(dict):
     def _basic_config(self):
         os.makedirs(self.model_basename, exist_ok=True)
 
-        log = logging.getLogger('dl4dp.train')
+        log = logging.getLogger('dl4dp.training')
         log.setLevel(logging.INFO)
         log.addHandler(FileHandler(self.model_basename + 'training.log', mode='w'))
         self.logger = log
@@ -119,7 +120,7 @@ def main():
     np.random.seed(0)
     torch.manual_seed(0)
 
-    params = Params(max_epoch=1, batch_size=100, model_basename='build/en_ewt/')
+    params = Params(max_epoch=2, batch_size=100, model_basename='build/en_ewt/')
     train_data = 'build/en_ewt-ud-train.conllu'
     validation_data = 'build/en_ewt-ud-dev.conllu'
     test_data = 'build/en_ewt-ud-test.conllu'

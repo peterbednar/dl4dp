@@ -69,6 +69,9 @@ class BiaffineParser(nn.Module):
         return self._loss_and_error(label_scores, gold_labels)
 
     def parse(self, batch):
+        if self.training:
+            raise RuntimeError('Not in eval mode.')
+
         with torch.no_grad():
             arc_scores, label_scores = self(batch)
             indexes, lengths = self._get_batch_indexes(batch)
