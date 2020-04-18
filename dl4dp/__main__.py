@@ -1,2 +1,3 @@
+from dl4dp import main
 if __name__ == "__main__":
-    import dl4dp.dl4dp
+    main()
