@@ -26,23 +26,21 @@ def train(model, optimizer, params):
 
     pb = progressbar(total_size)
 
-    step = 0
     for epoch in range(params.max_epoch):
         print(f"epoch: {epoch + 1}/{params.max_epoch}")
         start_time = time.time()
 
-        for batch in shuffled_stream(params.train_data, total_size=total_size, batch_size=batch_size):
+        for step, batch in enumerate(shuffled_stream(params.train_data, total_size=total_size, batch_size=batch_size)):
             optimizer.zero_grad()
             loss, metrics = model.loss(batch)
             loss.backward()
             optimizer.step()
 
-            step += 1
             pb.update(batch_size)
             elapsed_time = time.time() - start_time
             num_words = sum([instance.length for instance in batch])
 
-            params.logger.info(f"{epoch + 1} {step} {timedelta(seconds=elapsed_time)} {num_words} {loss.item()} " +
+            params.logger.info(f"{epoch + 1} {step + 1} {timedelta(seconds=elapsed_time)} {num_words} {loss.item()} " +
                 " ".join([str(metric.item()) for metric in metrics]))
 
         torch.save(model, params.model_basename + 'model.pth')
@@ -71,7 +69,7 @@ def validate(model, params):
     batch_size = params.batch_size
     validation_data = params.validation_data
 
-    uas_correct = las_correct = total_count = 0
+    uas_correct = las_correct = em_correct = total = 0
     pb = progressbar(len(validation_data))
 
     for index in range(0, len(validation_data), batch_size):
@@ -80,21 +78,27 @@ def validate(model, params):
 
         i = 0
         for instance in batch:
+            match = True
             for j in range(instance.length):
                 if instance.head[j] == arcs_pred[i]:
                     uas_correct += 1
                     if instance.deprel[j] == labels_pred[i]:
                         las_correct += 1
-                total_count += 1
+                    else:
+                        match = False
+                total += 1
                 i += 1
+            if match:
+                em_correct += 1
             pb.update()
 
     pb.finish()
 
-    uas = uas_correct / total_count
-    las = las_correct / total_count
+    uas = uas_correct / total
+    las = las_correct / total
+    em = em_correct / len(validation_data)
 
-    return las, (('UAS', uas), ('LAS', las))
+    return las, (('UAS', uas), ('LAS', las), ('EM', em))
 
 class Params(dict):
 
@@ -111,12 +115,6 @@ class Params(dict):
         log.addHandler(FileHandler(self.model_basename + 'training.log', mode='w'))
         self.logger = log
 
-def debug(model, params):
-    model = torch.load(params.model_basename + 'model.pth')
-    model.eval()
-    uas, las = validate(model, params)
-    print(f"{uas} {las}")
-
 def main():
     np.random.seed(0)
     torch.manual_seed(0)
@@ -128,8 +126,8 @@ def main():
 
     print('building index...')
     index = create_index(read_conllu(train_data), fields={FORM_NORM, UPOS_FEATS, DEPREL})
-
     print('building index done')
+    
     params.train_data = list(map_to_instances(read_conllu(train_data), index))
     params.validation_data = list(map_to_instances(read_conllu(validation_data), index))
     #params.test_data = list(map_to_instances(read_conllu(test_data), index))
@@ -140,4 +138,3 @@ def main():
 
     optimizer = Adam(model.parameters(), betas=(0.9, 0.9))
     train(model, optimizer, params)
-    #debug(model, params)
