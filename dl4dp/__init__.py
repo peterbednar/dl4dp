@@ -16,6 +16,8 @@ from .model import BiaffineParser
 from .utils import progressbar
 
 def train(model, optimizer, params):
+    best_epoch = 0
+    best_score = None
 
     batch_size = params.batch_size
     total_size = len(params.train_data)
@@ -27,13 +29,11 @@ def train(model, optimizer, params):
     step = 0
     for epoch in range(params.max_epoch):
         print(f"epoch: {epoch + 1}/{params.max_epoch}")
-
         start_time = time.time()
+
         for batch in shuffled_stream(params.train_data, total_size=total_size, batch_size=batch_size):
             optimizer.zero_grad()
-            arc_loss, label_loss, arc_error, label_error = model.loss(batch)
-
-            loss = arc_loss + label_loss
+            loss, metrics = model.loss(batch)
             loss.backward()
             optimizer.step()
 
@@ -42,20 +42,30 @@ def train(model, optimizer, params):
             elapsed_time = time.time() - start_time
             num_words = sum([instance.length for instance in batch])
 
-            params.logger.info(f"{epoch + 1} {step} {timedelta(seconds=elapsed_time)} {num_words} " +
-                    f"{arc_loss.item()} {label_loss.item()} " +
-                    f"{arc_error} {label_error}")
+            params.logger.info(f"{epoch + 1} {step} {timedelta(seconds=elapsed_time)} {num_words} {loss.item()} " +
+                " ".join([str(metric.item()) for metric in metrics]))
 
+        torch.save(model, params.model_basename + 'model.pth')
         pb.finish()
         pb.reset()
 
-        torch.save(model, params.model_basename + 'model.pth')
-
         if params.validation_data:
+            print(f"validating epoch {epoch + 1}/{params.max_epoch}")
             model.eval()
-            uas, las = validate(model, params)
-            print(f"UAS: {uas}, LAS: {las}")
+            score, metrics = validate(model, params)
+            print(", ".join(f"{metric[0]}:{metric[1]:.4f}" for metric in metrics))
             model.train()
+
+            if best_score is None or best_score < score:
+                best_score = score
+                best_epoch = epoch + 1
+        else:
+            best_epoch = epoch
+
+    if best_score is not None:
+        print(f"best epoch: {best_epoch}, score: {best_score:.4f}")
+
+    return best_epoch, best_score
 
 def validate(model, params):
     batch_size = params.batch_size
@@ -83,7 +93,8 @@ def validate(model, params):
 
     uas = uas_correct / total_count
     las = las_correct / total_count
-    return uas, las
+
+    return las, (('UAS', uas), ('LAS', las))
 
 class Params(dict):
 
@@ -97,7 +108,7 @@ class Params(dict):
 
         log = logging.getLogger('dl4dp.train')
         log.setLevel(logging.INFO)
-        log.addHandler(FileHandler(self.model_basename + 'train.log', mode='w'))
+        log.addHandler(FileHandler(self.model_basename + 'training.log', mode='w'))
         self.logger = log
 
 def debug(model, params):

@@ -54,7 +54,9 @@ class BiaffineParser(nn.Module):
 
         arc_loss, arc_error = self._get_arc_loss(arc_scores, indexes)
         label_loss, label_error = self._get_label_loss(label_scores, indexes)
-        return arc_loss, label_loss, arc_error, label_error
+
+        loss = arc_loss + label_loss
+        return loss, (arc_loss, label_loss, arc_error, label_error)
 
     def _get_arc_loss(self, arc_scores, indexes):
         arc_scores = arc_scores[indexes[0,:], indexes[1,:], :]
