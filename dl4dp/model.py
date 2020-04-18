@@ -85,8 +85,8 @@ class BiaffineParser(nn.Module):
             i += k
         return arc_pred
 
-    def _parse_labels(self, label_scores, indexes, arc_pred):
-        label_scores = label_scores[indexes[0,:], indexes[1,:], arc_pred, :]
+    def _parse_labels(self, label_scores, indexes, pred_arcs):
+        label_scores = label_scores[indexes[0,:], indexes[1,:], pred_arcs, :]
         return label_scores.data.max(1)[1].data.numpy()
 
     def _loss_and_error(self, scores, gold):

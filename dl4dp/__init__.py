@@ -116,27 +116,17 @@ def main():
     test_data = 'build/en_ewt-ud-test.conllu'
 
     print('building index...')
-    index = create_index(
-        read_conllu(train_data, skip_empty=True, skip_multiword=True), 
-        fields={FORM_NORM, UPOS_FEATS, DEPREL})
+    index = create_index(read_conllu(train_data), fields={FORM_NORM, UPOS_FEATS, DEPREL})
 
     print('building index done')
-    params.train_data = list(map_to_instances(
-        read_conllu(train_data, skip_empty=True, skip_multiword=True),
-        index))
-
-    params.validation_data = list(map_to_instances(
-        read_conllu(validation_data, skip_empty=True, skip_multiword=True),
-        index))
-
-    params.test_data = list(map_to_instances(
-        read_conllu(test_data, skip_empty=True, skip_multiword=True),
-        index))
+    params.train_data = list(map_to_instances(read_conllu(train_data), index))
+    params.validation_data = list(map_to_instances(read_conllu(validation_data), index))
+    #params.test_data = list(map_to_instances(read_conllu(test_data), index))
 
     embedding_dims = {FORM_NORM: (len(index[FORM_NORM]) + 1, 100), UPOS_FEATS: (len(index[UPOS_FEATS]) + 1, 100)}
     labels_dim = len(index[DEPREL]) + 1
     model = BiaffineParser(embedding_dims, labels_dim)
 
-    optimizer = Adam(model.parameters())
+    optimizer = Adam(model.parameters(), betas=(0.9, 0.9))
     train(model, optimizer, params)
     #debug(model, params)

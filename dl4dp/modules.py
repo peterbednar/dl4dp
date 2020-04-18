@@ -53,8 +53,9 @@ class LSTM(nn.Module):
 
     def __init__(self, input_dim, hidden_dim, num_layers, dropout=0):
         super().__init__()
-        self.root = nn.Parameter(torch.Tensor(input_dim))
+        self.root = nn.Parameter(torch.empty(input_dim))
         self.lstm = nn.LSTM(input_dim, hidden_dim, num_layers, dropout=dropout, bidirectional=True, batch_first=True)
+        self.reset_parameters()
 
     def forward(self, batch):
         for i, x in enumerate(batch):
@@ -63,6 +64,9 @@ class LSTM(nn.Module):
         h, _ = self.lstm(x)
         h, batch_lengths = rnn.pad_packed_sequence(h, batch_first=True)
         return h, batch_lengths
+
+    def reset_parameters(self):
+        nn.init.uniform_(self.root)
 
 class MLP(nn.Module):
     
