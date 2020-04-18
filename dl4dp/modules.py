@@ -23,7 +23,7 @@ class Embedding(nn.Module):
         return self.embedding(x)
 
     def size(self):
-        return self.embedding.weight.shape
+        return self.embedding.weight.size()
 
     def reset_parameters(self):
         gain = nn.init.calculate_gain('leaky_relu', 0.1)
