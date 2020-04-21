@@ -114,6 +114,11 @@ class Params(dict):
         log.addHandler(FileHandler(self.model_basename + 'training.log', mode='w'))
         self.logger = log
 
+def _mask_missing(instance):
+    for x in instance.values():
+        x[x == -1] = 0
+    return instance
+
 def main():
     np.random.seed(0)
     torch.manual_seed(0)
@@ -132,8 +137,10 @@ def main():
     index = pipe().read_conllu(train_data).pipe(preprocess).create_index({'form', 'upos_feats', 'deprel'})
     print('building index done')
 
-    params.train_data = pipe().read_conllu(train_data).pipe(preprocess).to_instance(index).collect()
-    params.validation_data = pipe().read_conllu(validation_data).pipe(preprocess).to_instance(index).collect()
+    params.train_data = pipe().read_conllu(train_data).pipe(preprocess).\
+        to_instance(index).map(_mask_missing).collect()
+    params.validation_data = pipe().read_conllu(validation_data).pipe(preprocess).\
+        to_instance(index).map(_mask_missing).collect()
 
     embedding_dims = {'form': (len(index['form']) + 1, 100), 'upos_feats': (len(index['upos_feats']) + 1, 100)}
     labels_dim = len(index['deprel']) + 1
