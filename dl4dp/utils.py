@@ -6,31 +6,6 @@ from functools import total_ordering
 import numpy as np
 
 def tarjan(scores, heads=None):
-
-    def _push(queue, elm):
-        heapq.heappush(queue, elm)
-
-    def _pop(queue):
-        if len(queue) == 0:
-            return None
-        return heapq.heappop(queue)
-
-    def _find_disjoint_sets(trees, elm):
-        if trees[elm] != elm:
-            trees[elm] = _find_disjoint_sets(trees, trees[elm])
-        return trees[elm]
-
-    def _union_disjoint_sets(trees, set1, set2):
-        trees[set2] = set1
-
-    def _invert_max_branching(node, h, visited, inverted):
-        visited[node] = True
-        for v in h[node]:
-            if visited[v]:
-                continue
-            inverted[v - 1] = node
-            _invert_max_branching(v, h, visited, inverted)
-
     nr, _ = scores.shape
 
     roots = list(range(1, nr))
@@ -110,6 +85,30 @@ def tarjan(scores, heads=None):
 
     return heads
 
+def _push(queue, elm):
+    heapq.heappush(queue, elm)
+
+def _pop(queue):
+    if len(queue) == 0:
+        return None
+    return heapq.heappop(queue)
+
+def _find_disjoint_sets(trees, elm):
+    if trees[elm] != elm:
+        trees[elm] = _find_disjoint_sets(trees, trees[elm])
+    return trees[elm]
+
+def _union_disjoint_sets(trees, set1, set2):
+    trees[set2] = set1
+
+def _invert_max_branching(node, h, visited, inverted):
+    visited[node] = True
+    for v in h[node]:
+        if visited[v]:
+            continue
+        inverted[v - 1] = node
+        _invert_max_branching(v, h, visited, inverted)
+
 @total_ordering
 class _edge(object):
 
@@ -126,7 +125,7 @@ class _edge(object):
 
 class progressbar(object):
 
-    def __init__(self, total, width=50, bar=".", end="\n"):
+    def __init__(self, total, width=50, bar='.', end='\n'):
         self.total = total
         self.value = 0
         self.width = width
@@ -141,7 +140,7 @@ class progressbar(object):
         self.value += dif
         next = self._bar()
         while prev < next:
-            print(self.bar, end="")
+            print(self.bar, end='')
             sys.stdout.flush()
             prev += 1
     
@@ -151,5 +150,5 @@ class progressbar(object):
             self.total = total
 
     def finish(self):
-        print(self.end, end="")
+        print(self.end, end='')
         sys.stdout.flush()

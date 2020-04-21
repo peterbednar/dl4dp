@@ -9,8 +9,7 @@ import torch
 from torch.optim import Adam
 import numpy as np
 
-from conllutils import FORM_NORM, UPOS_FEATS, DEPREL
-from conllutils import read_conllu, create_index, map_to_instances, shuffled_stream
+from conllutils.pipeline import pipe
 
 from .model import BiaffineParser
 from .utils import progressbar
@@ -27,10 +26,10 @@ def train(model, optimizer, params):
     pb = progressbar(total_size)
 
     for epoch in range(params.max_epoch):
-        print(f"epoch: {epoch + 1}/{params.max_epoch}")
+        print(f'epoch: {epoch + 1}/{params.max_epoch}')
         start_time = time.time()
 
-        for step, batch in enumerate(shuffled_stream(params.train_data, total_size=total_size, batch_size=batch_size)):
+        for step, batch in enumerate(pipe(params.train_data).stream(total_size).shuffle().batch(batch_size)):
             optimizer.zero_grad()
             loss, metrics = model.loss(batch)
             loss.backward()
@@ -48,9 +47,9 @@ def train(model, optimizer, params):
         pb.reset()
 
         if params.validation_data:
-            print(f"validating epoch {epoch + 1}/{params.max_epoch}")
+            print(f'validating epoch {epoch + 1}/{params.max_epoch}')
             score, metrics = validate(model, params.validation_data, params.batch_size)
-            print(", ".join(f"{metric[0]}:{metric[1]:.4f}" for metric in metrics))
+            print(', '.join(f"{metric[0]}:{metric[1]:.4f}" for metric in metrics))
 
             if best_score is None or best_score < score:
                 best_score = score
@@ -59,7 +58,7 @@ def train(model, optimizer, params):
             best_epoch = epoch
 
     if best_score is not None:
-        print(f"best epoch: {best_epoch}, score: {best_score:.4f}")
+        print(f'best epoch: {best_epoch}, score: {best_score:.4f}')
 
     return best_epoch, best_score
 
@@ -71,8 +70,7 @@ def validate(model, validation_data, batch_size=100):
     pb = progressbar(total_size)
     uas_correct = las_correct = em_correct = total = 0
 
-    for bi in range(0, total_size, batch_size):
-        batch = validation_data[bi:bi + batch_size]
+    for batch in pipe(validation_data).batch(batch_size):
         arcs_pred, labels_pred = model.parse(batch)
 
         i = 0
@@ -120,21 +118,25 @@ def main():
     np.random.seed(0)
     torch.manual_seed(0)
 
+    preprocess = pipe().only_words().upos_feats().\
+        lowercase('form').\
+        replace('form', r'[0-9]+|[0-9]+\.[0-9]+|[0-9]+[0-9,]+', '__number__')
+
     params = Params(max_epoch=2, batch_size=100, model_basename='build/en_ewt/')
+
     train_data = 'build/en_ewt-ud-train.conllu'
     validation_data = 'build/en_ewt-ud-dev.conllu'
-    test_data = 'build/en_ewt-ud-test.conllu'
+    #test_data = 'build/en_ewt-ud-test.conllu'
 
     print('building index...')
-    index = create_index(read_conllu(train_data), fields={FORM_NORM, UPOS_FEATS, DEPREL})
+    index = pipe().read_conllu(train_data).pipe(preprocess).create_index({'form', 'upos_feats', 'deprel'})
     print('building index done')
 
-    params.train_data = list(map_to_instances(read_conllu(train_data), index))
-    params.validation_data = list(map_to_instances(read_conllu(validation_data), index))
-    #params.test_data = list(map_to_instances(read_conllu(test_data), index))
+    params.train_data = pipe().read_conllu(train_data).pipe(preprocess).to_instance(index).collect()
+    params.validation_data = pipe().read_conllu(validation_data).pipe(preprocess).to_instance(index).collect()
 
-    embedding_dims = {FORM_NORM: (len(index[FORM_NORM]) + 1, 100), UPOS_FEATS: (len(index[UPOS_FEATS]) + 1, 100)}
-    labels_dim = len(index[DEPREL]) + 1
+    embedding_dims = {'form': (len(index['form']) + 1, 100), 'upos_feats': (len(index['upos_feats']) + 1, 100)}
+    labels_dim = len(index['deprel']) + 1
     model = BiaffineParser(embedding_dims, labels_dim)
 
     optimizer = Adam(model.parameters(), betas=(0.9, 0.9))

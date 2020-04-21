@@ -43,10 +43,9 @@ class BiaffineParser(nn.Module):
         label_h = self.label_mlp_h(h)
         label_d = self.label_mlp_h(h)
 
-        arc_scores = self.arc_biaff(arc_d, arc_h)
-        label_scores = self.label_biaff(label_d, label_h).permute(0, 2, 3, 1)
-
-        return arc_scores.cpu(), label_scores.cpu()
+        arc_scores = self.arc_biaff(arc_d, arc_h).cpu()
+        label_scores = self.label_biaff(label_d, label_h).permute(0, 2, 3, 1).cpu()
+        return arc_scores, label_scores
 
     def loss(self, batch):
         arc_scores, label_scores = self(batch)
@@ -54,7 +53,6 @@ class BiaffineParser(nn.Module):
 
         arc_loss, arc_error = self._get_arc_loss(arc_scores, indexes)
         label_loss, label_error = self._get_label_loss(label_scores, indexes)
-
         loss = arc_loss + label_loss
         return loss, (arc_loss, label_loss, arc_error, label_error)
 
