@@ -14,6 +14,7 @@ class Embedding(nn.Module):
 
     def forward(self, x):
         if isinstance(x, np.ndarray):
+            x[x == -1] = 0
             x = torch.from_numpy(x).long()
 
         if self.training and self.input_dropout > 0:
