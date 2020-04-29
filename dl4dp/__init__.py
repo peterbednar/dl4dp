@@ -9,7 +9,7 @@ import torch
 from torch.optim import Adam
 import numpy as np
 
-from conllutils.pipeline import pipe
+from conllutils import pipe
 
 from .model import BiaffineParser
 from .utils import progressbar
@@ -39,8 +39,8 @@ def train(model, optimizer, params):
             elapsed_time = time.time() - start_time
             num_words = sum([instance.length for instance in batch])
 
-            params.logger.info(f"{epoch + 1} {step + 1} {timedelta(seconds=elapsed_time)} {num_words} {loss.item()} " +
-                " ".join([str(metric.item()) for metric in metrics]))
+            params.logger.info(f'{epoch + 1} {step + 1} {timedelta(seconds=elapsed_time)} {num_words} {loss.item()} ' +
+                ' '.join([str(metric.item()) for metric in metrics]))
 
         torch.save(model, params.model_basename + f'model-{epoch + 1}.pth')
         pb.finish()
@@ -114,11 +114,6 @@ class Params(dict):
         log.addHandler(FileHandler(self.model_basename + 'training.log', mode='w'))
         self.logger = log
 
-def _mask_missing(instance):
-    for x in instance.values():
-        x[x == -1] = 0
-    return instance
-
 def main():
     np.random.seed(0)
     torch.manual_seed(0)
@@ -138,9 +133,9 @@ def main():
     print('building index done')
 
     params.train_data = pipe().read_conllu(train_data).pipe(preprocess).\
-        to_instance(index).map(_mask_missing).collect()
+        to_instance(index).collect()
     params.validation_data = pipe().read_conllu(validation_data).pipe(preprocess).\
-        to_instance(index).map(_mask_missing).collect()
+        to_instance(index).collect()
 
     embedding_dims = {'form': (len(index['form']) + 1, 100), 'upos_feats': (len(index['upos_feats']) + 1, 100)}
     labels_dim = len(index['deprel']) + 1

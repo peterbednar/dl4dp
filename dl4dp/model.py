@@ -107,12 +107,12 @@ class BiaffineParser(nn.Module):
         i = 0
         indexes = np.empty((rows, cols), dtype=np.int64)
         for j, instance in enumerate(batch):
-            for k in range(instance.length):
-                indexes[0, i] = j
-                indexes[1, i] = k + 1
-                if self.training:
-                    indexes[2, i] = instance.head[k]
-                    indexes[3, i] = instance.deprel[k]
-                i += 1
+            k = i + lengths[j]
+            indexes[0, i:k] = j
+            indexes[1, i:k] = np.arange(1, lengths[j]+1)
+            if self.training:
+                indexes[2, i:k] = instance.head
+                indexes[3, i:k] = instance.deprel
+            i = k
 
         return indexes, lengths
