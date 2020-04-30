@@ -18,7 +18,7 @@ class LSTMEncoder(nn.Module):
         lstm_hidden_dim = encoder_dim // 2
         self.lstm = LSTM(input_dim, lstm_hidden_dim, lstm_num_layers, lstm_dropout)
 
-    def forward(self, x):
+    def forward(self, x, _):
         h, _ = self.lstm(x)
         return h
 
@@ -51,8 +51,10 @@ class BiaffineParser(nn.Module):
         self.label_biaff = Biaffine(label_mlp_dim, labels_dim, bias_x=True, bias_y=True)
 
     def forward(self, batch):
+        lengths = [instance.length for instance in batch]
+
         x = self.embeddings(batch)
-        h = self.encoder(x)
+        h = self.encoder(x, lengths)
 
         arc_h = self.arc_mlp_h(h)
         arc_d = self.arc_mlp_d(h)
@@ -61,11 +63,11 @@ class BiaffineParser(nn.Module):
 
         arc_scores = self.arc_biaff(arc_d, arc_h).cpu()
         label_scores = self.label_biaff(label_d, label_h).permute(0, 2, 3, 1).cpu()
-        return arc_scores, label_scores
+        return arc_scores, label_scores, lengths
 
     def loss(self, batch):
-        arc_scores, label_scores = self(batch)
-        indexes, _ = self._get_batch_indexes(batch)
+        arc_scores, label_scores, lengths = self(batch)
+        indexes = self._get_batch_indexes(batch, lengths)
 
         arc_loss, arc_error = self._get_arc_loss(arc_scores, indexes)
         label_loss, label_error = self._get_label_loss(label_scores, indexes)
@@ -87,9 +89,8 @@ class BiaffineParser(nn.Module):
             raise RuntimeError('Not in eval mode.')
 
         with torch.no_grad():
-            arc_scores, label_scores = self(batch)
-            indexes, lengths = self._get_batch_indexes(batch)
-        
+            arc_scores, label_scores, lengths = self(batch)
+            indexes = self._get_batch_indexes(batch, lengths)        
             pred_arcs = self._parse_arcs(arc_scores, indexes, lengths)
             pred_labels = self._parse_labels(label_scores, indexes, pred_arcs)
             return pred_arcs, pred_labels
@@ -115,8 +116,7 @@ class BiaffineParser(nn.Module):
         error = 1 - (pred.eq(gold).sum() / float(gold.size()[0]))
         return loss, error
 
-    def _get_batch_indexes(self, batch):
-        lengths = [instance.length for instance in batch]
+    def _get_batch_indexes(self, batch, lengths):
         cols = sum(lengths)
         rows = 4 if self.training else 2
 
@@ -131,4 +131,4 @@ class BiaffineParser(nn.Module):
                 indexes[3, i:k] = instance.deprel
             i = k
 
-        return indexes, lengths
+        return indexes
