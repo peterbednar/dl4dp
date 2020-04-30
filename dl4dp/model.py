@@ -5,38 +5,54 @@ import numpy as np
 from .modules import Embeddings, LSTM, MLP, Biaffine
 from .utils import tarjan
 
+class LSTMEncoder(nn.Module):
+
+    def __init__(self,
+                 input_dim,
+                 encoder_dim, 
+                 lstm_num_layers=3,
+                 lstm_dropout=0.33):
+        super().__init__()
+        if encoder_dim % 2:
+            raise ValueError('encoder_dim must be an even number.')
+        lstm_hidden_dim = encoder_dim // 2
+        self.lstm = LSTM(input_dim, lstm_hidden_dim, lstm_num_layers, lstm_dropout)
+
+    def forward(self, x):
+        h, _ = self.lstm(x)
+        return h
+
 class BiaffineParser(nn.Module):
 
     def __init__(self,
                  embedding_dims,
                  labels_dim,
                  input_dropout=0.33,
-                 lstm_hidden_dim=400,
-                 lstm_num_layers=3,
-                 lstm_dropout=0.33,
+                 encoder_dim=800,
                  arc_mlp_dim=500,
                  arc_mlp_dropout=0.33,
                  label_mlp_dim=100,
-                 label_mlp_dropout=0.33):
+                 label_mlp_dropout=0.33,
+                 **kwargs):
         super().__init__()
         self.criterion = nn.CrossEntropyLoss()
         
         self.embeddings = Embeddings(embedding_dims, input_dropout)
         input_dim = self.embeddings.size()
 
-        self.lstm = LSTM(input_dim, lstm_hidden_dim, lstm_num_layers, lstm_dropout)
+        self.encoder = LSTMEncoder(input_dim, encoder_dim, **kwargs)
 
-        self.arc_mlp_h = MLP(lstm_hidden_dim * 2, arc_mlp_dim, arc_mlp_dropout)
-        self.arc_mlp_d = MLP(lstm_hidden_dim * 2, arc_mlp_dim, arc_mlp_dropout)
-        self.label_mlp_h = MLP(lstm_hidden_dim * 2, label_mlp_dim, label_mlp_dropout)
-        self.label_mlp_d = MLP(lstm_hidden_dim * 2, label_mlp_dim, label_mlp_dropout)
+        self.arc_mlp_h = MLP(encoder_dim, arc_mlp_dim, arc_mlp_dropout)
+        self.arc_mlp_d = MLP(encoder_dim, arc_mlp_dim, arc_mlp_dropout)
+        self.label_mlp_h = MLP(encoder_dim, label_mlp_dim, label_mlp_dropout)
+        self.label_mlp_d = MLP(encoder_dim, label_mlp_dim, label_mlp_dropout)
 
         self.arc_biaff = Biaffine(arc_mlp_dim, 1, bias_x=True, bias_y=False)
         self.label_biaff = Biaffine(label_mlp_dim, labels_dim, bias_x=True, bias_y=True)
 
     def forward(self, batch):
         x = self.embeddings(batch)
-        h, _ = self.lstm(x)
+        h = self.encoder(x)
 
         arc_h = self.arc_mlp_h(h)
         arc_d = self.arc_mlp_d(h)
