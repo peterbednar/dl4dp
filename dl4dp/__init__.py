@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 import torch
 import numpy as np
@@ -11,12 +12,10 @@ def main():
     np.random.seed(0)
     torch.manual_seed(0)
 
+    model_path = 'build/en_ewt'
     train_data = 'build/en_ewt-ud-train.conllu'
     validation_data = 'build/en_ewt-ud-dev.conllu'
     test_data = 'build/en_ewt-ud-test.conllu'
-
-    model_basename = 'build/en-ewt/'
-    os.makedirs(model_basename, exist_ok=True)
 
     p = pipe()
     p.only_words()
@@ -36,6 +35,8 @@ def main():
     labels_dim = len(index['deprel']) + 1
     model = BiaffineParser(embedding_dims, labels_dim)
 
-    trainer = Trainer(model_basename, max_epoch=1, validator=LASValidator(validation_data))
-    trainer.train(model, train_data)
-    LASValidator(test_data).validate(model)
+    trainer = Trainer(model_path, max_epoch=1, validator=LASValidator(validation_data))
+    _, _, best_path = trainer.train(model, train_data)
+
+    model = torch.load(best_path)
+    LASValidator().validate(model, test_data)

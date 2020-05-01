@@ -2,6 +2,7 @@ import time
 from datetime import timedelta
 import logging
 from logging import FileHandler
+from pathlib import Path
 
 import torch
 from torch.optim import Adam
@@ -10,17 +11,18 @@ from .utils import progressbar
 
 class Trainer(object):
 
-    def __init__(self, model_basename=None, max_epoch=1, batch_size=100, validator=None, logger=None):
+    def __init__(self, model_dir=None, max_epoch=1, batch_size=100, validator=None, logger=None):
         self.max_epoch = max_epoch
         self.batch_size = batch_size
-        self.model_basename = model_basename
+        self.model_dir = Path(model_dir) if isinstance(model_dir, str) else model_dir
+        self.model_dir.mkdir(parents=True, exist_ok=True)
         self.validator = validator
         if logger:
             self.logger = logger
         else:
             log = logging.getLogger('dl4dp.training')
             log.setLevel(logging.INFO)
-            log.addHandler(FileHandler(self.model_basename + 'training.log', mode='w'))
+            log.addHandler(FileHandler(self.model_dir / 'training.log', mode='w'))
             self.logger = log
 
     def train(self, model, train_data):
@@ -45,14 +47,13 @@ class Trainer(object):
                 optimizer.step()
 
                 pb.update(self.batch_size)
-                elapsed_time = time.time() - start_time
-                num_words = sum([instance.length for instance in batch])
-
                 if self.logger:
+                    elapsed_time = time.time() - start_time
+                    num_words = sum([instance.length for instance in batch])
                     self.logger.info(f'{epoch + 1} {step + 1} {timedelta(seconds=elapsed_time)} {num_words} {loss.item()} ' +
                         ' '.join([str(metric.item()) for metric in metrics]))
 
-            torch.save(model, self.model_basename + f'model-{epoch + 1}.pth')
+            torch.save(model, self.model_dir / f'model_{epoch + 1}.pth')
             pb.finish()
             pb.reset()
 
@@ -67,26 +68,29 @@ class Trainer(object):
 
         if best_score is not None:
             print(f'best epoch: {best_epoch}, score: {best_score:.4f}')
-        return best_epoch, best_score
+        return best_epoch, best_score, self.model_dir / f'model_{best_epoch}.pth'
 
     def _optimizer(self, model):
         return Adam(model.parameters(), betas=(0.9, 0.9))
 
 class LASValidator(object):
     
-    def __init__(self, validation_data, batch_size=100):
+    def __init__(self, validation_data=None, batch_size=100):
         self.validation_data = validation_data
         self.batch_size = batch_size
 
-    def validate(self, model):
+    def validate(self, model, validation_data=None):
+        if validation_data is None:
+            validation_data = self.validation_data
+
         mode = model.training
         model.eval()
 
-        total_size = len(self.validation_data)
+        total_size = len(validation_data)
         pb = progressbar(total_size)
         uas_correct = las_correct = em_correct = total = 0
 
-        for batch in pipe(self.validation_data).batch(self.batch_size):
+        for batch in pipe(validation_data).batch(self.batch_size):
             arcs_pred, labels_pred = model.parse(batch)
 
             i = 0
