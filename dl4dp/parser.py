@@ -18,13 +18,14 @@ class LSTMEncoder(nn.Module):
             raise ValueError('encoder_dim must be an even number.')
         lstm_hidden_dim = encoder_dim // 2
         self.root = nn.Parameter(torch.empty(input_dim))
-        self.lstm = nn.LSTM(input_dim, lstm_hidden_dim, lstm_num_layers, dropout=lstm_dropout, bidirectional=True, batch_first=True)
+        self.lstm = nn.LSTM(input_dim, lstm_hidden_dim, lstm_num_layers, dropout=lstm_dropout, bidirectional=True,
+                            batch_first=True)
         self.reset_parameters()
 
     def forward(self, batch):
         for i, x in enumerate(batch):
             batch[i] = torch.cat([self.root.unsqueeze(0), x])
-        x = rnn.pack_sequence(batch, enforce_sorted=False)
+        x = rnn.pack_sequence(batch, enforce_sorted=True)
         h, _ = self.lstm(x)
         h, _ = rnn.pad_packed_sequence(h, batch_first=True)
         return h
@@ -74,7 +75,10 @@ class BiaffineParser(nn.Module):
         return arc_scores, label_scores
 
     def loss(self, batch):
-        indexes, _ = self._get_batch_indexes(batch)
+        indexes, _, sorted_indexes = self._get_batch_indexes(batch)
+        if sorted_indexes is not None:
+            batch = [batch[i] for i in sorted_indexes]
+
         arc_scores, label_scores = self(batch)
         arc_loss, arc_error = self._get_arc_loss(arc_scores, indexes)
         label_loss, label_error = self._get_label_loss(label_scores, indexes)
@@ -96,7 +100,10 @@ class BiaffineParser(nn.Module):
             raise RuntimeError('Not in eval mode.')
 
         with torch.no_grad():
-            indexes, lengths = self._get_batch_indexes(batch)
+            indexes, lengths, sorted_indexes = self._get_batch_indexes(batch)
+            if sorted_indexes is not None:
+                batch = [batch[i] for i in sorted_indexes]
+
             arc_scores, label_scores = self(batch)
             pred_arcs = self._parse_arcs(arc_scores, indexes, lengths)
             pred_labels = self._parse_labels(label_scores, indexes, pred_arcs)
@@ -123,8 +130,15 @@ class BiaffineParser(nn.Module):
         error = 1 - (pred.eq(gold).sum() / float(gold.size()[0]))
         return loss, error
 
-    def _get_batch_indexes(self, batch):
-        lengths = [instance.length for instance in batch]
+    def _get_batch_indexes(self, batch, enforce_sorted=True):
+        sorted_indexes = None
+        lengths = np.array([x.length for x in batch])
+
+        if enforce_sorted:
+            sorted_indexes = np.argsort(lengths)[::-1]
+            inverted_indexes = np.zeros_like(sorted_indexes)
+            inverted_indexes[sorted_indexes] = np.arange(len(lengths))
+
         cols = sum(lengths)
         rows = 4 if self.training else 2
 
@@ -132,11 +146,11 @@ class BiaffineParser(nn.Module):
         indexes = np.empty((rows, cols), dtype=np.int64)
         for j, instance in enumerate(batch):
             k = i + lengths[j]
-            indexes[0, i:k] = j
+            indexes[0, i:k] = inverted_indexes[j] if enforce_sorted else j
             indexes[1, i:k] = np.arange(1, lengths[j]+1)
             if self.training:
                 indexes[2, i:k] = instance.head
                 indexes[3, i:k] = instance.deprel
             i = k
 
-        return indexes, lengths
+        return indexes, lengths, sorted_indexes
