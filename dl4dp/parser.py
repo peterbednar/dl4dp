@@ -1,8 +1,9 @@
 import torch
 import torch.nn as nn
+import torch.nn.utils.rnn as rnn
 import numpy as np
 
-from .modules import Embeddings, LSTM, MLP, Biaffine
+from .modules import Embeddings, MLP, Biaffine
 from .utils import tarjan
 
 class LSTMEncoder(nn.Module):
@@ -16,11 +17,20 @@ class LSTMEncoder(nn.Module):
         if encoder_dim % 2:
             raise ValueError('encoder_dim must be an even number.')
         lstm_hidden_dim = encoder_dim // 2
-        self.lstm = LSTM(input_dim, lstm_hidden_dim, lstm_num_layers, lstm_dropout)
+        self.root = nn.Parameter(torch.empty(input_dim))
+        self.lstm = nn.LSTM(input_dim, lstm_hidden_dim, lstm_num_layers, dropout=lstm_dropout, bidirectional=True, batch_first=True)
+        self.reset_parameters()
 
-    def forward(self, x, _):
+    def forward(self, batch):
+        for i, x in enumerate(batch):
+            batch[i] = torch.cat([self.root.unsqueeze(0), x])
+        x = rnn.pack_sequence(batch, enforce_sorted=False)
         h, _ = self.lstm(x)
+        h, _ = rnn.pad_packed_sequence(h, batch_first=True)
         return h
+
+    def reset_parameters(self):
+        nn.init.uniform_(self.root)
 
 class BiaffineParser(nn.Module):
 
@@ -51,10 +61,8 @@ class BiaffineParser(nn.Module):
         self.label_biaff = Biaffine(label_mlp_dim, labels_dim, bias_x=True, bias_y=True)
 
     def forward(self, batch):
-        lengths = [instance.length for instance in batch]
-
         x = self.embeddings(batch)
-        h = self.encoder(x, lengths)
+        h = self.encoder(x)
 
         arc_h = self.arc_mlp_h(h)
         arc_d = self.arc_mlp_d(h)
@@ -63,12 +71,11 @@ class BiaffineParser(nn.Module):
 
         arc_scores = self.arc_biaff(arc_d, arc_h).cpu()
         label_scores = self.label_biaff(label_d, label_h).permute(0, 2, 3, 1).cpu()
-        return arc_scores, label_scores, lengths
+        return arc_scores, label_scores
 
     def loss(self, batch):
-        arc_scores, label_scores, lengths = self(batch)
-        indexes = self._get_batch_indexes(batch, lengths)
-
+        indexes, _ = self._get_batch_indexes(batch)
+        arc_scores, label_scores = self(batch)
         arc_loss, arc_error = self._get_arc_loss(arc_scores, indexes)
         label_loss, label_error = self._get_label_loss(label_scores, indexes)
         loss = arc_loss + label_loss
@@ -89,15 +96,15 @@ class BiaffineParser(nn.Module):
             raise RuntimeError('Not in eval mode.')
 
         with torch.no_grad():
-            arc_scores, label_scores, lengths = self(batch)
-            indexes = self._get_batch_indexes(batch, lengths)        
+            indexes, lengths = self._get_batch_indexes(batch)
+            arc_scores, label_scores = self(batch)
             pred_arcs = self._parse_arcs(arc_scores, indexes, lengths)
             pred_labels = self._parse_labels(label_scores, indexes, pred_arcs)
             return pred_arcs, pred_labels
 
     def _parse_arcs(self, arc_scores, indexes, lengths):
         arc_scores = arc_scores[indexes[0,:], indexes[1,:], :].numpy()
-        arc_pred = np.empty(arc_scores.shape[0], np.int)
+        arc_pred = np.empty(arc_scores.shape[0], np.int64)
         i = 0
         for k in lengths:
             scores = np.vstack([np.zeros(k+1), arc_scores[i:i+k, :k+1]]).transpose()
@@ -116,7 +123,8 @@ class BiaffineParser(nn.Module):
         error = 1 - (pred.eq(gold).sum() / float(gold.size()[0]))
         return loss, error
 
-    def _get_batch_indexes(self, batch, lengths):
+    def _get_batch_indexes(self, batch):
+        lengths = [instance.length for instance in batch]
         cols = sum(lengths)
         rows = 4 if self.training else 2
 
@@ -131,4 +139,4 @@ class BiaffineParser(nn.Module):
                 indexes[3, i:k] = instance.deprel
             i = k
 
-        return indexes
+        return indexes, lengths
