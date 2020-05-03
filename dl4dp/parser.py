@@ -35,6 +35,8 @@ class LSTMEncoder(nn.Module):
 
 class BiaffineParser(nn.Module):
 
+    enforce_sorted = True
+
     def __init__(self,
                  embedding_dims,
                  labels_dim,
@@ -76,7 +78,7 @@ class BiaffineParser(nn.Module):
 
     def loss(self, batch):
         indexes, _, sorted_indexes = self._get_batch_indexes(batch)
-        if sorted_indexes is not None:
+        if self.enforce_sorted:
             batch = [batch[i] for i in sorted_indexes]
 
         arc_scores, label_scores = self(batch)
@@ -101,7 +103,7 @@ class BiaffineParser(nn.Module):
 
         with torch.no_grad():
             indexes, lengths, sorted_indexes = self._get_batch_indexes(batch)
-            if sorted_indexes is not None:
+            if self.enforce_sorted:
                 batch = [batch[i] for i in sorted_indexes]
 
             arc_scores, label_scores = self(batch)
@@ -130,23 +132,23 @@ class BiaffineParser(nn.Module):
         error = 1 - (pred.eq(gold).sum() / float(gold.size()[0]))
         return loss, error
 
-    def _get_batch_indexes(self, batch, enforce_sorted=True):
+    def _get_batch_indexes(self, batch):
         sorted_indexes = None
         lengths = np.array([x.length for x in batch])
 
-        if enforce_sorted:
+        if self.enforce_sorted:
             sorted_indexes = np.argsort(lengths)[::-1]
             inverted_indexes = np.zeros_like(sorted_indexes)
             inverted_indexes[sorted_indexes] = np.arange(len(lengths))
 
-        cols = sum(lengths)
+        cols = lengths.sum()
         rows = 4 if self.training else 2
 
         i = 0
         indexes = np.empty((rows, cols), dtype=np.int64)
         for j, instance in enumerate(batch):
             k = i + lengths[j]
-            indexes[0, i:k] = inverted_indexes[j] if enforce_sorted else j
+            indexes[0, i:k] = inverted_indexes[j] if self.enforce_sorted else j
             indexes[1, i:k] = np.arange(1, lengths[j]+1)
             if self.training:
                 indexes[2, i:k] = instance.head
