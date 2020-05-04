@@ -6,33 +6,6 @@ import numpy as np
 from .modules import Embeddings, MLP, Biaffine
 from .utils import tarjan
 
-class LSTMEncoder(nn.Module):
-
-    def __init__(self,
-                 input_dim,
-                 encoder_dim, 
-                 lstm_num_layers=3,
-                 lstm_dropout=0.33):
-        super().__init__()
-        if encoder_dim % 2:
-            raise ValueError('encoder_dim must be an even number.')
-        lstm_hidden_dim = encoder_dim // 2
-        self.root = nn.Parameter(torch.empty(input_dim))
-        self.lstm = nn.LSTM(input_dim, lstm_hidden_dim, lstm_num_layers, dropout=lstm_dropout, bidirectional=True,
-                            batch_first=True)
-        self.reset_parameters()
-
-    def forward(self, batch):
-        for i, x in enumerate(batch):
-            batch[i] = torch.cat([self.root.unsqueeze(0), x])
-        x = rnn.pack_sequence(batch, enforce_sorted=True)
-        h, _ = self.lstm(x)
-        h, _ = rnn.pad_packed_sequence(h, batch_first=True)
-        return h
-
-    def reset_parameters(self):
-        nn.init.uniform_(self.root)
-
 class BiaffineParser(nn.Module):
 
     enforce_sorted = True
@@ -156,3 +129,31 @@ class BiaffineParser(nn.Module):
             i = k
 
         return indexes, lengths, sorted_indexes
+
+class LSTMEncoder(nn.Module):
+
+    def __init__(self,
+                 input_dim,
+                 encoder_dim, 
+                 lstm_num_layers=3,
+                 lstm_dropout=0.33):
+        super().__init__()
+        if encoder_dim % 2:
+            raise ValueError('encoder_dim must be an even number.')
+        lstm_hidden_dim = encoder_dim // 2
+        self.root = nn.Parameter(torch.empty(input_dim))
+        self.lstm = nn.LSTM(input_dim, lstm_hidden_dim, lstm_num_layers, dropout=lstm_dropout, bidirectional=True,
+                            batch_first=True)
+        self.reset_parameters()
+
+    def forward(self, batch):
+        for i, x in enumerate(batch):
+            batch[i] = torch.cat([self.root.unsqueeze(0), x])
+        x = rnn.pack_sequence(batch, enforce_sorted=True)
+        h, _ = self.lstm(x)
+        h, _ = rnn.pad_packed_sequence(h, batch_first=True)
+        return h
+
+    def reset_parameters(self):
+        nn.init.uniform_(self.root)
+
