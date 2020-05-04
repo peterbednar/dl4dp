@@ -13,7 +13,7 @@ class Embedding(nn.Module):
 
     def forward(self, x):
         if isinstance(x, np.ndarray):
-            x = torch.from_numpy(x).long()
+            x = torch.from_numpy(x).long().to(self.embedding.weight.device)
 
         if self.training and self.input_dropout > 0:
             mask = torch.rand(x.shape) > self.input_dropout
