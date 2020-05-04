@@ -11,6 +11,7 @@ from .trainer import Trainer, LASValidator
 def main():
     np.random.seed(0)
     torch.manual_seed(0)
+    torch.cuda.manual_seed(0)
 
     model_path = 'build/en_ewt'
     train_data = 'build/en_ewt-ud-train.conllu'
@@ -34,6 +35,8 @@ def main():
     embedding_dims = {'form': (len(index['form']) + 1, 100), 'upos_feats': (len(index['upos_feats']) + 1, 100)}
     labels_dim = len(index['deprel']) + 1
     model = BiaffineParser(embedding_dims, labels_dim)
+    if torch.cuda.is_available():
+        model.to(torch.device('cuda'))
 
     trainer = Trainer(model_path, max_epoch=1, validator=LASValidator(validation_data))
     _, _, best_path = trainer.train(model, train_data)
