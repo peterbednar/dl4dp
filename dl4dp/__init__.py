@@ -22,6 +22,16 @@ def load_data(files, p, index):
         treebanks[name] = data
     return treebanks
 
+def get_embedding_dims(dims, index):
+    emb_dims = {}
+    emb_dims['upos_feats'] = {}
+    for f, c in index.items():
+        if (f == 'upos' or f.startswith('feats:')) and 'upos_feats' in dims:
+            emb_dims['upos_feats'][f] = (len(c) + 1, dims['upos_feats'])
+        elif f in dims:
+            emb_dims[f] = (len(c) + 1, dims[f])
+    return emb_dims
+
 def main():
     np.random.seed(0)
     torch.manual_seed(0)
@@ -34,17 +44,22 @@ def main():
         'test': 'build/en_ewt-ud-test.conllu'
         }
 
+    dims = {'form': 100, 'upos_feats': 100}
+
     p = pipe()
     p.only_words()
+    p.only_fields('form', 'upos', 'feats', 'head', 'deprel')
     p.upos_feats()
+    #p.unwind_feats()
     p.lowercase('form')
     p.replace('form', r'[0-9]+|[0-9]+\.[0-9]+|[0-9]+[0-9,]+', '__number__')
 
     index = build_index(treebanks, p)
     treebanks = load_data(treebanks, p, index)
 
-    embedding_dims = {'form': (len(index['form']) + 1, 100), 'upos_feats': (len(index['upos_feats']) + 1, 100)}
+    embedding_dims = get_embedding_dims(dims, index)
     labels_dim = len(index['deprel']) + 1
+
     model = BiaffineParser(embedding_dims, labels_dim)
     if torch.cuda.is_available():
         model.to(torch.device('cuda'))
