@@ -22,6 +22,7 @@ class BiaffineParser(nn.Module):
         self.criterion = nn.CrossEntropyLoss()
         
         self.embeddings = Embeddings(embedding_dims, input_dropout)
+        #self.embeddings['upos_feats'].opr = 'sum'
         input_dim = self.embeddings.size()
 
         self.encoder = LSTMEncoder(input_dim, encoder_dim, **kwargs)
@@ -35,7 +36,7 @@ class BiaffineParser(nn.Module):
         self.label_biaff = Biaffine(label_mlp_dim, labels_dim, bias_x=True, bias_y=True)
 
     def forward(self, batch):
-        x = self.embeddings(batch)
+        x = [self.embeddings(instance) for instance in batch]
         h = self.encoder(x)
 
         arc_h = self.arc_mlp_h(h)

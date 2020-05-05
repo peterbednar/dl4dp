@@ -10,7 +10,7 @@ from .trainer import Trainer, LASValidator
 
 def build_index(treebanks, p):
     print('building index...')
-    index = pipe().read_conllu(treebanks['train']).pipe(p).create_index({'form', 'upos_feats', 'deprel'})
+    index = pipe().read_conllu(treebanks['train']).pipe(p).create_index()
     print('building index done')
     return index
 

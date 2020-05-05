@@ -43,21 +43,28 @@ class Embeddings(nn.Module):
             else:
                 self.embeddings[f] = Embedding(dim, dropout, padding)
 
-    def forward(self, instances):
-        batch = []
-        for instance in instances:
-            x = [self.embeddings[f](instance[f]) for f in self.embeddings.keys()]
-            if self.opr == 'cat':
-                x = torch.cat(x, 1)
-            if self.opr == 'sum':
-                x = torch.stack(x)
-                x = torch.sum(x, 0)
-            batch.append(x)
-        return batch
+    def __getitem__(self, field):
+        return self.embeddings[field]
+
+    def __setitem__(self, field, embedding):
+        self.embeddings[field] = embedding
 
     def size(self):
         sizes = [emb.size() for emb in self.embeddings.values()]
-        return sum(sizes) if self.opr == 'cat' else max(sizes, 0)
+        return sum(sizes) if self.opr == 'cat' else max(sizes, default=0)
+
+    def forward(self, instance):
+        def _embedding(f, instance):
+            embd = self[f]
+            return embd(instance) if isinstance(embd, Embeddings) else embd(instance[f])
+
+        x = [_embedding(f, instance) for f in self.embeddings.keys()]
+        if self.opr == 'cat':
+            x = torch.cat(x, 1)
+        if self.opr == 'sum':
+            x = torch.stack(x)
+            x = torch.sum(x, 0)
+        return x
 
 class MLP(nn.Module):
     
