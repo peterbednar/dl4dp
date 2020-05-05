@@ -50,10 +50,7 @@ class BiaffineParser(nn.Module):
         return arc_scores, label_scores
 
     def loss(self, batch):
-        indexes, _, sorted_indexes = self._get_batch_indexes(batch)
-        if self.enforce_sorted:
-            batch = [batch[i] for i in sorted_indexes]
-
+        indexes, _ = self._get_batch_indexes(batch)
         arc_scores, label_scores = self(batch)
         arc_loss, arc_error = self._get_arc_loss(arc_scores, indexes)
         label_loss, label_error = self._get_label_loss(label_scores, indexes)
@@ -75,10 +72,7 @@ class BiaffineParser(nn.Module):
             raise RuntimeError('Not in eval mode.')
 
         with torch.no_grad():
-            indexes, lengths, sorted_indexes = self._get_batch_indexes(batch)
-            if self.enforce_sorted:
-                batch = [batch[i] for i in sorted_indexes]
-
+            indexes, lengths = self._get_batch_indexes(batch)
             arc_scores, label_scores = self(batch)
             pred_arcs = self._parse_arcs(arc_scores, indexes, lengths)
             pred_labels = self._parse_labels(label_scores, indexes, pred_arcs)
@@ -106,29 +100,23 @@ class BiaffineParser(nn.Module):
         return loss, error
 
     def _get_batch_indexes(self, batch):
-        sorted_indexes = None
-        lengths = np.array([x.length for x in batch])
+        lengths = [x.length for x in batch]
 
-        if self.enforce_sorted:
-            sorted_indexes = np.argsort(lengths)[::-1]
-            inverted_indexes = np.zeros_like(sorted_indexes)
-            inverted_indexes[sorted_indexes] = np.arange(len(lengths))
-
-        cols = lengths.sum()
+        cols = sum(lengths)
         rows = 4 if self.training else 2
 
         i = 0
         indexes = np.empty((rows, cols), dtype=np.int64)
         for j, instance in enumerate(batch):
             k = i + lengths[j]
-            indexes[0, i:k] = inverted_indexes[j] if self.enforce_sorted else j
+            indexes[0, i:k] = j
             indexes[1, i:k] = np.arange(1, lengths[j]+1)
             if self.training:
                 indexes[2, i:k] = instance.head
                 indexes[3, i:k] = instance.deprel
             i = k
 
-        return indexes, lengths, sorted_indexes
+        return indexes, lengths
 
 class LSTMEncoder(nn.Module):
 
@@ -149,7 +137,7 @@ class LSTMEncoder(nn.Module):
     def forward(self, batch):
         for i, x in enumerate(batch):
             batch[i] = torch.cat([self.root.unsqueeze(0), x])
-        x = rnn.pack_sequence(batch, enforce_sorted=True)
+        x = rnn.pack_sequence(batch, enforce_sorted=False)
         h, _ = self.lstm(x)
         h, _ = rnn.pad_packed_sequence(h, batch_first=True)
         return h
