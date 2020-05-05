@@ -8,15 +8,31 @@ from conllutils import pipe
 from .parser import BiaffineParser
 from .trainer import Trainer, LASValidator
 
+def build_index(treebanks, p):
+    print('building index...')
+    index = pipe().read_conllu(treebanks['train']).pipe(p).create_index({'form', 'upos_feats', 'deprel'})
+    print('building index done')
+    return index
+
+def load_data(files, p, index):
+    treebanks = {}
+    for name, f in files.items():
+        data = pipe().read_conllu(f).pipe(p).to_instance(index).collect()
+        print(f'{name}: {len(data)} sentences, {sum([i.length for i in data])} tokens')
+        treebanks[name] = data
+    return treebanks
+
 def main():
     np.random.seed(0)
     torch.manual_seed(0)
     torch.cuda.manual_seed(0)
 
     model_path = 'build/en_ewt'
-    train_data = 'build/en_ewt-ud-train.conllu'
-    validation_data = 'build/en_ewt-ud-dev.conllu'
-    test_data = 'build/en_ewt-ud-test.conllu'
+    treebanks = {
+        'train': 'build/en_ewt-ud-train.conllu',
+        'dev': 'build/en_ewt-ud-dev.conllu',
+        'test': 'build/en_ewt-ud-test.conllu'
+        }
 
     p = pipe()
     p.only_words()
@@ -24,13 +40,8 @@ def main():
     p.lowercase('form')
     p.replace('form', r'[0-9]+|[0-9]+\.[0-9]+|[0-9]+[0-9,]+', '__number__')
 
-    print('building index...')
-    index = pipe().read_conllu(train_data).pipe(p).create_index({'form', 'upos_feats', 'deprel'})
-    print('building index done')
-
-    train_data = pipe().read_conllu(train_data).pipe(p).to_instance(index).collect()
-    validation_data = pipe().read_conllu(validation_data).pipe(p).to_instance(index).collect()
-    test_data = pipe().read_conllu(test_data).pipe(p).to_instance(index).collect()
+    index = build_index(treebanks, p)
+    treebanks = load_data(treebanks, p, index)
 
     embedding_dims = {'form': (len(index['form']) + 1, 100), 'upos_feats': (len(index['upos_feats']) + 1, 100)}
     labels_dim = len(index['deprel']) + 1
@@ -38,8 +49,11 @@ def main():
     if torch.cuda.is_available():
         model.to(torch.device('cuda'))
 
-    trainer = Trainer(model_path, max_epoch=1, validator=LASValidator(validation_data))
-    _, _, best_path = trainer.train(model, train_data)
+    validator = LASValidator(treebanks['dev']) if 'dev' in treebanks else None
+    trainer = Trainer(model_path, max_epoch=1, validator=validator)
+    _, _, best_path = trainer.train(model, treebanks['train'])
 
     model = torch.load(best_path)
-    LASValidator().validate(model, test_data)
+    if 'test' in treebanks:
+        print('testing:')
+        LASValidator().validate(model, treebanks['test'])

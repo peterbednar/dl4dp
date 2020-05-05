@@ -22,7 +22,7 @@ class Embedding(nn.Module):
         return self.embedding(x)
 
     def size(self):
-        return self.embedding.weight.size()
+        return self.embedding.weight.size()[1]
 
     def reset_parameters(self):
         gain = nn.init.calculate_gain('leaky_relu', 0.1)
@@ -56,7 +56,8 @@ class Embeddings(nn.Module):
         return batch
 
     def size(self):
-        return sum(embed.size()[1] for embed in self.embeddings.values())
+        sizes = [emb.size() for emb in self.embeddings.values()]
+        return sum(sizes) if self.opr == 'cat' else max(sizes, 0)
 
 class MLP(nn.Module):
     

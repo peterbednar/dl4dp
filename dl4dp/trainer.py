@@ -58,7 +58,7 @@ class Trainer(object):
             pb.reset()
 
             if self.validator:
-                print(f'validating epoch {epoch + 1}/{self.max_epoch}')
+                print(f'validating epoch: {epoch + 1}/{self.max_epoch}')
                 score, metrics = self.validator.validate(model)
                 if best_score is None or best_score < score:
                     best_score = score
