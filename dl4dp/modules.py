@@ -28,7 +28,7 @@ class Embedding(nn.Module):
         gain = nn.init.calculate_gain('leaky_relu', 0.1)
         nn.init.xavier_uniform_(self.embedding.weight, gain=gain)
 
-def _field_option(f, opt, default):
+def _field_option(f, opt, default=None):
     return opt.get(f, default) if isinstance(opt, dict) else opt
 
 class Embeddings(nn.Module):
@@ -37,12 +37,8 @@ class Embeddings(nn.Module):
         super().__init__()
         self.opr = opr
         self.embeddings = nn.ModuleDict()
-
         for f, dim in field_dims.items():
-            dropout = _field_option(f, input_dropout, 0)
-            padding = _field_option(f, padding_idx, None)
-            self.embeddings[f] = Embeddings(dim, dropout, padding) if isinstance(dim, dict) else \
-                                 Embedding(dim, dropout, padding)
+            self.add(f, dim, input_dropout, padding_idx, opr)
 
     def __getitem__(self, field):
         return self.embeddings[field]
@@ -53,6 +49,13 @@ class Embeddings(nn.Module):
     def size(self):
         sizes = [emb.size() for emb in self.embeddings.values()]
         return sum(sizes) if self.opr == 'cat' else max(sizes, default=0)
+
+    def add(self, field, dim, input_dropout=0, padding_idx=None, opr='cat'):
+        dim = _field_option(field, dim)
+        dropout = _field_option(field, input_dropout, 0)
+        padding = _field_option(field, padding_idx, None)
+        self.embeddings[field] = Embeddings(dim, dropout, padding) if isinstance(dim, dict) else \
+                                 Embedding(dim, dropout, padding)
 
     def forward(self, instance):
         def _embedding(f, instance):
