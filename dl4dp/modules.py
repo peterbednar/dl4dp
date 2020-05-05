@@ -4,9 +4,9 @@ import numpy as np
 
 class Embedding(nn.Module):
 
-    def __init__(self, dims, input_dropout=0):
+    def __init__(self, dims, input_dropout=0, padding_idx=None):
         super().__init__()
-        self.embedding = nn.Embedding(dims[0], dims[1])
+        self.embedding = nn.Embedding(dims[0], dims[1], padding_idx=padding_idx)
         self.input_dropout = input_dropout
         self.reset_parameters()
 
@@ -30,18 +30,28 @@ class Embedding(nn.Module):
 
 class Embeddings(nn.Module):
 
-    def __init__(self, field_dims, input_dropout=0):
+    def __init__(self, field_dims, input_dropout=0, padding_idx=None, opr='cat'):
         super().__init__()
+        self.opr = opr
         self.embeddings = nn.ModuleDict()
+
         for f, dim in field_dims.items():
             dropout = input_dropout.get(f, 0) if isinstance(input_dropout, dict) else input_dropout
-            self.embeddings[f] = Embedding(dim, dropout)
+            padding = padding_idx.get(f, None) if isinstance(padding_idx, dict) else padding_idx
+            if isinstance(dim, dict):
+                self.embeddings[f] = Embeddings(dim, dropout, padding)
+            else:
+                self.embeddings[f] = Embedding(dim, dropout, padding)
 
     def forward(self, instances):
         batch = []
         for instance in instances:
             x = [self.embeddings[f](instance[f]) for f in self.embeddings.keys()]
-            x = torch.cat(x, 1)
+            if self.opr == 'cat':
+                x = torch.cat(x, 1)
+            if self.opr == 'sum':
+                x = torch.stack(x)
+                x = torch.sum(x, 0)
             batch.append(x)
         return batch
 

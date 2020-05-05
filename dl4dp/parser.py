@@ -141,4 +141,3 @@ class LSTMEncoder(nn.Module):
 
     def reset_parameters(self):
         nn.init.uniform_(self.root)
-
