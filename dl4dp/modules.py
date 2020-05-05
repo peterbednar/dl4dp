@@ -28,20 +28,21 @@ class Embedding(nn.Module):
         gain = nn.init.calculate_gain('leaky_relu', 0.1)
         nn.init.xavier_uniform_(self.embedding.weight, gain=gain)
 
+def _field_option(f, opt, default):
+    return opt.get(f, default) if isinstance(opt, dict) else opt
+
 class Embeddings(nn.Module):
 
-    def __init__(self, field_dims, input_dropout=0, padding_idx=None, opr='cat'):
+    def __init__(self, field_dims={}, input_dropout=0, padding_idx=None, opr='cat'):
         super().__init__()
         self.opr = opr
         self.embeddings = nn.ModuleDict()
 
         for f, dim in field_dims.items():
-            dropout = input_dropout.get(f, 0) if isinstance(input_dropout, dict) else input_dropout
-            padding = padding_idx.get(f, None) if isinstance(padding_idx, dict) else padding_idx
-            if isinstance(dim, dict):
-                self.embeddings[f] = Embeddings(dim, dropout, padding)
-            else:
-                self.embeddings[f] = Embedding(dim, dropout, padding)
+            dropout = _field_option(f, input_dropout, 0)
+            padding = _field_option(f, padding_idx, None)
+            self.embeddings[f] = Embeddings(dim, dropout, padding) if isinstance(dim, dict) else \
+                                 Embedding(dim, dropout, padding)
 
     def __getitem__(self, field):
         return self.embeddings[field]
@@ -61,9 +62,9 @@ class Embeddings(nn.Module):
         x = [_embedding(f, instance) for f in self.embeddings.keys()]
         if self.opr == 'cat':
             x = torch.cat(x, 1)
-        if self.opr == 'sum':
+        elif self.opr == 'sum':
             x = torch.stack(x)
-            x = torch.sum(x, 0)
+            x = torch.sum(x, 0)            
         return x
 
 class MLP(nn.Module):

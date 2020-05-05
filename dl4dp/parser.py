@@ -21,8 +21,8 @@ class BiaffineParser(nn.Module):
         super().__init__()
         self.criterion = nn.CrossEntropyLoss()
         
-        self.embeddings = Embeddings(embedding_dims, input_dropout)
-        #self.embeddings['upos_feats'].opr = 'sum'
+        self.embeddings = Embeddings(embedding_dims, input_dropout, padding_idx=1)
+        self.embeddings['upos_feats'].opr = 'sum'
         input_dim = self.embeddings.size()
 
         self.encoder = LSTMEncoder(input_dim, encoder_dim, **kwargs)
