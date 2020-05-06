@@ -18,8 +18,7 @@ class BiaffineParser(nn.Module):
                  label_mlp_dropout=0.33,
                  **kwargs):
         super().__init__()
-        self.criterion = nn.CrossEntropyLoss()
-        
+
         self.embeddings = Embeddings()
         self.embeddings.add('form', embedding_dims, input_dropout)
         self.embeddings.add('upos_feats', embedding_dims, input_dropout, 1, 'sum')
@@ -27,76 +26,31 @@ class BiaffineParser(nn.Module):
 
         self.encoder = LSTMEncoder(input_dim, encoder_dim, **kwargs)
 
-        self.arc_mlp_h = MLP(encoder_dim, arc_mlp_dim, arc_mlp_dropout)
-        self.arc_mlp_d = MLP(encoder_dim, arc_mlp_dim, arc_mlp_dropout)
-        self.label_mlp_h = MLP(encoder_dim, label_mlp_dim, label_mlp_dropout)
-        self.label_mlp_d = MLP(encoder_dim, label_mlp_dim, label_mlp_dropout)
-
-        self.arc_biaff = Biaffine(arc_mlp_dim, 1, bias_x=True, bias_y=False)
-        self.label_biaff = Biaffine(label_mlp_dim, labels_dim, bias_x=True, bias_y=True)
+        self.arc_biaff = ArcBiaffine(encoder_dim, arc_mlp_dim, arc_mlp_dropout)
+        self.lab_biaff = LabelBiaffine(encoder_dim, labels_dim, label_mlp_dim, label_mlp_dropout)
 
     def forward(self, batch):
+        indexes, lengths = self._get_batch_indexes(batch)
         x = [self.embeddings(instance) for instance in batch]
         h = self.encoder(x)
-
-        arc_h = self.arc_mlp_h(h)
-        arc_d = self.arc_mlp_d(h)
-        label_h = self.label_mlp_h(h)
-        label_d = self.label_mlp_h(h)
-
-        arc_scores = self.arc_biaff(arc_d, arc_h).cpu()
-        label_scores = self.label_biaff(label_d, label_h).permute(0, 2, 3, 1).cpu()
-        return arc_scores, label_scores
+        return h, indexes, lengths
 
     def loss(self, batch):
-        indexes, _ = self._get_batch_indexes(batch)
-        arc_scores, label_scores = self(batch)
-        arc_loss, arc_error = self._get_arc_loss(arc_scores, indexes)
-        label_loss, label_error = self._get_label_loss(label_scores, indexes)
-        loss = arc_loss + label_loss
-        return loss, (arc_loss, label_loss, arc_error, label_error)
-
-    def _get_arc_loss(self, arc_scores, indexes):
-        arc_scores = arc_scores[indexes[0,:], indexes[1,:], :]
-        gold_arcs = indexes[2,:]
-        return self._loss_and_error(arc_scores, gold_arcs)
-
-    def _get_label_loss(self, label_scores, indexes):
-        label_scores = label_scores[indexes[0,:], indexes[1,:], indexes[2,:], :]
-        gold_labels = indexes[3,:]
-        return self._loss_and_error(label_scores, gold_labels)
+        h, indexes, _ = self(batch)
+        arc_loss, arc_error = self.arc_biaff.loss(h, indexes)
+        lab_loss, lab_error = self.lab_biaff.loss(h, indexes)
+        loss = arc_loss + lab_loss
+        return loss, (arc_loss, lab_loss, arc_error, lab_error)
 
     def parse(self, batch):
         if self.training:
             raise RuntimeError('Not in eval mode.')
 
         with torch.no_grad():
-            indexes, lengths = self._get_batch_indexes(batch)
-            arc_scores, label_scores = self(batch)
-            pred_arcs = self._parse_arcs(arc_scores, indexes, lengths)
-            pred_labels = self._parse_labels(label_scores, indexes, pred_arcs)
-            return pred_arcs, pred_labels
-
-    def _parse_arcs(self, arc_scores, indexes, lengths):
-        arc_scores = arc_scores[indexes[0,:], indexes[1,:], :].numpy()
-        arc_pred = np.empty(arc_scores.shape[0], np.int64)
-        i = 0
-        for k in lengths:
-            scores = np.vstack([np.zeros(k+1), arc_scores[i:i+k, :k+1]]).transpose()
-            heads = arc_pred[i:i+k]
-            tarjan(scores, heads)
-            i += k
-        return arc_pred
-
-    def _parse_labels(self, label_scores, indexes, pred_arcs):
-        label_scores = label_scores[indexes[0,:], indexes[1,:], pred_arcs, :]
-        return label_scores.max(1)[1].numpy()
-
-    def _loss_and_error(self, scores, gold):
-        pred = scores.max(1)[1]
-        loss = self.criterion(scores, gold)
-        error = 1 - (pred.eq(gold).sum() / float(gold.size()[0]))
-        return loss, error
+            h, indexes, lengths = self(batch)
+            pred_arcs = self.arc_biaff.parse(h, indexes, lengths)
+            pred_labs = self.lab_biaff.parse(h, indexes, pred_arcs)
+            return pred_arcs, pred_labs
 
     def _get_batch_indexes(self, batch):
         lengths = [x.length for x in batch]
@@ -115,6 +69,78 @@ class BiaffineParser(nn.Module):
             i = k
 
         return indexes, lengths
+
+def _loss_and_error(scores, gold, criterion):
+    pred = scores.max(1)[1]
+    loss = criterion(scores, gold)
+    error = 1 - (pred.eq(gold).sum() / float(gold.size()[0]))
+    return loss, error
+
+class ArcBiaffine(nn.Module):
+
+    def __init__(self,
+                encoder_dim,
+                mlp_dim,
+                mlp_dropout):
+        super().__init__()
+        self.criterion = nn.CrossEntropyLoss()
+        self.h_mlp = MLP(encoder_dim, mlp_dim, mlp_dropout)
+        self.d_mlp = MLP(encoder_dim, mlp_dim, mlp_dropout)
+        self.biaffine = Biaffine(mlp_dim, 1, bias_x=True, bias_y=False)
+
+    def forward(self, h):
+        arc_h = self.h_mlp(h)
+        arc_d = self.d_mlp(h)
+        arc_scores = self.biaffine(arc_h, arc_d).cpu()
+        return arc_scores
+
+    def loss(self, h, indexes):
+        arc_scores = self(h)
+        arc_scores = arc_scores[indexes[0,:], indexes[1,:], :]
+        gold_arcs = indexes[2,:]
+        return _loss_and_error(arc_scores, gold_arcs, self.criterion)
+
+    def parse(self, h, indexes, lengths):
+        arc_scores = self(h)
+        arc_scores = arc_scores[indexes[0,:], indexes[1,:], :].numpy()
+        arc_pred = np.empty(arc_scores.shape[0], np.int64)
+        i = 0
+        for k in lengths:
+            scores = np.vstack([np.zeros(k+1), arc_scores[i:i+k, :k+1]]).transpose()
+            heads = arc_pred[i:i+k]
+            tarjan(scores, heads)
+            i += k
+        return arc_pred
+
+class LabelBiaffine(nn.Module):
+
+    def __init__(self,
+                encoder_dim,
+                labels_dim,
+                mlp_dim,
+                mlp_dropout):
+        super().__init__()
+        self.criterion = nn.CrossEntropyLoss()
+        self.h_mlp = MLP(encoder_dim, mlp_dim, mlp_dropout)
+        self.d_mlp = MLP(encoder_dim, mlp_dim, mlp_dropout)
+        self.biaffine = Biaffine(mlp_dim, labels_dim, bias_x=True, bias_y=True)
+
+    def forward(self, h):
+        lab_h = self.h_mlp(h)
+        lab_d = self.d_mlp(h)
+        lab_scores = self.biaffine(lab_h, lab_d).permute(0, 2, 3, 1).cpu()
+        return lab_scores
+
+    def loss(self, h, indexes):
+        lab_scores = self(h)
+        lab_scores = lab_scores[indexes[0,:], indexes[1,:], indexes[2,:], :]
+        lab_gold = indexes[3,:]
+        return _loss_and_error(lab_scores, lab_gold, self.criterion)
+
+    def parse(self, h, indexes, pred_arcs):
+        lab_scores = self(h)
+        lab_scores = lab_scores[indexes[0,:], indexes[1,:], pred_arcs, :]
+        return lab_scores.max(1)[1].numpy()
 
 class LSTMEncoder(nn.Module):
 
