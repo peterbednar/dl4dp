@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.utils.rnn as rnn
 import numpy as np
 
 class Embedding(nn.Module):
@@ -54,7 +55,7 @@ class Embeddings(nn.Module):
         dim = _field_option(field, dim)
         dropout = _field_option(field, input_dropout, 0)
         padding = _field_option(field, padding_idx, None)
-        self.embeddings[field] = Embeddings(dim, dropout, padding) if isinstance(dim, dict) else \
+        self.embeddings[field] = Embeddings(dim, dropout, padding, opr) if isinstance(dim, dict) else \
                                  Embedding(dim, dropout, padding)
 
     def forward(self, instance):
@@ -67,8 +68,25 @@ class Embeddings(nn.Module):
             x = torch.cat(x, 1)
         elif self.opr == 'sum':
             x = torch.stack(x)
-            x = torch.sum(x, 0)            
+            x = torch.sum(x, 0)
+        else:
+            raise ValueError(f'Unknown operation {self.opr}.')
         return x
+
+class LSTM(nn.Module):
+    def __init__(self, input_dim, output_dim, num_layers, dropout, bidirectional=True):
+        super().__init__()
+        if output_dim % 2:
+            raise ValueError('output_dim must be an even number.')
+        hidden_dim = output_dim // 2
+        self.lstm = nn.LSTM(input_dim, hidden_dim, num_layers, dropout=dropout, bidirectional=bidirectional,
+            batch_first=True)
+
+    def forward(self, x):
+        x = rnn.pack_sequence(x, enforce_sorted=False)
+        h, c = self.lstm(x)
+        h, lengths = rnn.pad_packed_sequence(h, batch_first=True)
+        return h, c, lengths
 
 class MLP(nn.Module):
     
