@@ -60,7 +60,7 @@ class Embeddings(nn.Module):
 
     def forward(self, instance):
         def _embedding(f, instance):
-            embd = self[f]
+            embd = self.embeddings[f]
             return embd(instance) if isinstance(embd, Embeddings) else embd(instance[f])
 
         x = [_embedding(f, instance) for f in self.embeddings.keys()]
@@ -70,7 +70,7 @@ class Embeddings(nn.Module):
             x = torch.stack(x)
             x = torch.sum(x, 0)
         else:
-            raise ValueError(f'Unknown operation {self.opr}.')
+            raise ValueError(f'Unknown operator {self.opr}.')
         return x
 
 class LSTM(nn.Module):
@@ -120,8 +120,8 @@ class Biaffine(nn.Module):
             x = torch.cat([x, x.new_ones(x.shape[:-1]).unsqueeze(-1)], -1)
         if self.bias_y:
             y = torch.cat([y, y.new_ones(y.shape[:-1]).unsqueeze(-1)], -1)
-        x = x.unsqueeze(1)
-        y = y.unsqueeze(1)
+        x = x.unsqueeze(-3)
+        y = y.unsqueeze(-3)
         s = x @ self.weight @ y.transpose(-1, -2)
         s = s.squeeze(1)
         return s
