@@ -24,7 +24,7 @@ class BiaffineParser(nn.Module):
         self.embeddings.add('upos_feats', embedding_dims, input_dropout, 1, 'sum')
         input_dim = self.embeddings.size()
 
-        self.encoder = LSTMEncoder(input_dim, encoder_dim, **kwargs)
+        self.encoder = WordLSTMEncoder(input_dim, encoder_dim, **kwargs)
 
         self.arc_biaff = ArcBiaffine(encoder_dim, arc_mlp_dim, arc_mlp_dropout)
         self.lab_biaff = LabelBiaffine(encoder_dim, labels_dim, label_mlp_dim, label_mlp_dropout)
@@ -142,7 +142,7 @@ class LabelBiaffine(nn.Module):
         lab_scores = lab_scores[indexes[0,:], indexes[1,:], pred_arcs, :]
         return lab_scores.max(1)[1].numpy()
 
-class LSTMEncoder(nn.Module):
+class WordLSTMEncoder(nn.Module):
 
     def __init__(self,
                  input_dim,

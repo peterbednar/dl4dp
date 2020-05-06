@@ -11,6 +11,13 @@ class Embedding(nn.Module):
         self.input_dropout = input_dropout
         self.reset_parameters()
 
+    def size(self):
+        return self.embedding.weight.size()[1]
+
+    def reset_parameters(self):
+        gain = nn.init.calculate_gain('leaky_relu', 0.1)
+        nn.init.xavier_uniform_(self.embedding.weight, gain=gain)
+
     def forward(self, x):
         if isinstance(x, np.ndarray):
             x = torch.from_numpy(x).long()
@@ -21,13 +28,6 @@ class Embedding(nn.Module):
 
         x = x.to(self.embedding.weight.device)
         return self.embedding(x)
-
-    def size(self):
-        return self.embedding.weight.size()[1]
-
-    def reset_parameters(self):
-        gain = nn.init.calculate_gain('leaky_relu', 0.1)
-        nn.init.xavier_uniform_(self.embedding.weight, gain=gain)
 
 def _field_option(f, opt, default=None):
     return opt.get(f, default) if isinstance(opt, dict) else opt
@@ -115,6 +115,10 @@ class Biaffine(nn.Module):
         self.weight = nn.Parameter(torch.Tensor(output_dim, input_dim + bias_x, input_dim + bias_y))
         self.reset_parameters()
     
+    def reset_parameters(self):
+        gain = nn.init.calculate_gain('leaky_relu', 0.1)
+        nn.init.xavier_uniform_(self.weight, gain=gain)
+
     def forward(self, x, y):
         if self.bias_x:
             x = torch.cat([x, x.new_ones(x.shape[:-1]).unsqueeze(-1)], -1)
@@ -125,7 +129,3 @@ class Biaffine(nn.Module):
         s = x @ self.weight @ y.transpose(-1, -2)
         s = s.squeeze(1)
         return s
-
-    def reset_parameters(self):
-        gain = nn.init.calculate_gain('leaky_relu', 0.1)
-        nn.init.xavier_uniform_(self.weight, gain=gain)
