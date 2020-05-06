@@ -2,14 +2,14 @@ import torch
 import torch.nn as nn
 import numpy as np
 
-from .modules import Embeddings, MLP, Biaffine, LSTM
+from .modules import Embedding, Embeddings, MLP, Biaffine, LSTM
 from .utils import tarjan
 
 class BiaffineParser(nn.Module):
 
     def __init__(self,
                  embedding_dims,
-                 labels_dim,
+                 label_dim,
                  input_dropout=0.33,
                  encoder_dim=800,
                  arc_mlp_dim=500,
@@ -19,15 +19,15 @@ class BiaffineParser(nn.Module):
                  **kwargs):
         super().__init__()
 
-        self.embeddings = Embeddings()
-        self.embeddings.add('form', embedding_dims, input_dropout)
-        self.embeddings.add('upos_feats', embedding_dims, input_dropout, 1, 'sum')
+        self.embeddings = Embeddings('cat')
+        self.embeddings['form'] = Embedding('form', embedding_dims, input_dropout)
+        self.embeddings['upos_feats'] = Embeddings('sum', 'upos_feats', embedding_dims, input_dropout, 1)
         input_dim = self.embeddings.size()
 
         self.encoder = WordLSTMEncoder(input_dim, encoder_dim, **kwargs)
 
         self.arc_biaff = ArcBiaffine(encoder_dim, arc_mlp_dim, arc_mlp_dropout)
-        self.lab_biaff = LabelBiaffine(encoder_dim, labels_dim, label_mlp_dim, label_mlp_dropout)
+        self.lab_biaff = LabelBiaffine(encoder_dim, label_dim, label_mlp_dim, label_mlp_dropout)
 
     def forward(self, batch):
         indexes, lengths = self._get_batch_indexes(batch)

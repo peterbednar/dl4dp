@@ -5,8 +5,14 @@ import numpy as np
 
 class Embedding(nn.Module):
 
-    def __init__(self, dims, input_dropout=0, padding_idx=None):
+    def __init__(self, field, dims, input_dropout=0, padding_idx=None):
         super().__init__()
+        self.field = field
+
+        dims = _field_option(field, dims)
+        input_dropout = _field_option(field, input_dropout, 0)
+        padding_idx = _field_option(field, padding_idx, None)
+
         self.embedding = nn.Embedding(dims[0], dims[1], padding_idx=padding_idx)
         self.input_dropout = input_dropout
         self.reset_parameters()
@@ -18,13 +24,14 @@ class Embedding(nn.Module):
         gain = nn.init.calculate_gain('leaky_relu', 0.1)
         nn.init.xavier_uniform_(self.embedding.weight, gain=gain)
 
-    def forward(self, x):
+    def forward(self, instance):
+        x = instance[self.field]
         if isinstance(x, np.ndarray):
             x = torch.from_numpy(x).long()
 
         if self.training and self.input_dropout > 0:
             mask = torch.rand(x.shape) > self.input_dropout
-            x.masked_fill(~mask, 0)
+            x = x.masked_fill(~mask, 0)
 
         x = x.to(self.embedding.weight.device)
         return self.embedding(x)
@@ -34,12 +41,19 @@ def _field_option(f, opt, default=None):
 
 class Embeddings(nn.Module):
 
-    def __init__(self, field_dims={}, input_dropout=0, padding_idx=None, opr='cat'):
+    def __init__(self, opr, field=None, dims=None, input_dropout=0, padding_idx=None):
         super().__init__()
         self.opr = opr
+        self.field = field
         self.embeddings = nn.ModuleDict()
-        for f, dim in field_dims.items():
-            self.add(f, dim, input_dropout, padding_idx, opr)
+
+        dims = _field_option(field, dims)
+        input_dropout = _field_option(field, input_dropout, 0)
+        padding_idx = _field_option(field, padding_idx, None)
+
+        if dims is not None:
+            for f, dim in dims.items():
+                self.embeddings[f] = Embedding(f, dim, input_dropout, padding_idx)
 
     def __getitem__(self, field):
         return self.embeddings[field]
@@ -51,19 +65,8 @@ class Embeddings(nn.Module):
         sizes = [emb.size() for emb in self.embeddings.values()]
         return sum(sizes) if self.opr == 'cat' else max(sizes, default=0)
 
-    def add(self, field, dim, input_dropout=0, padding_idx=None, opr='cat'):
-        dim = _field_option(field, dim)
-        dropout = _field_option(field, input_dropout, 0)
-        padding = _field_option(field, padding_idx, None)
-        self.embeddings[field] = Embeddings(dim, dropout, padding, opr) if isinstance(dim, dict) else \
-                                 Embedding(dim, dropout, padding)
-
     def forward(self, instance):
-        def _embedding(f, instance):
-            embd = self.embeddings[f]
-            return embd(instance) if isinstance(embd, Embeddings) else embd(instance[f])
-
-        x = [_embedding(f, instance) for f in self.embeddings.keys()]
+        x = [self.embeddings[f](instance) for f in self.embeddings.keys()]
         if self.opr == 'cat':
             x = torch.cat(x, 1)
         elif self.opr == 'sum':

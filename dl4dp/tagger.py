@@ -2,12 +2,18 @@ import torch
 import torch.nn as nn
 import torch.nn.utils.rnn as rnn
 
-from .modules import Embedding, MLP, Biaffine
+from .modules import Embedding, Embeddings, MLP, Biaffine
 
 class BiaffineTagger(nn.Module):
 
-    def __init__(self):
+    def __init__(self,
+                 embedding_dims,
+                 label_dims,
+                 input_dropout):
         super().__init__()
+
+        self.embeddings = Embeddings('cat')
+
 
 def _loss_and_error(scores, gold, criterion):
     pred = scores.max(1)[1]
@@ -19,6 +25,7 @@ class UposAffine(nn.Module):
 
     def __init__(self, input_dim, labels_dim, mlp_dim, mlp_dropout):
         super().__init__()
+        self.criterion = nn.CrossEntropyLoss()
         self.mlp = MLP(input_dim, mlp_dim, mlp_dropout)
         self.affine = nn.Linear(mlp_dim, labels_dim, bias=True)
 
@@ -27,10 +34,17 @@ class UposAffine(nn.Module):
         y = self.affine(x)
         return y
 
+    def loss(self, h, upos_gold):
+        return _loss_and_error(self(h), upos_gold, self.criterion)
+
+    def parse(self, h):
+        return self(h).max(1)[1].cpu().numpy()
+
 class FeatsBiaffine(nn.Module):
 
     def __init__(self, input_dim, labels_dim, mlp_dim, mlp_dropout):
         super().__init__()
+        self.criterion = nn.CrossEntropyLoss()
         self.mlp = MLP(input_dim, mlp_dim, mlp_dropout)
         self.biaffine = Biaffine(mlp_dim, labels_dim, bias_x=True, bias_y=True)
 
@@ -38,6 +52,12 @@ class FeatsBiaffine(nn.Module):
         x = self.mlp(h)
         y = self.biaffine(x, upos)
         return y
+
+    def loss(self, h, feats_gold, upos_gold):
+        return _loss_and_error(self(h, upos_gold), feats_gold, self.criterion)
+
+    def parse(self, h, upos):
+        return self(h).max(1)[1].cpu().numpy()
 
 class CharLSTMEncoder(nn.Module):
 
