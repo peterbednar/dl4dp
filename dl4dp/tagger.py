@@ -2,18 +2,23 @@ import torch
 import torch.nn as nn
 import torch.nn.utils.rnn as rnn
 
-from .modules import Embedding, Embeddings, MLP, Biaffine
+from .modules import Embedding, Embeddings, MLP, Biaffine, _field_option
 
 class BiaffineTagger(nn.Module):
 
     def __init__(self,
                  embedding_dims,
                  label_dims,
-                 input_dropout):
+                 input_dropout=0.33,
+                 char_lstm_layers=2,
+                 char_lstm_dropout=0.33
+                 ):
         super().__init__()
 
         self.embeddings = Embeddings('cat')
-
+        self.embeddings['form'] = Embedding('form', embedding_dims, input_dropout)
+        self.embeddings['form:chars'] = CharLSTMEncoder('form:chars', embedding_dims, input_dropout,
+                char_lstm_layers, char_lstm_dropout)
 
 def _loss_and_error(scores, gold, criterion):
     pred = scores.max(1)[1]
@@ -61,15 +66,18 @@ class FeatsBiaffine(nn.Module):
 
 class CharLSTMEncoder(nn.Module):
 
-    def __init__(self, input_dim, output_dim, lstm_num_layers=2, lstm_dropout=0.33):
+    def __init__(self, field, dims, input_dropout, lstm_num_layers=2, lstm_dropout=0.33):
         super().__init__()
-        self.embedding = Embedding(input_dim)
-        if output_dim % 2:
+        dims = _field_option(field, dims)
+        self.embedding = Embedding(field, (dims[0], dims[1]), input_dropout)
+
+        if dims[2] % 2:
             raise ValueError('output_dim must be an even number.')
-        lstm_hidden_dim = output_dim // 2
-        self.lstm = nn.LSTM(input_dim[1], lstm_hidden_dim, lstm_num_layers, dropout=lstm_dropout, bidirectional=False,
+        lstm_hidden_dim = dims[2] // 2
+        self.lstm = nn.LSTM(dims[1], lstm_hidden_dim, lstm_num_layers, dropout=lstm_dropout, bidirectional=False,
                             batch_first=True)
-    def __call__(self, x):
+    def __call__(self, instance):
+        x = instance[self.field]
         x = [self.embedding(w) for w in x]
         x = rnn.pack_sequence(x, enforce_sorted=False)
         _, (h, _) = self.lstm(x)

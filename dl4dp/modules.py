@@ -24,8 +24,10 @@ class Embedding(nn.Module):
         gain = nn.init.calculate_gain('leaky_relu', 0.1)
         nn.init.xavier_uniform_(self.embedding.weight, gain=gain)
 
-    def forward(self, instance):
-        x = instance[self.field]
+    def forward(self, x):
+        if isinstance(x, dict):
+            x = x[self.field]
+
         if isinstance(x, np.ndarray):
             x = torch.from_numpy(x).long()
 

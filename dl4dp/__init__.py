@@ -33,9 +33,8 @@ def get_embedding_dims(dims, index):
     return emb_dims
 
 def main():
-    np.random.seed(0)
-    torch.manual_seed(0)
-    torch.cuda.manual_seed(0)
+    random_seed = 0
+    max_epoch = 10
 
     model_path = 'build/en_ewt'
     treebanks = {
@@ -45,6 +44,10 @@ def main():
         }
 
     dims = {'form': 100, 'upos_feats': 100}
+
+    np.random.seed(random_seed)
+    torch.manual_seed(random_seed)
+    torch.cuda.manual_seed(random_seed)
 
     p = pipe()
     p.only_words()
@@ -64,7 +67,7 @@ def main():
         model.to(torch.device('cuda'))
 
     validator = LASValidator(treebanks['dev']) if 'dev' in treebanks else None
-    trainer = Trainer(model_path, max_epoch=1, validator=validator)
+    trainer = Trainer(model_path, max_epoch=max_epoch, validator=validator)
     _, _, best_path = trainer.train(model, treebanks['train'])
 
     model = torch.load(best_path)
