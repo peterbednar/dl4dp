@@ -108,11 +108,11 @@ class MLP(nn.Module):
 
 class Biaffine(nn.Module):
 
-    def __init__(self, input_size, output_size, bias_x=True, bias_y=True):
+    def __init__(self, input_dim, output_dim, bias_x=True, bias_y=True):
         super().__init__()
         self.bias_x = bias_x
         self.bias_y = bias_y
-        self.weight = nn.Parameter(torch.Tensor(output_size, input_size + bias_x, input_size + bias_y))
+        self.weight = nn.Parameter(torch.Tensor(output_dim, input_dim + bias_x, input_dim + bias_y))
         self.reset_parameters()
     
     def forward(self, x, y):
