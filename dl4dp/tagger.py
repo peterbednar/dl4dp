@@ -72,9 +72,13 @@ class CharLSTMEncoder(nn.Module):
 
         if dims[2] % 2:
             raise ValueError('output_dim must be an even number.')
-        lstm_hidden_dim = dims[2] // 2
-        self.lstm = nn.LSTM(dims[1], lstm_hidden_dim, lstm_num_layers, dropout=lstm_dropout, bidirectional=False,
+        self.lstm_hidden_dim = dims[2] // 2
+        self.lstm = nn.LSTM(dims[1], self.lstm_hidden_dim, lstm_num_layers, dropout=lstm_dropout, bidirectional=False,
                             batch_first=True)
+
+    def size(self):
+        return self.lstm_hidden_dim * 2
+
     def __call__(self, instance):
         x = instance[self.field]
         x = [self.embedding(w) for w in x]
