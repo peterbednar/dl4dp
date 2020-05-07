@@ -35,7 +35,7 @@ class Embedding(nn.Module):
             mask = torch.rand(x.shape) > self.input_dropout
             x = x.masked_fill(~mask, 0)
 
-        x = x.to(self.embedding.weight.device)
+        x = x.to(self.embedding.weight.device, non_blocking=True)
         return self.embedding(x)
 
 def _field_option(f, opt, default=None):
