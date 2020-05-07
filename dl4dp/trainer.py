@@ -64,7 +64,7 @@ class Trainer(object):
                     best_score = score
                     best_epoch = epoch + 1
             else:
-                best_epoch = epoch
+                best_epoch = epoch + 1
 
         if best_score is not None:
             print(f'best epoch: {best_epoch}, score: {best_score:.4f}')

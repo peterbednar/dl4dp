@@ -117,7 +117,7 @@ class Biaffine(nn.Module):
         super().__init__()
         self.bias_x = bias_x
         self.bias_y = bias_y
-        self.weight = nn.Parameter(torch.Tensor(output_dim, input_dim + bias_x, input_dim + bias_y))
+        self.weight = nn.Parameter(torch.empty((output_dim, input_dim + bias_x, input_dim + bias_y)))
         self.reset_parameters()
     
     def reset_parameters(self):

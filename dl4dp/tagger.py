@@ -11,8 +11,7 @@ class BiaffineTagger(nn.Module):
                  label_dims,
                  input_dropout=0.33,
                  char_lstm_layers=2,
-                 char_lstm_dropout=0.33
-                 ):
+                 char_lstm_dropout=0.33):
         super().__init__()
 
         self.embeddings = Embeddings('cat')
@@ -62,7 +61,7 @@ class FeatsBiaffine(nn.Module):
         return _loss_and_error(self(h, upos_gold), feats_gold, self.criterion)
 
     def parse(self, h, upos):
-        return self(h).max(1)[1].cpu().numpy()
+        return self(h, upos).max(1)[1].cpu().numpy()
 
 class CharLSTMEncoder(nn.Module):
 
