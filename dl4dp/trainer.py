@@ -1,7 +1,6 @@
 import time
 from datetime import timedelta
 import logging
-from logging import FileHandler
 from pathlib import Path
 
 import torch
@@ -17,13 +16,9 @@ class Trainer(object):
         self.model_dir = Path(model_dir) if isinstance(model_dir, str) else model_dir
         self.model_dir.mkdir(parents=True, exist_ok=True)
         self.validator = validator
-        if logger:
-            self.logger = logger
-        else:
-            log = logging.getLogger('dl4dp.training')
-            log.setLevel(logging.INFO)
-            log.addHandler(FileHandler(self.model_dir / 'training.log', mode='w'))
-            self.logger = log
+        self.logger = logger
+        if isinstance(logger, str):
+            self.logger = logging.getLogger(logger)
 
     def train(self, model, train_data):
         best_epoch = 0
@@ -75,9 +70,16 @@ class Trainer(object):
 
 class LASValidator(object):
     
-    def __init__(self, validation_data=None, batch_size=100):
+    def __init__(self, validation_data=None, batch_size=100, logger=None):
+        self.step = 0
         self.validation_data = validation_data
         self.batch_size = batch_size
+        self.logger = logger
+        if isinstance(logger, str):
+            self.logger = logging.getLogger(logger)
+
+    def reset(self):
+        self.step = 0
 
     def validate(self, model, validation_data=None):
         if validation_data is None:
@@ -90,6 +92,7 @@ class LASValidator(object):
         pb = progressbar(total_size)
         uas_correct = las_correct = em_correct = total = 0
 
+        start_time = time.time()
         for batch in pipe(validation_data).batch(self.batch_size):
             arcs_pred, labels_pred = model.parse(batch)
 
@@ -110,12 +113,18 @@ class LASValidator(object):
                 pb.update()
 
         pb.finish()
+        self.step += 1
 
         uas = uas_correct / total
         las = las_correct / total
         em = em_correct / total_size
         metrics = (('UAS', uas), ('LAS', las), ('EM', em))
         print(', '.join(f"{metric[0]}:{metric[1]:.4f}" for metric in metrics))
+
+        if self.logger:
+            elapsed_time = time.time() - start_time
+            self.logger.info(f'{self.step} {timedelta(seconds=elapsed_time)} ' +
+                    ' '.join([str(metric[1]) for metric in metrics]))
 
         model.train(mode)
         return las, metrics

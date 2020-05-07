@@ -1,5 +1,7 @@
 import os
 from pathlib import Path
+import logging
+from logging import FileHandler
 
 import torch
 import numpy as np
@@ -32,11 +34,16 @@ def get_embedding_dims(dims, index):
             emb_dims[f] = (len(c) + 1, dims[f])
     return emb_dims
 
+def log_config(model_dir, logger):
+    log = logging.getLogger('dl4dp.' + logger)
+    log.setLevel(logging.INFO)
+    log.addHandler(FileHandler(model_dir / (logger + '.log'), mode='w'))
+
 def main():
     random_seed = 0
     max_epoch = 10
 
-    model_path = 'build/en_ewt'
+    model_dir = 'build/en_ewt'
     treebanks = {
         'train': 'build/en_ewt-ud-train.conllu',
         'dev': 'build/en_ewt-ud-dev.conllu',
@@ -44,6 +51,10 @@ def main():
         }
 
     dims = {'form': 100, 'upos_feats': 100}
+
+    model_dir = Path(model_dir)
+    log_config(model_dir, 'training')
+    log_config(model_dir, 'validation')
 
     np.random.seed(random_seed)
     torch.manual_seed(random_seed)
@@ -66,11 +77,11 @@ def main():
     if torch.cuda.is_available():
         model.to(torch.device('cuda'))
 
-    validator = LASValidator(treebanks['dev']) if 'dev' in treebanks else None
-    trainer = Trainer(model_path, max_epoch=max_epoch, validator=validator)
+    validator = LASValidator(treebanks['dev'], logger='dl4dp.validation') if 'dev' in treebanks else None
+    trainer = Trainer(model_dir, max_epoch=max_epoch, validator=validator, logger='dl4dp.training')
     _, _, best_path = trainer.train(model, treebanks['train'])
 
-    model = torch.load(best_path)
     if 'test' in treebanks:
+        model = torch.load(best_path)
         print('testing:')
         LASValidator().validate(model, treebanks['test'])

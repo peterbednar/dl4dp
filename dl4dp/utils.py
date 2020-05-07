@@ -1,4 +1,3 @@
-import sys
 import math
 import heapq
 from collections import defaultdict

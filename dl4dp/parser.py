@@ -61,11 +61,11 @@ class BiaffineParser(nn.Module):
         indexes = torch.empty((rows, cols), dtype=torch.long)
         for j, instance in enumerate(batch):
             k = i + lengths[j]
-            indexes[0, i:k] = j
-            indexes[1, i:k] = torch.arange(1, lengths[j]+1)
+            indexes[0,i:k] = j
+            indexes[1,i:k] = torch.arange(1, lengths[j]+1)
             if self.training:
-                indexes[2, i:k] = torch.from_numpy(instance.head)
-                indexes[3, i:k] = torch.from_numpy(instance.deprel)
+                indexes[2,i:k] = torch.from_numpy(instance.head)
+                indexes[3,i:k] = torch.from_numpy(instance.deprel)
             i = k
 
         return indexes, lengths
