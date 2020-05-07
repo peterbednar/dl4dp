@@ -8,10 +8,10 @@ from .utils import tarjan
 class BiaffineParser(nn.Module):
 
     def __init__(self,
-                 embedding_dims,
-                 label_dim,
+                 input_dims,
+                 output_dims,
                  input_dropout=0.33,
-                 encoder_dim=800,
+                 lstm_hidden_dim=800,
                  arc_mlp_dim=500,
                  arc_mlp_dropout=0.33,
                  label_mlp_dim=100,
@@ -20,14 +20,16 @@ class BiaffineParser(nn.Module):
         super().__init__()
 
         self.embeddings = Embeddings('cat')
-        self.embeddings['form'] = Embedding('form', embedding_dims, input_dropout)
-        self.embeddings['upos_feats'] = Embeddings('sum', 'upos_feats', embedding_dims, input_dropout, 1)
+        self.embeddings['form'] = Embedding('form', input_dims, input_dropout)
+        self.embeddings['upos_feats'] = Embeddings('sum', 'upos_feats', input_dims, input_dropout, 1)
+
         input_dim = self.embeddings.size()
+        label_dim = output_dims['deprel']
 
-        self.encoder = WordLSTMEncoder(input_dim, encoder_dim, **kwargs)
+        self.encoder = WordLSTMEncoder(input_dim, lstm_hidden_dim, **kwargs)
 
-        self.arc_biaff = ArcBiaffine(encoder_dim, arc_mlp_dim, arc_mlp_dropout)
-        self.lab_biaff = LabelBiaffine(encoder_dim, label_dim, label_mlp_dim, label_mlp_dropout)
+        self.arc_biaff = ArcBiaffine(lstm_hidden_dim, arc_mlp_dim, arc_mlp_dropout)
+        self.lab_biaff = LabelBiaffine(lstm_hidden_dim, label_dim, label_mlp_dim, label_mlp_dropout)
 
     def forward(self, batch):
         indexes, lengths = self._get_batch_indexes(batch)
@@ -146,12 +148,12 @@ class WordLSTMEncoder(nn.Module):
 
     def __init__(self,
                  input_dim,
-                 encoder_dim, 
+                 lstm_hidden_dim, 
                  lstm_num_layers=3,
                  lstm_dropout=0.33):
         super().__init__()
         self.root = nn.Parameter(torch.empty(input_dim))
-        self.lstm = LSTM(input_dim, encoder_dim, lstm_num_layers, dropout=lstm_dropout, bidirectional=True)
+        self.lstm = LSTM(input_dim, lstm_hidden_dim, lstm_num_layers, dropout=lstm_dropout, bidirectional=True)
         self.reset_parameters()
 
     def forward(self, batch):

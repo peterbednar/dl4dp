@@ -24,15 +24,27 @@ def load_data(files, p, index):
         treebanks[name] = data
     return treebanks
 
-def get_embedding_dims(dims, index):
-    emb_dims = {}
-    emb_dims['upos_feats'] = {}
+def get_dims(dims, index):
+
+    def _dims(f, c):
+        n = len(c) + 1
+        return (n, dims[f]) if isinstance(dims, dict) else n
+
+    index_dims = {}
+    if 'feats' in dims:
+        index_dims['feats'] = {}
+    if 'upos_feats' in dims:
+        index_dims['upos_feats'] = {}
+
     for f, c in index.items():
-        if (f == 'upos' or f.startswith('feats:')) and 'upos_feats' in dims:
-            emb_dims['upos_feats'][f] = (len(c) + 1, dims['upos_feats'])
-        elif f in dims:
-            emb_dims[f] = (len(c) + 1, dims[f])
-    return emb_dims
+        if f in dims:
+            index_dims[f] = _dims(f, c)
+        if 'feats' in dims and f.startswith('feats:'):
+            index_dims['feats'] = _dims('feats', c)
+        if 'upos_feats' in dims and (f == 'upos' or f.startswith('feats:')):
+            index_dims['upos_feats'][f] = _dims('upos_feats', c)
+
+    return index_dims
 
 def log_config(model_dir, logger):
     log = logging.getLogger('dl4dp.' + logger)
@@ -70,14 +82,16 @@ def main():
     index = build_index(treebanks, p)
     treebanks = load_data(treebanks, p, index)
 
-    embedding_dims = get_embedding_dims(dims, index)
-    labels_dim = len(index['deprel']) + 1
+    input_dims = get_dims(dims, index)
+    output_dims = get_dims({'deprel'}, index)
 
-    model = BiaffineParser(embedding_dims, labels_dim)
+    model = BiaffineParser(input_dims, output_dims)
     if torch.cuda.is_available():
         model.to(torch.device('cuda'))
 
-    validator = LASValidator(treebanks['dev'], logger='dl4dp.validation') if 'dev' in treebanks else None
+    validator = None
+    if 'dev' in treebanks:
+        validator = LASValidator(treebanks['dev'], logger='dl4dp.validation')
     trainer = Trainer(model_dir, max_epoch=max_epoch, validator=validator, logger='dl4dp.training')
     _, _, best_path = trainer.train(model, treebanks['train'])
 

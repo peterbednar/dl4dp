@@ -7,16 +7,20 @@ from .modules import Embedding, Embeddings, MLP, Biaffine, _field_option
 class BiaffineTagger(nn.Module):
 
     def __init__(self,
-                 embedding_dims,
-                 label_dims,
+                 input_dims,
+                 output_dims,
                  input_dropout=0.33,
                  char_lstm_layers=2,
-                 char_lstm_dropout=0.33):
+                 char_lstm_dropout=0.33,
+                 upos_mlp_dim=100,
+                 upos_mlp_dropout=0.33,
+                 feats_mlp_dim=50,
+                 feats_mlp_dropout=0.33):
         super().__init__()
 
         self.embeddings = Embeddings('cat')
-        self.embeddings['form'] = Embedding('form', embedding_dims, input_dropout)
-        self.embeddings['form:chars'] = CharLSTMEncoder('form:chars', embedding_dims, input_dropout,
+        self.embeddings['form'] = Embedding('form', input_dims, input_dropout)
+        self.embeddings['form:chars'] = CharLSTMEncoder('form:chars', input_dims, input_dropout,
                 char_lstm_layers, char_lstm_dropout)
 
 def _loss_and_error(scores, gold, criterion):
@@ -68,11 +72,12 @@ class CharLSTMEncoder(nn.Module):
     def __init__(self, field, dims, input_dropout, lstm_num_layers=2, lstm_dropout=0.33):
         super().__init__()
         dims = _field_option(field, dims)
-        self.embedding = Embedding(field, (dims[0], dims[1]), input_dropout)
+        self.embedding = Embedding(field, (dims[0], dims[1][0]), input_dropout)
 
-        if dims[2] % 2:
+        self.lstm_hidden_dim = dims[1][1]
+        if self.lstm_hidden_dim % 2:
             raise ValueError('output_dim must be an even number.')
-        self.lstm_hidden_dim = dims[2] // 2
+        self.lstm_hidden_dim //= 2
         self.lstm = nn.LSTM(dims[1], self.lstm_hidden_dim, lstm_num_layers, dropout=lstm_dropout, bidirectional=False,
                             batch_first=True)
 
