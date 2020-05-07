@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from torch.nn.functional import cross_entropy
 import numpy as np
 
 from .modules import Embedding, Embeddings, MLP, Biaffine, LSTM
@@ -72,9 +73,9 @@ class BiaffineParser(nn.Module):
 
         return indexes, lengths
 
-def _loss_and_error(scores, gold, criterion):
+def _loss_and_error(scores, gold):
     pred = scores.max(1)[1]
-    loss = criterion(scores, gold)
+    loss = cross_entropy(scores, gold)
     error = 1 - (pred.eq(gold).sum() / float(gold.size()[0]))
     return loss, error
 
@@ -85,7 +86,6 @@ class ArcBiaffine(nn.Module):
                 mlp_dim,
                 mlp_dropout):
         super().__init__()
-        self.criterion = nn.CrossEntropyLoss()
         self.h_mlp = MLP(encoder_dim, mlp_dim, mlp_dropout)
         self.d_mlp = MLP(encoder_dim, mlp_dim, mlp_dropout)
         self.biaffine = Biaffine(mlp_dim, 1, bias_x=True, bias_y=False)
@@ -100,7 +100,7 @@ class ArcBiaffine(nn.Module):
         arc_scores = self(h)
         arc_scores = arc_scores[indexes[0,:], indexes[1,:], :]
         gold_arcs = indexes[2,:]
-        return _loss_and_error(arc_scores, gold_arcs, self.criterion)
+        return _loss_and_error(arc_scores, gold_arcs)
 
     def parse(self, h, indexes, lengths):
         arc_scores = self(h)
@@ -122,7 +122,6 @@ class LabelBiaffine(nn.Module):
                 mlp_dim,
                 mlp_dropout):
         super().__init__()
-        self.criterion = nn.CrossEntropyLoss()
         self.h_mlp = MLP(encoder_dim, mlp_dim, mlp_dropout)
         self.d_mlp = MLP(encoder_dim, mlp_dim, mlp_dropout)
         self.biaffine = Biaffine(mlp_dim, labels_dim, bias_x=True, bias_y=True)
@@ -137,7 +136,7 @@ class LabelBiaffine(nn.Module):
         lab_scores = self(h)
         lab_scores = lab_scores[indexes[0,:], indexes[1,:], indexes[2,:], :]
         lab_gold = indexes[3,:]
-        return _loss_and_error(lab_scores, lab_gold, self.criterion)
+        return _loss_and_error(lab_scores, lab_gold)
 
     def parse(self, h, indexes, pred_arcs):
         lab_scores = self(h)
