@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.utils.rnn as rnn
+from itertools import accumulate
 import numpy as np
 
 class Embedding(nn.Module):
@@ -78,8 +79,14 @@ class Embeddings(nn.Module):
             raise ValueError(f'Unknown operator {self.opr}.')
         return x
 
+def unpad_sequence(batch, lengths):
+    return [x[:lengths[i],...] for i, x in enumerate(batch.unbind())]
+
+def unbind_sequence(x, lengths):
+    return [x[k-lengths[i]:k,...] for i, k in enumerate(accumulate(lengths))]
+
 class LSTM(nn.Module):
-    def __init__(self, input_dim, output_dim, num_layers, dropout, bidirectional=True):
+    def __init__(self, input_dim, output_dim, num_layers, dropout=0, bidirectional=True):
         super().__init__()
         if output_dim % 2:
             raise ValueError('output_dim must be an even number.')
@@ -87,10 +94,12 @@ class LSTM(nn.Module):
         self.lstm = nn.LSTM(input_dim, hidden_dim, num_layers, dropout=dropout, bidirectional=bidirectional,
             batch_first=True)
 
-    def forward(self, x):
+    def forward(self, x, unpad=False):
         x = rnn.pack_sequence(x, enforce_sorted=False)
         h, c = self.lstm(x)
         h, lengths = rnn.pad_packed_sequence(h, batch_first=True)
+        if unpad:
+            h = unpad_sequence(h, lengths)
         return h, c, lengths
 
 class MLP(nn.Module):
