@@ -47,7 +47,7 @@ class Embedding(nn.Module):
 
         if self.training and self.input_dropout > 0:
             mask = torch.rand(x.shape) < self.input_dropout
-            x = x.masked_fill(mask, 0)
+            x = x.masked_fill(mask, 0) # Do not modify original data.
 
         x = x.to(self.embedding.weight.device, non_blocking=True)
         return self.embedding(x)
@@ -101,10 +101,12 @@ class LSTM(nn.Module):
         self.lstm = nn.LSTM(input_dim, hidden_dim, num_layers, dropout=dropout, bidirectional=bidirectional,
             batch_first=True)
 
-    def forward(self, x):
+    def forward(self, x, unpad=False):
         x = rnn.pack_sequence(x, enforce_sorted=False)
         h, c = self.lstm(x)
         h, lengths = rnn.pad_packed_sequence(h, batch_first=True)
+        if unpad:
+            h = unpad_sequence(h, lengths)
         return h, c, lengths
 
 class MLP(nn.Module):

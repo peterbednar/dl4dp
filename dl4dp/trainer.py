@@ -11,12 +11,12 @@ from .utils import progressbar
 class Trainer(object):
 
     def __init__(self, model_dir=None, max_epoch=1, batch_size=100, validator=None, logger=None):
-        self.max_epoch = max_epoch
-        self.batch_size = batch_size
-        self.model_dir = model_dir
         if isinstance(model_dir, str):
             self.model_dir = Path(model_dir)
         self.model_dir.mkdir(parents=True, exist_ok=True)
+        self.max_epoch = max_epoch
+        self.batch_size = batch_size
+        self.model_dir = model_dir
         self.validator = validator
         self.logger = logger
         if isinstance(logger, str):
@@ -47,8 +47,8 @@ class Trainer(object):
                 if self.logger:
                     elapsed_time = time.time() - start_time
                     num_words = sum([instance.length for instance in batch])
-                    self.logger.info(f'{epoch + 1} {step + 1} {timedelta(seconds=elapsed_time)} {num_words} {loss.item()} ' +
-                        ' '.join([str(metric.item()) for metric in metrics]))
+                    self.logger.info(f'{epoch + 1} {step + 1} {timedelta(seconds=elapsed_time)} {num_words} {loss.item()} '
+                        + ' '.join([str(metric.item()) for metric in metrics]))
 
             torch.save(model, self.model_dir / f'model_{epoch + 1}.pth')
             pb.finish()
@@ -125,8 +125,8 @@ class LASValidator(object):
 
         if self.logger:
             elapsed_time = time.time() - start_time
-            self.logger.info(f'{self.step} {timedelta(seconds=elapsed_time)} ' +
-                    ' '.join([str(metric[1]) for metric in metrics]))
+            self.logger.info(f'{self.step} {timedelta(seconds=elapsed_time)} {total_size} {total} '
+                    + ' '.join([str(metric[1]) for metric in metrics]))
 
         model.train(mode)
         return las, metrics

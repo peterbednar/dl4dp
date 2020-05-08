@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import numpy as np
+from itertools import accumulate
 
 from .modules import loss_and_error, unbind_sequence
 from .modules import Embedding, Embeddings, MLP, Biaffine, LSTM
@@ -45,7 +46,7 @@ class BiaffineParser(nn.Module):
         loss = arc_loss + lab_loss
         return loss, (arc_loss, lab_loss, arc_error, lab_error)
 
-    def parse(self, batch, unbind=False):
+    def parse(self, batch, unbind=True):
         if self.training:
             raise RuntimeError('Not in eval mode.')
 
@@ -63,16 +64,14 @@ class BiaffineParser(nn.Module):
         cols = sum(lengths)
         rows = 4 if self.training else 2
 
-        i = 0
         indexes = torch.empty((rows, cols), dtype=torch.long)
-        for j, instance in enumerate(batch):
-            k = i + lengths[j]
-            indexes[0,i:k] = j
-            indexes[1,i:k] = torch.arange(1, lengths[j]+1)
+        for i, k in enumerate(accumulate(lengths)):
+            j = k - lengths[i]
+            indexes[0,j:k] = i
+            indexes[1,j:k] = torch.arange(1, lengths[i]+1)
             if self.training:
-                indexes[2,i:k] = torch.from_numpy(instance.head)
-                indexes[3,i:k] = torch.from_numpy(instance.deprel)
-            i = k
+                indexes[2,j:k] = torch.from_numpy(batch[i].head)
+                indexes[3,j:k] = torch.from_numpy(batch[i].deprel)
 
         return indexes, lengths
 
