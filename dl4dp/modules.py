@@ -46,8 +46,8 @@ class Embedding(nn.Module):
             x = torch.from_numpy(x).long()
 
         if self.training and self.input_dropout > 0:
-            mask = torch.rand_like(x, dtype=torch.float) < self.input_dropout
-            x[mask] = 0
+            mask = torch.rand(x.shape) < self.input_dropout
+            x = x.masked_fill(mask, 0)
 
         x = x.to(self.embedding.weight.device, non_blocking=True)
         return self.embedding(x)
@@ -93,7 +93,7 @@ class Embeddings(nn.Module):
         return x
 
 class LSTM(nn.Module):
-    def __init__(self, input_dim, output_dim, num_layers, dropout=0, bidirectional=True):
+    def __init__(self, input_dim, output_dim, num_layers, dropout, bidirectional=True):
         super().__init__()
         if output_dim % 2:
             raise ValueError('output_dim must be an even number.')
@@ -101,12 +101,10 @@ class LSTM(nn.Module):
         self.lstm = nn.LSTM(input_dim, hidden_dim, num_layers, dropout=dropout, bidirectional=bidirectional,
             batch_first=True)
 
-    def forward(self, x, unpad=False):
+    def forward(self, x):
         x = rnn.pack_sequence(x, enforce_sorted=False)
         h, c = self.lstm(x)
         h, lengths = rnn.pad_packed_sequence(h, batch_first=True)
-        if unpad:
-            h = unpad_sequence(h, lengths)
         return h, c, lengths
 
 class MLP(nn.Module):
@@ -142,9 +140,9 @@ class Biaffine(nn.Module):
 
     def forward(self, x, y):
         if self.bias_x:
-            x = torch.cat([x, x.new_ones(x.shape[:-1]).unsqueeze(-1)], -1)
+            x = torch.cat((x, x.new_ones(x.shape[:-1]).unsqueeze(-1)), -1)
         if self.bias_y:
-            y = torch.cat([y, y.new_ones(y.shape[:-1]).unsqueeze(-1)], -1)
+            y = torch.cat((y, y.new_ones(y.shape[:-1]).unsqueeze(-1)), -1)
         x = x.unsqueeze(-3)
         y = y.unsqueeze(-3)
         s = x @ self.weight @ y.transpose(-1, -2)

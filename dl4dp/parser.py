@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 import numpy as np
-from itertools import accumulate
 
 from .modules import loss_and_error, unbind_sequence
 from .modules import Embedding, Embeddings, MLP, Biaffine, LSTM
@@ -54,11 +53,9 @@ class BiaffineParser(nn.Module):
             h, indexes, lengths = self(batch)
             pred_arcs = self.arc_biaff.parse(h, indexes, lengths)
             pred_labs = self.lab_biaff.parse(h, indexes, pred_arcs)
-
             if unbind:
                 pred_arcs = unbind_sequence(pred_arcs, lengths)
                 pred_labs = unbind_sequence(pred_labs, lengths)
-
             return {'head': pred_arcs, 'deprel': pred_labs}
 
     def _get_batch_indexes(self, batch):
@@ -66,14 +63,16 @@ class BiaffineParser(nn.Module):
         cols = sum(lengths)
         rows = 4 if self.training else 2
 
+        i = 0
         indexes = torch.empty((rows, cols), dtype=torch.long)
-        for i, k in enumerate(accumulate(lengths)):
-            j = k - lengths[i]
-            indexes[0,j:k] = i
-            indexes[1,j:k] = torch.arange(1, lengths[i]+1)
+        for j, instance in enumerate(batch):
+            k = i + lengths[j]
+            indexes[0,i:k] = j
+            indexes[1,i:k] = torch.arange(1, lengths[j]+1)
             if self.training:
-                indexes[2,j:k] = torch.from_numpy(batch[i].head)
-                indexes[3,j:k] = torch.from_numpy(batch[i].deprel)
+                indexes[2,i:k] = torch.from_numpy(instance.head)
+                indexes[3,i:k] = torch.from_numpy(instance.deprel)
+            i = k
 
         return indexes, lengths
 

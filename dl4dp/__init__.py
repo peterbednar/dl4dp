@@ -93,7 +93,7 @@ def main():
     if 'dev' in treebanks:
         validator = LASValidator(treebanks['dev'], logger='dl4dp.validation')
     trainer = Trainer(model_dir, max_epoch=max_epoch, validator=validator, logger='dl4dp.training')
-    _, _, best_path = trainer.train(model, treebanks['train'])
+    best_path = trainer.train(model, treebanks['train'])
 
     if 'test' in treebanks:
         model = torch.load(best_path)

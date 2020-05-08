@@ -13,7 +13,9 @@ class Trainer(object):
     def __init__(self, model_dir=None, max_epoch=1, batch_size=100, validator=None, logger=None):
         self.max_epoch = max_epoch
         self.batch_size = batch_size
-        self.model_dir = Path(model_dir) if isinstance(model_dir, str) else model_dir
+        self.model_dir = model_dir
+        if isinstance(model_dir, str):
+            self.model_dir = Path(model_dir)
         self.model_dir.mkdir(parents=True, exist_ok=True)
         self.validator = validator
         self.logger = logger
@@ -63,7 +65,7 @@ class Trainer(object):
 
         if best_score is not None:
             print(f'best epoch: {best_epoch}, score: {best_score:.4f}')
-        return best_epoch, best_score, self.model_dir / f'model_{best_epoch}.pth'
+        return self.model_dir / f'model_{best_epoch}.pth'
 
     def _optimizer(self, model):
         return Adam(model.parameters(), betas=(0.9, 0.9))
