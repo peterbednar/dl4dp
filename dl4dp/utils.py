@@ -4,8 +4,8 @@ from collections import defaultdict
 from functools import total_ordering
 import numpy as np
 
-def tarjan(scores, heads=None):
-    nr, _ = scores.shape
+def tarjan(scores, heads):
+    nr = scores.shape[1]
 
     roots = list(range(1, nr))
     rset = [0]
@@ -23,7 +23,7 @@ def tarjan(scores, heads=None):
         q[node] = []
         for i in range(nr):
             if i != node:
-                _push(q[node], _edge(i, node, scores[node, i]))
+                _push(q[node], _edge(i, node, scores[node-1, i]))
 
     while roots:
         scc_to = roots.pop()

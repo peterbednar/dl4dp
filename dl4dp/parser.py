@@ -63,8 +63,8 @@ class BiaffineParser(nn.Module):
         lengths = [x.length for x in batch]
         cols = sum(lengths)
         rows = 4 if self.training else 2
-
         indexes = torch.empty((rows, cols), dtype=torch.long)
+
         for i, k in enumerate(accumulate(lengths)):
             j = k - lengths[i]
             indexes[0,j:k] = i
@@ -104,7 +104,7 @@ class ArcBiaffine(nn.Module):
         arc_pred = np.empty(arc_scores.shape[0], np.int64)
         i = 0
         for k in lengths:
-            scores = np.vstack([np.zeros(k+1), arc_scores[i:i+k, :k+1]])
+            scores = arc_scores[i:i+k, :k+1]
             heads = arc_pred[i:i+k]
             tarjan(scores, heads)
             i += k
