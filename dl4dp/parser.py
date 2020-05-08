@@ -157,7 +157,7 @@ class WordLSTMEncoder(nn.Module):
 
     def forward(self, batch):
         for i, x in enumerate(batch):
-            batch[i] = torch.cat([self.root.unsqueeze(0), x])
+            batch[i] = torch.cat((self.root.unsqueeze(0), x))
         h, _, _ = self.lstm(batch)
         return h
 

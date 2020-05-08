@@ -52,7 +52,6 @@ class FeatsBiaffine(nn.Module):
 
     def __init__(self, input_dim, labels_dim, mlp_dim, mlp_dropout):
         super().__init__()
-        self.criterion = nn.CrossEntropyLoss()
         self.mlp = MLP(input_dim, mlp_dim, mlp_dropout)
         self.biaffine = Biaffine(mlp_dim, labels_dim, bias_x=True, bias_y=True)
 
