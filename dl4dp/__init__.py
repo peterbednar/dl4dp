@@ -16,11 +16,11 @@ def build_index(treebanks, p):
     print('building index done')
     return index
 
-def load_data(files, p, index):
+def load_treebanks(files, p, index):
     treebanks = {}
     for name, f in files.items():
         data = pipe().read_conllu(f).pipe(p).to_instance(index).collect()
-        print(f'{name}: {len(data)} sentences, {sum([i.length for i in data])} tokens')
+        print(f'{name}: {len(data)} sentences, {sum([i.length for i in data])} words')
         treebanks[name] = data
     return treebanks
 
@@ -80,7 +80,7 @@ def main():
     p.replace('form', r'[0-9]+|[0-9]+\.[0-9]+|[0-9]+[0-9,]+', '__number__')
 
     index = build_index(treebanks, p)
-    treebanks = load_data(treebanks, p, index)
+    treebanks = load_treebanks(treebanks, p, index)
 
     input_dims = get_dims(dims, index)
     output_dims = get_dims({'deprel'}, index)

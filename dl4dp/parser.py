@@ -104,7 +104,7 @@ class ArcBiaffine(nn.Module):
         arc_pred = np.empty(arc_scores.shape[0], np.int64)
         i = 0
         for k in lengths:
-            scores = np.vstack([np.zeros(k+1), arc_scores[i:i+k, :k+1]]).transpose()
+            scores = np.vstack([np.zeros(k+1), arc_scores[i:i+k, :k+1]])
             heads = arc_pred[i:i+k]
             tarjan(scores, heads)
             i += k

@@ -11,12 +11,12 @@ from .utils import progressbar
 class Trainer(object):
 
     def __init__(self, model_dir=None, max_epoch=1, batch_size=100, validator=None, logger=None):
+        self.model_dir = model_dir
         if isinstance(model_dir, str):
             self.model_dir = Path(model_dir)
         self.model_dir.mkdir(parents=True, exist_ok=True)
         self.max_epoch = max_epoch
         self.batch_size = batch_size
-        self.model_dir = model_dir
         self.validator = validator
         self.logger = logger
         if isinstance(logger, str):

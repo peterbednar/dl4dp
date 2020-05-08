@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.utils.rnn as rnn
 
+from .modules import loss_and_error
 from .modules import Embedding, Embeddings, MLP, Biaffine, _field_option
 
 class BiaffineTagger(nn.Module):

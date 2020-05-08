@@ -23,7 +23,7 @@ def tarjan(scores, heads=None):
         q[node] = []
         for i in range(nr):
             if i != node:
-                _push(q[node], _edge(i, node, scores[i, node]))
+                _push(q[node], _edge(i, node, scores[node, i]))
 
     while roots:
         scc_to = roots.pop()
@@ -77,12 +77,8 @@ def tarjan(scores, heads=None):
         roots.append(scc_to)
 
     visited = np.zeros(nr, dtype=np.bool)
-    if heads is None:
-        heads = np.full(nr - 1, -1, dtype=np.int)
     for scc in rset:
         _invert_max_branching(min[scc], h, visited, heads)
-
-    return heads
 
 def _push(queue, elm):
     heapq.heappush(queue, elm)
@@ -105,7 +101,7 @@ def _invert_max_branching(node, h, visited, inverted):
     for v in h[node]:
         if visited[v]:
             continue
-        inverted[v - 1] = node
+        inverted[v-1] = node
         _invert_max_branching(v, h, visited, inverted)
 
 @total_ordering
