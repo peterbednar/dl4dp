@@ -1,9 +1,9 @@
 import torch
 import torch.nn as nn
-from torch.nn.functional import cross_entropy
 import numpy as np
 from itertools import accumulate
 
+from .modules import loss_and_error, unbind_sequence
 from .modules import Embedding, Embeddings, MLP, Biaffine, LSTM
 from .utils import tarjan
 
@@ -46,7 +46,7 @@ class BiaffineParser(nn.Module):
         loss = arc_loss + lab_loss
         return loss, (arc_loss, lab_loss, arc_error, lab_error)
 
-    def parse(self, batch):
+    def parse(self, batch, unbind=False):
         if self.training:
             raise RuntimeError('Not in eval mode.')
 
@@ -54,7 +54,12 @@ class BiaffineParser(nn.Module):
             h, indexes, lengths = self(batch)
             pred_arcs = self.arc_biaff.parse(h, indexes, lengths)
             pred_labs = self.lab_biaff.parse(h, indexes, pred_arcs)
-            return {'head': pred_arcs, 'deps': pred_labs}
+
+            if unbind:
+                pred_arcs = unbind_sequence(pred_arcs, lengths)
+                pred_labs = unbind_sequence(pred_labs, lengths)
+
+            return {'head': pred_arcs, 'deprel': pred_labs}
 
     def _get_batch_indexes(self, batch):
         lengths = [x.length for x in batch]
@@ -71,12 +76,6 @@ class BiaffineParser(nn.Module):
                 indexes[3,j:k] = torch.from_numpy(batch[i].deprel)
 
         return indexes, lengths
-
-def _loss_and_error(scores, gold):
-    pred = scores.max(1)[1]
-    loss = cross_entropy(scores, gold)
-    error = 1 - (pred.eq(gold).sum() / float(gold.size()[0]))
-    return loss, error
 
 class ArcBiaffine(nn.Module):
 
@@ -99,7 +98,7 @@ class ArcBiaffine(nn.Module):
         arc_scores = self(h)
         arc_scores = arc_scores[indexes[0,:], indexes[1,:], :]
         gold_arcs = indexes[2,:]
-        return _loss_and_error(arc_scores, gold_arcs)
+        return loss_and_error(arc_scores, gold_arcs)
 
     def parse(self, h, indexes, lengths):
         arc_scores = self(h)
@@ -111,6 +110,7 @@ class ArcBiaffine(nn.Module):
             heads = arc_pred[i:i+k]
             tarjan(scores, heads)
             i += k
+        arc_pred = torch.from_numpy(arc_pred)
         return arc_pred
 
 class LabelBiaffine(nn.Module):
@@ -135,12 +135,12 @@ class LabelBiaffine(nn.Module):
         lab_scores = self(h)
         lab_scores = lab_scores[indexes[0,:], indexes[1,:], indexes[2,:], :]
         lab_gold = indexes[3,:]
-        return _loss_and_error(lab_scores, lab_gold)
+        return loss_and_error(lab_scores, lab_gold)
 
     def parse(self, h, indexes, pred_arcs):
         lab_scores = self(h)
         lab_scores = lab_scores[indexes[0,:], indexes[1,:], pred_arcs, :]
-        return lab_scores.max(1)[1].numpy()
+        return lab_scores.max(1)[1]
 
 class WordLSTMEncoder(nn.Module):
 
@@ -155,8 +155,7 @@ class WordLSTMEncoder(nn.Module):
         self.reset_parameters()
 
     def forward(self, batch):
-        for i, x in enumerate(batch):
-            batch[i] = torch.cat((self.root.unsqueeze(0), x))
+        batch = [torch.cat((self.root.unsqueeze(0), x)) for x in batch]
         h, _, _ = self.lstm(batch)
         return h
 

@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.utils.rnn as rnn
-from torch.nn.functional import cross_entropy
 
+from .modules import loss_and_error
 from .modules import Embedding, Embeddings, MLP, Biaffine, _field_option
 
 class BiaffineTagger(nn.Module):
@@ -24,12 +24,6 @@ class BiaffineTagger(nn.Module):
         self.embeddings['form:chars'] = CharLSTMEncoder('form:chars', input_dims, input_dropout,
                 char_lstm_layers, char_lstm_dropout)
 
-def _loss_and_error(scores, gold):
-    pred = scores.max(1)[1]
-    loss = cross_entropy(scores, gold)
-    error = 1 - (pred.eq(gold).sum() / float(gold.size()[0]))
-    return loss, error
-
 class UposAffine(nn.Module):
 
     def __init__(self, input_dim, labels_dim, mlp_dim, mlp_dropout):
@@ -43,10 +37,10 @@ class UposAffine(nn.Module):
         return y
 
     def loss(self, h, upos_gold):
-        return _loss_and_error(self(h), upos_gold)
+        return loss_and_error(self(h), upos_gold)
 
     def parse(self, h):
-        return self(h).max(1)[1].cpu().numpy()
+        return self(h).max(1)[1]
 
 class FeatsBiaffine(nn.Module):
 
@@ -61,10 +55,10 @@ class FeatsBiaffine(nn.Module):
         return y
 
     def loss(self, h, feats_gold, upos_gold):
-        return _loss_and_error(self(h, upos_gold), feats_gold)
+        return loss_and_error(self(h, upos_gold), feats_gold)
 
     def parse(self, h, upos):
-        return self(h, upos).max(1)[1].cpu().numpy()
+        return self(h, upos).max(1)[1]
 
 class CharLSTMEncoder(nn.Module):
 

@@ -94,22 +94,22 @@ class LASValidator(object):
 
         start_time = time.time()
         for batch in pipe(validation_data).batch(self.batch_size):
-            pred = model.parse(batch)
+            pred = model.parse(batch, unbind=True)
 
-            i = 0
-            for instance in batch:
-                match = True
-                for j in range(instance.length):
-                    if instance.head[j] == pred['head'][i]:
-                        uas_correct += 1
-                        if instance.deprel[j] == pred['deps'][i]:
-                            las_correct += 1
-                        else:
-                            match = False
-                    total += 1
-                    i += 1
-                if match:
+            for gold, pred in zip(batch, zip(pred['head'], pred['deprel'])):
+                gold_head = torch.from_numpy(gold.head)
+                gold_deprel = torch.from_numpy(gold.deprel)
+
+                head_mask = gold_head.eq(pred[0])
+                head_correct = head_mask.sum().item()
+                deprel_correct = gold_deprel.eq(pred[1])[head_mask].sum().item()
+
+                uas_correct += head_correct
+                las_correct += deprel_correct
+                if deprel_correct == gold.length:
                     em_correct += 1
+
+                total += gold.length
                 pb.update()
 
         pb.finish()

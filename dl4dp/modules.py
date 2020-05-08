@@ -1,8 +1,21 @@
 import torch
 import torch.nn as nn
 import torch.nn.utils.rnn as rnn
+from torch.nn.functional import cross_entropy
 from itertools import accumulate
 import numpy as np
+
+def loss_and_error(scores, gold):
+    pred = scores.max(1)[1]
+    loss = cross_entropy(scores, gold)
+    error = 1 - (pred.eq(gold).sum() / float(gold.size()[0]))
+    return loss, error
+
+def unpad_sequence(batch, lengths):
+    return [x[:lengths[i],...] for i, x in enumerate(batch.unbind())]
+
+def unbind_sequence(x, lengths):
+    return [x[k-lengths[i]:k,...] for i, k in enumerate(accumulate(lengths))]
 
 class Embedding(nn.Module):
 
@@ -78,12 +91,6 @@ class Embeddings(nn.Module):
         else:
             raise ValueError(f'Unknown operator {self.opr}.')
         return x
-
-def unpad_sequence(batch, lengths):
-    return [x[:lengths[i],...] for i, x in enumerate(batch.unbind())]
-
-def unbind_sequence(x, lengths):
-    return [x[k-lengths[i]:k,...] for i, k in enumerate(accumulate(lengths))]
 
 class LSTM(nn.Module):
     def __init__(self, input_dim, output_dim, num_layers, dropout=0, bidirectional=True):
