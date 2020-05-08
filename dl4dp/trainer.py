@@ -94,15 +94,15 @@ class LASValidator(object):
 
         start_time = time.time()
         for batch in pipe(validation_data).batch(self.batch_size):
-            arcs_pred, labels_pred = model.parse(batch)
+            pred = model.parse(batch)
 
             i = 0
             for instance in batch:
                 match = True
                 for j in range(instance.length):
-                    if instance.head[j] == arcs_pred[i]:
+                    if instance.head[j] == pred['head'][i]:
                         uas_correct += 1
-                        if instance.deprel[j] == labels_pred[i]:
+                        if instance.deprel[j] == pred['deps'][i]:
                             las_correct += 1
                         else:
                             match = False

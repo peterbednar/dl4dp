@@ -53,7 +53,7 @@ class BiaffineParser(nn.Module):
             h, indexes, lengths = self(batch)
             pred_arcs = self.arc_biaff.parse(h, indexes, lengths)
             pred_labs = self.lab_biaff.parse(h, indexes, pred_arcs)
-            return pred_arcs, pred_labs
+            return {'head': pred_arcs, 'deps': pred_labs}
 
     def _get_batch_indexes(self, batch):
         lengths = [x.length for x in batch]
