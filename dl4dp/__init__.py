@@ -101,9 +101,6 @@ def main():
     input_dims = get_dims(dims, index)
     output_dims = get_dims({'upos', 'feats', 'deprel'}, index)
 
-    print(input_dims)
-    print(output_dims)
-
     model = get_model(model_type, input_dims, output_dims)
     validator = get_validator(model_type, treebanks.get('dev'), logger='dl4dp.validation')
     if torch.cuda.is_available():

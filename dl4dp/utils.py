@@ -101,7 +101,7 @@ def _invert_max_branching(node, h, visited, inverted):
     for v in h[node]:
         if visited[v]:
             continue
-        inverted[v-1] = node
+        inverted[v-1] = int(node)
         _invert_max_branching(v, h, visited, inverted)
 
 @total_ordering

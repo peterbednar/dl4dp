@@ -100,15 +100,14 @@ class ArcBiaffine(nn.Module):
 
     def parse(self, h, indexes, lengths):
         arc_scores = self(h)
-        arc_scores = arc_scores[indexes[0,:], indexes[1,:], :].numpy()
-        arc_pred = np.empty(arc_scores.shape[0], np.int64)
+        arc_scores = arc_scores[indexes[0,:], indexes[1,:], :]
+        arc_pred = torch.empty(arc_scores.shape[0], dtype=torch.long)
         i = 0
         for k in lengths:
             scores = arc_scores[i:i+k, :k+1]
             heads = arc_pred[i:i+k]
             tarjan(scores, heads)
             i += k
-        arc_pred = torch.from_numpy(arc_pred)
         return arc_pred
 
 class LabelBiaffine(nn.Module):
