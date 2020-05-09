@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import numpy as np
 from itertools import accumulate
 
 from .modules import loss_and_error, unbind_sequence
@@ -34,9 +33,9 @@ class BiaffineParser(nn.Module):
         self.lab_biaff = LabelBiaffine(lstm_hidden_dim*2, label_dim, label_mlp_dim, label_mlp_dropout)
 
     def forward(self, batch):
-        indexes, lengths = self._get_batch_indexes(batch)
         x = [self.embeddings(instance) for instance in batch]
         h = self.encoder(x)
+        indexes, lengths = self._get_batch_indexes(batch, h.device)
         return h, indexes, lengths
 
     def loss(self, batch):
@@ -59,11 +58,14 @@ class BiaffineParser(nn.Module):
                 pred_labs = unbind_sequence(pred_labs, lengths)
             return {'head': pred_arcs, 'deprel': pred_labs}
 
-    def _get_batch_indexes(self, batch):
+    def _get_batch_indexes(self, batch, device):
         lengths = [x.length for x in batch]
         cols = sum(lengths)
         rows = 4 if self.training else 2
+
         indexes = torch.empty((rows, cols), dtype=torch.long)
+        if torch.cuda.is_available():
+            indexes = indexes.pin_memory()
 
         for i, k in enumerate(accumulate(lengths)):
             j = k - lengths[i]
@@ -73,6 +75,7 @@ class BiaffineParser(nn.Module):
                 indexes[2,j:k] = torch.from_numpy(batch[i].head)
                 indexes[3,j:k] = torch.from_numpy(batch[i].deprel)
 
+        indexes = indexes.to(device, non_blocking=True)
         return indexes, lengths
 
 class ArcBiaffine(nn.Module):
@@ -86,28 +89,30 @@ class ArcBiaffine(nn.Module):
         self.d_mlp = MLP(encoder_dim, mlp_dim, mlp_dropout)
         self.biaffine = Biaffine(mlp_dim, 1, bias_x=True, bias_y=False)
 
-    def forward(self, h):
+    def forward(self, h, indexes):
         arc_h = self.h_mlp(h)
         arc_d = self.d_mlp(h)
-        arc_scores = self.biaffine(arc_h, arc_d).cpu()
+        arc_scores = self.biaffine(arc_h, arc_d)
+        arc_scores = arc_scores[indexes[0,:], indexes[1,:], :]
         return arc_scores
 
     def loss(self, h, indexes):
-        arc_scores = self(h)
-        arc_scores = arc_scores[indexes[0,:], indexes[1,:], :]
+        arc_scores = self(h, indexes)
         gold_arcs = indexes[2,:]
         return loss_and_error(arc_scores, gold_arcs)
 
     def parse(self, h, indexes, lengths):
-        arc_scores = self(h)
-        arc_scores = arc_scores[indexes[0,:], indexes[1,:], :]
+        arc_scores = self(h, indexes).cpu()
         arc_pred = torch.empty(arc_scores.shape[0], dtype=torch.long)
+        if torch.cuda.is_available():
+            arc_pred = arc_pred.pin_memory()
         i = 0
         for k in lengths:
             scores = arc_scores[i:i+k, :k+1]
             heads = arc_pred[i:i+k]
             tarjan(scores, heads)
             i += k
+        arc_pred = arc_pred.to(indexes.device, non_blocking=True)
         return arc_pred
 
 class LabelBiaffine(nn.Module):
@@ -122,21 +127,20 @@ class LabelBiaffine(nn.Module):
         self.d_mlp = MLP(encoder_dim, mlp_dim, mlp_dropout)
         self.biaffine = Biaffine(mlp_dim, labels_dim, bias_x=True, bias_y=True)
 
-    def forward(self, h):
+    def forward(self, h, indexes, arcs):
         lab_h = self.h_mlp(h)
         lab_d = self.d_mlp(h)
-        lab_scores = self.biaffine(lab_h, lab_d).permute(0, 2, 3, 1).cpu()
+        lab_scores = self.biaffine(lab_h, lab_d).permute(0, 2, 3, 1)
+        lab_scores = lab_scores[indexes[0,:], indexes[1,:], arcs, :]
         return lab_scores
 
     def loss(self, h, indexes):
-        lab_scores = self(h)
-        lab_scores = lab_scores[indexes[0,:], indexes[1,:], indexes[2,:], :]
+        lab_scores = self(h, indexes, indexes[2,:])
         lab_gold = indexes[3,:]
         return loss_and_error(lab_scores, lab_gold)
 
     def parse(self, h, indexes, pred_arcs):
-        lab_scores = self(h)
-        lab_scores = lab_scores[indexes[0,:], indexes[1,:], pred_arcs, :]
+        lab_scores = self(h, indexes, pred_arcs)
         return lab_scores.max(1)[1]
 
 class WordLSTMEncoder(nn.Module):
