@@ -93,11 +93,8 @@ class Embeddings(nn.Module):
         return x
 
 class LSTM(nn.Module):
-    def __init__(self, input_dim, output_dim, num_layers, dropout, bidirectional=True):
+    def __init__(self, input_dim, hidden_dim, num_layers, dropout, bidirectional=True):
         super().__init__()
-        if output_dim % 2:
-            raise ValueError('output_dim must be an even number.')
-        hidden_dim = output_dim // 2
         self.lstm = nn.LSTM(input_dim, hidden_dim, num_layers, dropout=dropout, bidirectional=bidirectional,
             batch_first=True)
 

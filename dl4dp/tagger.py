@@ -11,8 +11,10 @@ class BiaffineTagger(nn.Module):
                  input_dims,
                  output_dims,
                  input_dropout=0.33,
-                 char_lstm_layers=2,
+                 char_lstm_num_layers=2,
                  char_lstm_dropout=0.33,
+                 lstm_hidden_dim=200,
+                 lstm_num_layers=2,
                  upos_mlp_dim=100,
                  upos_mlp_dropout=0.33,
                  feats_mlp_dim=50,
@@ -22,14 +24,14 @@ class BiaffineTagger(nn.Module):
         self.embeddings = Embeddings('cat')
         self.embeddings['form'] = Embedding('form', input_dims, input_dropout)
         self.embeddings['form:chars'] = CharLSTMEncoder('form:chars', input_dims, input_dropout,
-                char_lstm_layers, char_lstm_dropout)
+                char_lstm_num_layers, char_lstm_dropout)
 
 class UposAffine(nn.Module):
 
     def __init__(self, input_dim, labels_dim, mlp_dim, mlp_dropout):
         super().__init__()
         self.mlp = MLP(input_dim, mlp_dim, mlp_dropout)
-        self.affine = nn.Linear(mlp_dim, labels_dim, bias=True)
+        self.affine = nn.Linear(mlp_dim, labels_dim, bias=False)
 
     def forward(self, h):
         x = self.mlp(h)
@@ -66,11 +68,7 @@ class CharLSTMEncoder(nn.Module):
         super().__init__()
         dims = _field_option(field, dims)
         self.embedding = Embedding(field, (dims[0], dims[1][0]), input_dropout)
-
         self.lstm_hidden_dim = dims[1][1]
-        if self.lstm_hidden_dim % 2:
-            raise ValueError('output_dim must be an even number.')
-        self.lstm_hidden_dim //= 2
         self.lstm = nn.LSTM(dims[1], self.lstm_hidden_dim, lstm_num_layers, dropout=lstm_dropout, bidirectional=True,
                             batch_first=True)
 

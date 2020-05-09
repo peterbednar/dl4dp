@@ -24,11 +24,25 @@ def load_treebanks(files, p, index):
         treebanks[name] = data
     return treebanks
 
+def get_model(model_type, *args, **kwargs):
+    if model_type == 'parser':
+        return BiaffineParser(*args, **kwargs)
+
+def get_validator(model_type, treebank, *args, **kwargs):
+    if treebank is None:
+        return None
+    if model_type == 'parser':
+        return LASValidator(treebank, *args, **kwargs)
+
 def get_dims(dims, index):
 
-    def _dims(f, c):
+    def _dims(f, c, sub=None):
         n = len(c) + 1
-        return (n, dims[f]) if isinstance(dims, dict) else n
+        if isinstance(dims, dict):
+            embd = dims[f][sub] if isinstance(dims[f], dict) else dims[f]
+            return (n, embd)
+        else:
+            return n
 
     index_dims = {}
     if 'feats' in dims:
@@ -37,12 +51,12 @@ def get_dims(dims, index):
         index_dims['upos_feats'] = {}
 
     for f, c in index.items():
-        if f in dims:
+        if f in dims and f not in index_dims:
             index_dims[f] = _dims(f, c)
         if 'feats' in dims and f.startswith('feats:'):
-            index_dims['feats'] = _dims('feats', c)
+            index_dims['feats'][f] = _dims('feats', c, f)
         if 'upos_feats' in dims and (f == 'upos' or f.startswith('feats:')):
-            index_dims['upos_feats'][f] = _dims('upos_feats', c)
+            index_dims['upos_feats'][f] = _dims('upos_feats', c, f)
 
     return index_dims
 
@@ -54,6 +68,7 @@ def log_config(model_dir, logger):
 def main():
     random_seed = 0
     max_epoch = 10
+    model_type = 'parser'
 
     model_dir = 'build/en_ewt'
     treebanks = {
@@ -62,7 +77,7 @@ def main():
         'test': 'build/en_ewt-ud-test.conllu'
         }
 
-    dims = {'form': 100, 'upos_feats': 100}
+    dims = {'form': 100, 'form:chars': (32, 100), 'upos_feats': 100}
 
     model_dir = Path(model_dir)
     log_config(model_dir, 'training')
@@ -76,6 +91,7 @@ def main():
     p.only_words()
     p.only_fields('form', 'upos', 'feats', 'head', 'deprel')
     p.unwind_feats()
+    p.split('form')
     p.lowercase('form')
     p.replace('form', r'[0-9]+|[0-9]+\.[0-9]+|[0-9]+[0-9,]+', '__number__')
 
@@ -83,19 +99,20 @@ def main():
     treebanks = load_treebanks(treebanks, p, index)
 
     input_dims = get_dims(dims, index)
-    output_dims = get_dims({'deprel'}, index)
+    output_dims = get_dims({'upos', 'feats', 'deprel'}, index)
 
-    model = BiaffineParser(input_dims, output_dims)
+    print(input_dims)
+    print(output_dims)
+
+    model = get_model(model_type, input_dims, output_dims)
+    validator = get_validator(model_type, treebanks.get('dev'), logger='dl4dp.validation')
     if torch.cuda.is_available():
         model.to(torch.device('cuda'))
 
-    validator = None
-    if 'dev' in treebanks:
-        validator = LASValidator(treebanks['dev'], logger='dl4dp.validation')
     trainer = Trainer(model_dir, max_epoch=max_epoch, validator=validator, logger='dl4dp.training')
     best_path = trainer.train(model, treebanks['train'])
 
     if 'test' in treebanks:
         model = torch.load(best_path)
         print('testing:')
-        LASValidator().validate(model, treebanks['test'])
+        get_validator(model_type, treebanks['test']).validate(model)

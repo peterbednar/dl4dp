@@ -13,8 +13,8 @@ class BiaffineParser(nn.Module):
                  input_dims,
                  output_dims,
                  input_dropout=0.33,
-                 lstm_hidden_dim=800,
-                 arc_mlp_dim=500,
+                 lstm_hidden_dim=400,
+                 arc_mlp_dim=400,
                  arc_mlp_dropout=0.33,
                  label_mlp_dim=100,
                  label_mlp_dropout=0.33,
@@ -30,8 +30,8 @@ class BiaffineParser(nn.Module):
 
         self.encoder = WordLSTMEncoder(input_dim, lstm_hidden_dim, **kwargs)
 
-        self.arc_biaff = ArcBiaffine(lstm_hidden_dim, arc_mlp_dim, arc_mlp_dropout)
-        self.lab_biaff = LabelBiaffine(lstm_hidden_dim, label_dim, label_mlp_dim, label_mlp_dropout)
+        self.arc_biaff = ArcBiaffine(lstm_hidden_dim*2, arc_mlp_dim, arc_mlp_dropout)
+        self.lab_biaff = LabelBiaffine(lstm_hidden_dim*2, label_dim, label_mlp_dim, label_mlp_dropout)
 
     def forward(self, batch):
         indexes, lengths = self._get_batch_indexes(batch)
