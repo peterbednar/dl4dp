@@ -1,5 +1,7 @@
 import math
 import heapq
+import time
+from datetime import timedelta
 from collections import defaultdict
 from functools import total_ordering
 import numpy as np
@@ -123,6 +125,7 @@ class progressbar(object):
     def __init__(self, total, width=50, bar='.', end='\n'):
         self.total = total
         self.value = 0
+        self.start_time = time.time()
         self.width = width
         self.bar = bar
         self.end = end
@@ -138,10 +141,19 @@ class progressbar(object):
             print(self.bar, end='', flush=True)
             prev += 1
     
-    def reset(self, value=0, total=None):
-        self.value = value
-        if total is not None:
-            self.total = total
-
     def finish(self):
         print(self.end, end='', flush=True)
+
+    def elapsed_time(self):
+        return timedelta(seconds=time.time() - self.start_time)
+    
+    def print_elapsed_time(self, msg):
+        t = self.elapsed_time()
+        ps = float(self.value) / t.total_seconds()
+        print(msg.format(t, ps), flush=True)
+
+    def reset(self, value=0, total=None):
+        self.value = value
+        self.start_time = time.time()
+        if total is not None:
+            self.total = total

@@ -1,5 +1,3 @@
-import time
-from datetime import timedelta
 import logging
 from pathlib import Path
 
@@ -35,7 +33,7 @@ class Trainer(object):
 
         for epoch in range(self.max_epoch):
             print(f'epoch: {epoch + 1}/{self.max_epoch}')
-            start_time = time.time()
+            pb.reset()
 
             for step, batch in enumerate(pipe(train_data).stream(total_size).shuffle().batch(self.batch_size)):
                 optimizer.zero_grad()
@@ -45,14 +43,14 @@ class Trainer(object):
 
                 pb.update(len(batch))
                 if self.logger:
-                    elapsed_time = time.time() - start_time
                     num_words = sum([instance.length for instance in batch])
-                    self.logger.info(f'{epoch + 1} {step + 1} {timedelta(seconds=elapsed_time)} {len(batch)} {num_words}'
+                    self.logger.info(f'{epoch + 1} {step + 1} {pb.elapsed_time()} {len(batch)} {num_words}'
                         f' {loss.item()} ' + ' '.join([str(metric.item()) for metric in metrics]))
+            
+            pb.finish()
+            pb.print_elapsed_time('elapsed time: {0}, {1:.2f} sentences/s')
 
             torch.save(model, self.model_dir / f'model_{epoch + 1}.pth')
-            pb.finish()
-            pb.reset()
 
             if self.validator:
                 print(f'validating epoch: {epoch + 1}/{self.max_epoch}')
@@ -94,7 +92,6 @@ class LASValidator(object):
         pb = progressbar(total_size)
         uas_correct = las_correct = em_correct = total = 0
 
-        start_time = time.time()
         for batch in pipe(validation_data).batch(self.batch_size):
             pred = model.parse(batch, unbind=True)
 
@@ -115,17 +112,17 @@ class LASValidator(object):
                 pb.update()
 
         pb.finish()
+        pb.print_elapsed_time('elapsed time: {0}, {1:.2f} sentences/s')
         self.step += 1
 
         uas = uas_correct / total
         las = las_correct / total
         em = em_correct / total_size
         metrics = (('UAS', uas), ('LAS', las), ('EM', em))
-        print(', '.join(f"{metric[0]}:{metric[1]:.4f}" for metric in metrics))
+        print(', '.join(f"{metric[0]}: {metric[1]:.4f}" for metric in metrics))
 
         if self.logger:
-            elapsed_time = time.time() - start_time
-            self.logger.info(f'{self.step} {timedelta(seconds=elapsed_time)} {total_size} {total} '
+            self.logger.info(f'{self.step} {pb.elapsed_time()} {total_size} {total} '
                     + ' '.join([str(metric[1]) for metric in metrics]))
 
         model.train(mode)
