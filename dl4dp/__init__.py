@@ -91,7 +91,7 @@ def main():
     p.only_words()
     p.only_fields('form', 'upos', 'feats', 'head', 'deprel')
     p.unwind_feats()
-    p.split('form')
+    p.split_chars('form')
     p.lowercase('form')
     p.replace('form', r'[0-9]+|[0-9]+\.[0-9]+|[0-9]+[0-9,]+', '__number__')
 

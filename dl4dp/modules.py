@@ -145,7 +145,6 @@ class Biaffine(nn.Module):
         x = x.unsqueeze(-3)
         y = y.unsqueeze(-3)
         s = x @ self.weight @ y.transpose(-1, -2)
-
         s.transpose_(-2, -3).transpose_(-2, -1)
         s.squeeze_(-1)
         return s
