@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.utils.rnn as rnn
-from torch.nn.functional import cross_entropy
+from torch.nn.functional import cross_entropy, bilinear
 from itertools import accumulate
 import numpy as np
 
@@ -124,6 +124,29 @@ class MLP(nn.Module):
         nn.init.xavier_uniform_(self.linear.weight, gain=gain)
         nn.init.zeros_(self.linear.bias)
 
+def _add_ones(x):
+    return torch.cat((x, x.new_ones(x.shape[:-1]).unsqueeze(-1)), -1)
+
+class Bilinear(nn.Module):
+
+    def __init__(self, input_dim, output_dim, bias_x=True, bias_y=True):
+        super().__init__()
+        self.bias_x = bias_x
+        self.bias_y = bias_y
+        self.weight = nn.Parameter(torch.empty((output_dim, input_dim + bias_x, input_dim + bias_y)))
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        gain = nn.init.calculate_gain('leaky_relu', 0.1)
+        nn.init.xavier_uniform_(self.weight, gain=gain)
+
+    def forward(self, x, y):
+        if self.bias_x:
+            x = _add_ones(x)
+        if self.bias_y:
+            y = _add_ones(y)
+        return bilinear(x, y, self.weight)
+
 class Biaffine(nn.Module):
 
     def __init__(self, input_dim, output_dim, bias_x=True, bias_y=True):
@@ -139,9 +162,9 @@ class Biaffine(nn.Module):
 
     def forward(self, x, y):
         if self.bias_x:
-            x = torch.cat((x, x.new_ones(x.shape[:-1]).unsqueeze(-1)), -1)
+            x = _add_ones(x)
         if self.bias_y:
-            y = torch.cat((y, y.new_ones(y.shape[:-1]).unsqueeze(-1)), -1)
+            y = _add_ones(y)
         x = x.unsqueeze(-3)
         y = y.unsqueeze(-3)
         s = x @ self.weight @ y.transpose(-1, -2)
