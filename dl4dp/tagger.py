@@ -29,12 +29,15 @@ class BiaffineTagger(nn.Module):
 
         input_dim = self.embeddings.size()
         self.encoder = LSTM(input_dim, lstm_hidden_dim, lstm_num_layers, lstm_dropout, True)
+
         encoder_dim = lstm_hidden_dim * 2
+        upos_dim = output_dims['upos']
 
         self.tags = nn.ModuleDict()
-        self.tags['upos'] = UposAffine(encoder_dim, output_dims['upos'], upos_mlp_dim, upos_mlp_dropout) 
-        for f, dim in output_dims['feats']:
+        self.tags['upos'] = UposAffine(encoder_dim, upos_dim, upos_mlp_dim, upos_mlp_dropout) 
+        for f, dim in output_dims['feats'].items():
             self.tags[f] = FeatsBiaffine(encoder_dim, dim, feats_mlp_dim, feats_mlp_dropout)
+        self.upos_embedding = Embedding('upos', (upos_dim, feats_mlp_dim), input_dropout)
 
     def forward(self, batch):
         x = [self.embeddings(instance) for instance in batch]
@@ -43,11 +46,11 @@ class BiaffineTagger(nn.Module):
 
     def loss(self, batch):
         h = self(batch)
-        upos_gold = _get_upos(batch)
+        upos_gold = self._get_upos(batch)
         return self.tags['upos'].loss(h, upos_gold)
 
     def _get_upos(self, batch):
-        x = [torch.from_numpy(t['upos']) for t in batch]
+        x = [torch.from_numpy(instance.upos) for instance in batch]
         return torch.cat(x, -1)
 
 class UposAffine(nn.Module):
