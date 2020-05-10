@@ -129,10 +129,10 @@ class LabelBiaffine(nn.Module):
         self.bilinear = Bilinear(mlp_dim, labels_dim, bias_x=True, bias_y=True)
 
     def forward(self, h, indexes, heads):
-        lab_h = self.h_mlp(h)
-        lab_d = self.d_mlp(h)
-        lab_h = lab_h[indexes[0,:], heads, :]
-        lab_d = lab_d[indexes[0,:], indexes[1,:], :]
+        lab_h = h[indexes[0,:], heads, :]
+        lab_d = h[indexes[0,:], indexes[1,:], :]
+        lab_h = self.h_mlp(lab_h)
+        lab_d = self.d_mlp(lab_d)
         lab_scores = self.bilinear(lab_d, lab_h)
         return lab_scores
 
