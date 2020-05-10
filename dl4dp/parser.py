@@ -55,8 +55,8 @@ class BiaffineParser(nn.Module):
             pred_arcs = self.arc_biaff.parse(h, indexes, lengths)
             pred_labs = self.lab_biaff.parse(h, indexes, pred_arcs)
             if unbind:
-                pred_arcs = unbind_sequence(pred_arcs, lengths)
-                pred_labs = unbind_sequence(pred_labs, lengths)
+                pred_arcs = unbind_sequence(pred_arcs.cpu(), lengths)
+                pred_labs = unbind_sequence(pred_labs.cpu(), lengths)
             return {'head': pred_arcs, 'deprel': pred_labs}
 
     def _get_batch_indexes(self, batch, device):
