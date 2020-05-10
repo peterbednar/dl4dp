@@ -12,7 +12,6 @@ class BiaffineParser(nn.Module):
                  input_dims,
                  output_dims,
                  input_dropout=0.33,
-                 lstm_hidden_dim=400,
                  arc_mlp_dim=400,
                  arc_mlp_dropout=0.33,
                  label_mlp_dim=100,
@@ -25,10 +24,10 @@ class BiaffineParser(nn.Module):
         self.embeddings['upos_feats'] = Embeddings('sum', 'upos_feats', input_dims, input_dropout, 1)
 
         input_dim = self.embeddings.size()
-        label_dim = output_dims['deprel']
+        self.encoder = WordLSTMEncoder(input_dim, **kwargs)
 
-        self.encoder = WordLSTMEncoder(input_dim, lstm_hidden_dim, **kwargs)
         encoder_dim = self.encoder.size()
+        label_dim = output_dims['deprel']
 
         self.arc_biaff = ArcBiaffine(encoder_dim, arc_mlp_dim, arc_mlp_dropout)
         self.lab_biaff = LabelBiaffine(encoder_dim, label_dim, label_mlp_dim, label_mlp_dropout)

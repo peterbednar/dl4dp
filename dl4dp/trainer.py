@@ -44,8 +44,8 @@ class Trainer(object):
                 pb.update(len(batch))
                 if self.logger:
                     num_words = sum([instance.length for instance in batch])
-                    self.logger.info(f'{epoch + 1} {step + 1} {pb.elapsed_time()} {len(batch)} {num_words}'
-                        f' {loss.item()} ' + ' '.join([str(metric.item()) for metric in metrics]))
+                    self.logger.info(f'{epoch + 1} {step + 1} {pb.elapsed_time()} {len(batch)} {num_words} {loss.item()} '
+                            + ' '.join([str(metric.item()) for metric in metrics]))
             
             pb.finish()
             pb.print_elapsed_time('elapsed time: {0}, {1:.2f} sentences/s')

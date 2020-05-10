@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.utils.rnn as rnn
 
 from .modules import loss_and_error
-from .modules import Embedding, Embeddings, MLP, Biaffine, _field_option
+from .modules import Embedding, Embeddings, MLP, LSTM, Bilinear, _field_option
 
 class BiaffineTagger(nn.Module):
 
@@ -15,6 +15,7 @@ class BiaffineTagger(nn.Module):
                  char_lstm_dropout=0.33,
                  lstm_hidden_dim=200,
                  lstm_num_layers=2,
+                 lstm_dropout=0.33,
                  upos_mlp_dim=100,
                  upos_mlp_dropout=0.33,
                  feats_mlp_dim=50,
@@ -25,6 +26,29 @@ class BiaffineTagger(nn.Module):
         self.embeddings['form'] = Embedding('form', input_dims, input_dropout)
         self.embeddings['form:chars'] = CharLSTMEncoder('form:chars', input_dims, input_dropout,
                 char_lstm_num_layers, char_lstm_dropout)
+
+        input_dim = self.embeddings.size()
+        self.encoder = LSTM(input_dim, lstm_hidden_dim, lstm_num_layers, lstm_dropout, True)
+        encoder_dim = lstm_hidden_dim * 2
+
+        self.tags = nn.ModuleDict()
+        self.tags['upos'] = UposAffine(encoder_dim, output_dims['upos'], upos_mlp_dim, upos_mlp_dropout) 
+        for f, dim in output_dims['feats']:
+            self.tags[f] = FeatsBiaffine(encoder_dim, dim, feats_mlp_dim, feats_mlp_dropout)
+
+    def forward(self, batch):
+        x = [self.embeddings(instance) for instance in batch]
+        h = self.encoder(x, unpad=True)
+        return h
+
+    def loss(self, batch):
+        h = self(batch)
+        upos_gold = _get_upos(batch)
+        return self.tags['upos'].loss(h, upos_gold)
+
+    def _get_upos(self, batch):
+        x = [torch.from_numpy(t['upos']) for t in batch]
+        return torch.cat(x, -1)
 
 class UposAffine(nn.Module):
 
@@ -49,11 +73,11 @@ class FeatsBiaffine(nn.Module):
     def __init__(self, input_dim, labels_dim, mlp_dim, mlp_dropout):
         super().__init__()
         self.mlp = MLP(input_dim, mlp_dim, mlp_dropout)
-        self.biaffine = Biaffine(mlp_dim, labels_dim, bias_x=True, bias_y=True)
+        self.bilinear = Bilinear(mlp_dim, labels_dim, bias_x=True, bias_y=True)
 
     def forward(self, h, upos):
         x = self.mlp(h)
-        y = self.biaffine(x, upos)
+        y = self.bilinear(x, upos)
         return y
 
     def loss(self, h, feats_gold, upos_gold):
