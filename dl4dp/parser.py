@@ -28,9 +28,10 @@ class BiaffineParser(nn.Module):
         label_dim = output_dims['deprel']
 
         self.encoder = WordLSTMEncoder(input_dim, lstm_hidden_dim, **kwargs)
+        encoder_dim = self.encoder.size()
 
-        self.arc_biaff = ArcBiaffine(lstm_hidden_dim*2, arc_mlp_dim, arc_mlp_dropout)
-        self.lab_biaff = LabelBiaffine(lstm_hidden_dim*2, label_dim, label_mlp_dim, label_mlp_dropout)
+        self.arc_biaff = ArcBiaffine(encoder_dim, arc_mlp_dim, arc_mlp_dropout)
+        self.lab_biaff = LabelBiaffine(encoder_dim, label_dim, label_mlp_dim, label_mlp_dropout)
 
     def forward(self, batch):
         x = [self.embeddings(instance) for instance in batch]
@@ -152,8 +153,12 @@ class WordLSTMEncoder(nn.Module):
                  lstm_dropout=0.33):
         super().__init__()
         self.root = nn.Parameter(torch.empty(input_dim))
+        self.hidden_dim = lstm_hidden_dim
         self.lstm = LSTM(input_dim, lstm_hidden_dim, lstm_num_layers, dropout=lstm_dropout, bidirectional=True)
         self.reset_parameters()
+
+    def size(self):
+        return self.hidden_dim * 2
 
     def forward(self, batch):
         batch = [torch.cat((self.root.unsqueeze(0), x)) for x in batch]

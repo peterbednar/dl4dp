@@ -102,10 +102,10 @@ def main():
     output_dims = get_dims({'upos', 'feats', 'deprel'}, index)
 
     model = get_model(model_type, input_dims, output_dims)
-    validator = get_validator(model_type, treebanks.get('dev'), logger='dl4dp.validation')
     if torch.cuda.is_available():
         model.to(torch.device('cuda'))
 
+    validator = get_validator(model_type, treebanks.get('dev'), logger='dl4dp.validation')
     trainer = Trainer(model_dir, max_epoch=max_epoch, validator=validator, logger='dl4dp.training')
     best_path = trainer.train(model, treebanks['train'])
 

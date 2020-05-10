@@ -74,9 +74,9 @@ class LASValidator(object):
         self.step = 0
         self.validation_data = validation_data
         self.batch_size = batch_size
-        self.logger = logger
         if isinstance(logger, str):
-            self.logger = logging.getLogger(logger)
+            logger = logging.getLogger(logger)
+        self.logger = logger
 
     def reset(self):
         self.step = 0
@@ -112,13 +112,14 @@ class LASValidator(object):
                 pb.update()
 
         pb.finish()
-        pb.print_elapsed_time('elapsed time: {0}, {1:.2f} sentences/s')
         self.step += 1
 
         uas = uas_correct / total
         las = las_correct / total
         em = em_correct / total_size
         metrics = (('UAS', uas), ('LAS', las), ('EM', em))
+
+        pb.print_elapsed_time('elapsed time: {0}, {1:.2f} sentences/s')
         print(', '.join(f"{metric[0]}: {metric[1]:.4f}" for metric in metrics))
 
         if self.logger:
