@@ -3,7 +3,7 @@ import torch.nn as nn
 from itertools import accumulate
 
 from .modules import loss_and_error, unbind_sequence
-from .modules import Embedding, Embeddings, MLP, Biaffine, LSTM
+from .modules import Embedding, Embeddings, MLP, Bilinear, Biaffine, LSTM
 from .utils import tarjan
 
 class BiaffineParser(nn.Module):
@@ -93,7 +93,7 @@ class ArcBiaffine(nn.Module):
     def forward(self, h, indexes):
         arc_h = self.h_mlp(h)
         arc_d = self.d_mlp(h)
-        arc_scores = self.biaffine(arc_h, arc_d)
+        arc_scores = self.biaffine(arc_d, arc_h)
         arc_scores = arc_scores[indexes[0,:], indexes[1,:], :]
         return arc_scores
 
@@ -126,13 +126,14 @@ class LabelBiaffine(nn.Module):
         super().__init__()
         self.h_mlp = MLP(encoder_dim, mlp_dim, mlp_dropout)
         self.d_mlp = MLP(encoder_dim, mlp_dim, mlp_dropout)
-        self.biaffine = Biaffine(mlp_dim, labels_dim, bias_x=True, bias_y=True)
+        self.bilinear = Bilinear(mlp_dim, labels_dim, bias_x=True, bias_y=True)
 
-    def forward(self, h, indexes, arcs):
+    def forward(self, h, indexes, heads):
         lab_h = self.h_mlp(h)
         lab_d = self.d_mlp(h)
-        lab_scores = self.biaffine(lab_h, lab_d)
-        lab_scores = lab_scores[indexes[0,:], indexes[1,:], arcs, :]
+        lab_h = lab_h[indexes[0,:], heads, :]
+        lab_d = lab_d[indexes[0,:], indexes[1,:], :]
+        lab_scores = self.bilinear(lab_d, lab_h)
         return lab_scores
 
     def loss(self, h, indexes):
@@ -148,7 +149,7 @@ class WordLSTMEncoder(nn.Module):
 
     def __init__(self,
                  input_dim,
-                 lstm_hidden_dim, 
+                 lstm_hidden_dim=400, 
                  lstm_num_layers=3,
                  lstm_dropout=0.33):
         super().__init__()
