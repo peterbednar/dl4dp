@@ -131,7 +131,7 @@ class LabelBiaffine(nn.Module):
     def forward(self, h, indexes, arcs):
         lab_h = self.h_mlp(h)
         lab_d = self.d_mlp(h)
-        lab_scores = self.biaffine(lab_h, lab_d).permute(0, 2, 3, 1)
+        lab_scores = self.biaffine(lab_h, lab_d)
         lab_scores = lab_scores[indexes[0,:], indexes[1,:], arcs, :]
         return lab_scores
 
