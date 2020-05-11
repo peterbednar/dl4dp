@@ -113,7 +113,8 @@ def main():
     trainer = Trainer(model_dir, max_epochs=max_epochs, validator=validator, logger='dl4dp.training')
     best_path = trainer.train(model, treebanks['train'])
 
-    if 'test' in treebanks:
+    test = get_validator(model_type, treebanks.get('test'))
+    if test:
         model = torch.load(best_path)
         print('testing:')
-        get_validator(model_type, treebanks['test']).validate(model)
+        test.validate(model)
