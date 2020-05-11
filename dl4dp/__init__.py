@@ -72,7 +72,7 @@ def log_config(model_dir, logger):
 def main():
     random_seed = 0
     max_epochs = 10
-    model_type = 'parser'
+    model_type = 'tagger'
 
     model_dir = 'build/en_ewt'
     treebanks = {
@@ -81,7 +81,7 @@ def main():
         'test': 'build/en_ewt-ud-test.conllu'
         }
 
-    dims = {'form': 100, 'form:chars': (32, 100), 'upos_feats': 100}
+    dims = {'form': 100, 'form:chars': (32, 50), 'upos_feats': 100}
 
     model_dir = Path(model_dir)
     log_config(model_dir, 'training')

@@ -34,26 +34,27 @@ class BiaffineTagger(nn.Module):
         upos_dim = output_dims['upos']
 
         self.tags = nn.ModuleDict()
-        self.tags['upos'] = UposAffine(encoder_dim, upos_dim, upos_mlp_dim, upos_mlp_dropout) 
+        self.tags['upos'] = Affine(encoder_dim, upos_dim, upos_mlp_dim, upos_mlp_dropout) 
         for f, dim in output_dims['feats'].items():
             self.tags[f] = FeatsBiaffine(encoder_dim, dim, feats_mlp_dim, feats_mlp_dropout)
-        self.upos_embedding = Embedding('upos', (upos_dim, feats_mlp_dim), input_dropout)
+        self.upos_embedding = Embedding('upos', (upos_dim, feats_mlp_dim))
 
     def forward(self, batch):
         x = [self.embeddings(instance) for instance in batch]
-        h = self.encoder(x, unpad=True)
+        h, _, _ = self.encoder(x, unpad=True)
+        h = torch.cat(h)
         return h
 
     def loss(self, batch):
         h = self(batch)
-        upos_gold = self._get_upos(batch)
-        return self.tags['upos'].loss(h, upos_gold)
+        upos_gold = self._get_gold('upos', batch)
+        loss, error = self.tags['upos'].loss(h, upos_gold)
+        return loss, (error, )
 
-    def _get_upos(self, batch):
-        x = [torch.from_numpy(instance.upos) for instance in batch]
-        return torch.cat(x, -1)
+    def _get_gold(self, field, batch):
+        return torch.cat([torch.from_numpy(instance[field]) for instance in batch])
 
-class UposAffine(nn.Module):
+class Affine(nn.Module):
 
     def __init__(self, input_dim, labels_dim, mlp_dim, mlp_dropout):
         super().__init__()
@@ -65,8 +66,8 @@ class UposAffine(nn.Module):
         y = self.affine(x)
         return y
 
-    def loss(self, h, upos_gold):
-        return loss_and_error(self(h), upos_gold)
+    def loss(self, h, gold):
+        return loss_and_error(self(h), gold)
 
     def parse(self, h):
         return self(h).max(1)[1]
@@ -91,21 +92,30 @@ class FeatsBiaffine(nn.Module):
 
 class CharLSTMEncoder(nn.Module):
 
-    def __init__(self, field, dims, input_dropout, lstm_num_layers=2, lstm_dropout=0.33):
+    def __init__(self, field, dims, input_dropout, num_layers=2, lstm_dropout=0.33):
         super().__init__()
+        self.field = field
         dims = _field_option(field, dims)
-        self.embedding = Embedding(field, (dims[0], dims[1][0]), input_dropout)
-        self.lstm_hidden_dim = dims[1][1]
-        self.lstm = nn.LSTM(dims[1], self.lstm_hidden_dim, lstm_num_layers, dropout=lstm_dropout, bidirectional=True,
-                            batch_first=True)
+
+        input_dim = dims[1][0]
+        self.hidden_dim = dims[1][1]
+        self.bidirectional = True
+
+        self.embedding = Embedding(field, (dims[0], input_dim), input_dropout)
+        self.lstm = nn.LSTM(input_dim, self.hidden_dim, num_layers, dropout=lstm_dropout,
+                            bidirectional=self.bidirectional, batch_first=True)
 
     def size(self):
-        return self.lstm_hidden_dim * 2
+        return self.hidden_dim * 2 if self.bidirectional else self.hidden_dim
 
     def __call__(self, instance):
         x = instance[self.field]
         x = [self.embedding(w) for w in x]
         x = rnn.pack_sequence(x, enforce_sorted=False)
         _, (h, _) = self.lstm(x)
-        h = h[-1, :, :]
+
+        if self.bidirectional:
+            h = torch.cat((h[-1, :, :], h[-2, :, :]), -1)
+        else:
+            h = h[-1, :, :]
         return h
