@@ -71,8 +71,8 @@ def log_config(model_dir, logger):
 
 def main():
     random_seed = 0
-    max_epoch = 10
-    model_type = 'tagger'
+    max_epochs = 10
+    model_type = 'parser'
 
     model_dir = 'build/en_ewt'
     treebanks = {
@@ -110,7 +110,7 @@ def main():
         model.to(torch.device('cuda'))
 
     validator = get_validator(model_type, treebanks.get('dev'), logger='dl4dp.validation')
-    trainer = Trainer(model_dir, max_epoch=max_epoch, validator=validator, logger='dl4dp.training')
+    trainer = Trainer(model_dir, max_epochs=max_epochs, validator=validator, logger='dl4dp.training')
     best_path = trainer.train(model, treebanks['train'])
 
     if 'test' in treebanks:

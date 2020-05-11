@@ -8,12 +8,12 @@ from .utils import progressbar
 
 class Trainer(object):
 
-    def __init__(self, model_dir=None, max_epoch=1, batch_size=100, validator=None, logger=None):
+    def __init__(self, model_dir=None, max_epochs=1, batch_size=100, validator=None, logger=None):
         if isinstance(model_dir, str):
             model_dir = Path(model_dir)
         self.model_dir = model_dir
         self.model_dir.mkdir(parents=True, exist_ok=True)
-        self.max_epoch = max_epoch
+        self.max_epochs = max_epochs
         self.batch_size = batch_size
         self.validator = validator
         if isinstance(logger, str):
@@ -31,8 +31,8 @@ class Trainer(object):
         pb = progressbar(total_size)
         optimizer = self._optimizer(model)
 
-        for epoch in range(self.max_epoch):
-            print(f'epoch: {epoch + 1}/{self.max_epoch}')
+        for epoch in range(self.max_epochs):
+            print(f'epoch: {epoch + 1}/{self.max_epochs}')
             pb.reset()
 
             for step, batch in enumerate(pipe(train_data).stream(total_size).shuffle().batch(self.batch_size)):
@@ -53,7 +53,7 @@ class Trainer(object):
             torch.save(model, self.model_dir / f'model_{epoch + 1}.pth')
 
             if self.validator:
-                print(f'validating epoch: {epoch + 1}/{self.max_epoch}')
+                print(f'validating epoch: {epoch + 1}/{self.max_epochs}')
                 score, metrics = self.validator.validate(model)
                 if best_score is None or best_score < score:
                     best_score = score

@@ -46,7 +46,7 @@ class Embedding(nn.Module):
             x = torch.from_numpy(x).long()
 
         if self.training and self.input_dropout > 0:
-            mask = torch.rand(x.shape) < self.input_dropout
+            mask = torch.rand_like(x, dtype=torch.float) < self.input_dropout
             x = x.masked_fill(mask, 0) # Do not modify original data.
 
         x = x.to(self.embedding.weight.device, non_blocking=True)
