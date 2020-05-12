@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.utils.rnn as rnn
 
-from .modules import loss_and_error
+from .modules import loss_and_error, unbind_sequence
 from .modules import Embedding, Embeddings, MLP, LSTM, Bilinear, _field_option
 
 class BiaffineTagger(nn.Module):
@@ -54,15 +54,31 @@ class BiaffineTagger(nn.Module):
         loss = torch.stack(losses).sum()
         return loss, (losses + errors)
 
+    def parse(self, batch, unbind=True):
+        if self.training:
+            raise RuntimeError('Not in eval mode.')
+
+        with torch.no_grad():
+            h = self(batch)
+            upos_pred = self._tag_parse('upos', h)
+            upos_embedding = self.upos_embedding(upos_pred)
+
+            tags_pred = {f: self._tag_parse(f, h, upos_embedding) for f in self.tags.key() if f != 'upos'}
+            tags_pred['upos'] = upos_pred
+            if unbind:
+                lengths = [instance.length for instance in batch]
+                tags_pred = {f: unbind_sequence(pred.cpu(), lengths) for f, pred in self.tags.items()}
+            return tags_pred
+
     def _tag_gold(self, field, batch):
         return torch.cat([torch.from_numpy(instance[field]) for instance in batch])
 
-    def _tag_loss(self, field, h, tags_gold, upos_embedding):
+    def _tag_loss(self, field, h, tags_gold, upos_embedding=None):
         tag = self.tags[field]
         gold = tags_gold[field]
         return tag.loss(h, gold) if field == 'upos' else tag.loss(h, gold, upos_embedding)
 
-    def _tag_parse(self, field, h, upos_embedding):
+    def _tag_parse(self, field, h, upos_embedding=None):
         tag = self.tags[field]
         return tag.parse(h) if field == 'upos' else tag.parse(h, upos_embedding)
 
