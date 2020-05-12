@@ -9,7 +9,7 @@ import numpy as np
 from conllutils import pipe
 from .tagger import BiaffineTagger
 from .parser import BiaffineParser
-from .trainer import Trainer, LASValidator
+from .trainer import Trainer, UPosFeatsF1, LAS
 
 def build_index(treebanks, p):
     print('building index...')
@@ -34,8 +34,10 @@ def get_model(model_type, *args, **kwargs):
 def get_validator(model_type, treebank, *args, **kwargs):
     if treebank is None:
         return None
+    if model_type == 'tagger':
+        return UPosFeatsF1(treebank, *args, **kwargs)
     if model_type == 'parser':
-        return LASValidator(treebank, *args, **kwargs)
+        return LAS(treebank, *args, **kwargs)
     return None
 
 def get_dims(dims, index):
@@ -72,7 +74,7 @@ def log_config(model_dir, logger):
 def main():
     random_seed = 0
     max_epochs = 10
-    model_type = 'tagger'
+    model_type = 'parser'
 
     model_dir = 'build/en_ewt'
     treebanks = {
@@ -117,4 +119,4 @@ def main():
     if test:
         model = torch.load(best_path)
         print('testing:')
-        test.validate(model)
+        test(model)

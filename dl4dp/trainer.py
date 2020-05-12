@@ -1,5 +1,7 @@
 import logging
 from pathlib import Path
+from abc import abstractmethod
+from collections import Counter
 
 import torch
 from torch.optim import Adam
@@ -48,13 +50,13 @@ class Trainer(object):
                             + ' '.join([str(metric.item()) for metric in metrics]))
             
             pb.finish()
-            pb.print_elapsed_time('elapsed time: {0}, {1:.2f} sentences/s')
+            pb.print_elapsed_time('sentences')
 
             torch.save(model, self.model_dir / f'model_{epoch + 1}.pth')
 
             if self.validator:
                 print(f'validating epoch: {epoch + 1}/{self.max_epochs}')
-                score, metrics = self.validator.validate(model)
+                score, metrics = self.validator(model)
                 if best_score is None or best_score < score:
                     best_score = score
                     best_epoch = epoch + 1
@@ -68,31 +70,61 @@ class Trainer(object):
     def _optimizer(self, model):
         return Adam(model.parameters(), betas=(0.9, 0.9))
 
-class LASValidator(object):
-    
-    def __init__(self, validation_data=None, batch_size=100, logger=None):
+class Validator(object):
+
+    def __init__(self, validation_data, batch_size=100, logger=None):
         self.step = 0
-        self.validation_data = validation_data
-        self.batch_size = batch_size
+        self.progress = progressbar(len(validation_data))
+        self.data = pipe(validation_data).batch(batch_size)
         if isinstance(logger, str):
             logger = logging.getLogger(logger)
         self.logger = logger
 
-    def reset(self):
-        self.step = 0
-
-    def validate(self, model, validation_data=None):
-        if validation_data is None:
-            validation_data = self.validation_data
-
+    def __call__(self, model):
         mode = model.training
         model.eval()
 
-        total_size = len(validation_data)
-        pb = progressbar(total_size)
-        uas_correct = las_correct = em_correct = total = 0
+        self.progress.reset()
+        score, metrics = self.validate(model)
+        self.progress.finish()
 
-        for batch in pipe(validation_data).batch(self.batch_size):
+        self.step += 1
+        self._print_metrics(metrics)
+        self._log(metrics)
+
+        model.train(mode)
+        return score, metrics
+
+    def _print_metrics(self, metrics):
+        self.progress.print_elapsed_time('sentences')
+        print(', '.join(f'{n}: {v:.4f}' for n, v in metrics.items()))
+
+    def _log(self, metrics):
+        pass
+        
+    @abstractmethod
+    def validate(self, model):
+        pass
+
+class UPosFeatsF1(Validator):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def validate(self, model):
+        pass
+
+class LAS(Validator):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def validate(self, model):
+        em_correct = 0
+        uas_correct = las_correct = 0
+        total_words = total_sentences = 0
+
+        for batch in self.data:
             pred = model.parse(batch, unbind=True)
 
             for gold, pred in zip(batch, zip(pred['head'], pred['deprel'])):
@@ -108,23 +140,13 @@ class LASValidator(object):
                 if deprel_correct == gold.length:
                     em_correct += 1
 
-                total += gold.length
-                pb.update()
+                total_sentences += 1
+                total_words += gold.length
+                self.progress.update()
 
-        pb.finish()
-        self.step += 1
+        las = las_correct / total_words
+        uas = uas_correct / total_words
+        em  = em_correct  / total_sentences
 
-        uas = uas_correct / total
-        las = las_correct / total
-        em = em_correct / total_size
-        metrics = (('UAS', uas), ('LAS', las), ('EM', em))
-
-        pb.print_elapsed_time('elapsed time: {0}, {1:.2f} sentences/s')
-        print(', '.join(f"{metric[0]}: {metric[1]:.4f}" for metric in metrics))
-
-        if self.logger:
-            self.logger.info(f'{self.step} {pb.elapsed_time()} {total_size} {total} '
-                    + ' '.join([str(metric[1]) for metric in metrics]))
-
-        model.train(mode)
+        metrics = {'LAS': las, 'UAS': uas, 'EM': em}
         return las, metrics

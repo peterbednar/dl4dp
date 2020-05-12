@@ -147,11 +147,11 @@ class progressbar(object):
     def elapsed_time(self):
         return timedelta(seconds=time.time() - self.start_time)
 
-    def print_elapsed_time(self, msg):
+    def print_elapsed_time(self, unit='samples'):
         ts = time.time() - self.start_time
         td = timedelta(seconds=round(ts))
         ps = float(self.value) / ts
-        print(msg.format(td, ps), flush=True)
+        print(f'elapsed time: {td}, {ps:.2f} {unit}/s', flush=True)
 
     def reset(self, value=0, total=None):
         self.value = value
