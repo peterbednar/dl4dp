@@ -47,12 +47,24 @@ class BiaffineTagger(nn.Module):
 
     def loss(self, batch):
         h = self(batch)
-        upos_gold = self._get_gold('upos', batch)
-        loss, error = self.tags['upos'].loss(h, upos_gold)
-        return loss, (error, )
+        tags_gold = {f: self._tag_gold(f, batch) for f in self.tags.keys()}
+        upos_embedding = self.upos_embedding(tags_gold['upos'])
 
-    def _get_gold(self, field, batch):
+        losses, errors = zip(*[self._tag_loss(f, h, tags_gold, upos_embedding) for f in self.tags.keys()])
+        loss = torch.stack(losses).sum()
+        return loss, (losses + errors)
+
+    def _tag_gold(self, field, batch):
         return torch.cat([torch.from_numpy(instance[field]) for instance in batch])
+
+    def _tag_loss(self, field, h, tags_gold, upos_embedding):
+        tag = self.tags[field]
+        gold = tags_gold[field]
+        return tag.loss(h, gold) if field == 'upos' else tag.loss(h, gold, upos_embedding)
+
+    def _tag_parse(self, field, h, upos_embedding):
+        tag = self.tags[field]
+        return tag.parse(h) if field == 'upos' else tag.parse(h, upos_embedding)
 
 class Affine(nn.Module):
 
@@ -79,16 +91,16 @@ class FeatsBiaffine(nn.Module):
         self.mlp = MLP(input_dim, mlp_dim, mlp_dropout)
         self.bilinear = Bilinear(mlp_dim, labels_dim, bias_x=True, bias_y=True)
 
-    def forward(self, h, upos):
+    def forward(self, h, upos_embedding):
         x = self.mlp(h)
-        y = self.bilinear(x, upos)
+        y = self.bilinear(x, upos_embedding)
         return y
 
-    def loss(self, h, feats_gold, upos_gold):
-        return loss_and_error(self(h, upos_gold), feats_gold)
+    def loss(self, h, feats_gold, upos_embedding):
+        return loss_and_error(self(h, upos_embedding), feats_gold)
 
-    def parse(self, h, upos):
-        return self(h, upos).max(1)[1]
+    def parse(self, h, upos_embedding):
+        return self(h, upos_embedding).max(1)[1]
 
 class CharLSTMEncoder(nn.Module):
 
