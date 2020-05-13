@@ -63,7 +63,7 @@ class BiaffineTagger(nn.Module):
             upos_pred = self._tag_parse('upos', h)
             upos_embedding = self.upos_embedding(upos_pred)
 
-            tags_pred = {f: self._tag_parse(f, h, upos_embedding) for f in self.tags.key() if f != 'upos'}
+            tags_pred = {f: self._tag_parse(f, h, upos_embedding) for f in self.tags.keys() if f != 'upos'}
             tags_pred['upos'] = upos_pred
             if unbind:
                 lengths = [instance.length for instance in batch]

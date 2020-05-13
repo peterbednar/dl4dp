@@ -106,13 +106,32 @@ class Validator(object):
     def validate(self, model):
         pass
 
-class UPosFeatsF1(Validator):
+class UPosFeatsAcc(Validator):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
     def validate(self, model):
-        pass
+        counts = Counter()
+        total_words = 0
+
+        for batch in self.data:
+            pred = model.parse(batch, unbind=False)
+            total_words += sum([instance.length for instance in batch])
+            for f, pr in pred.items():
+                gold = self._get_gold(f, batch)
+                counts[f] += gold.eq(pr.cpu()).sum().item()
+            self.progress.update(len(batch))
+
+        for f in counts:
+            counts[f] /= total_words
+        upos_acc = counts.pop('upos')
+        feats_acc = sum(counts.values()) / len(counts)
+
+        return (upos_acc + feats_acc)/2, {'UPosAcc': upos_acc, 'UFeatsAcc': feats_acc}
+
+    def _get_gold(self, field, batch):
+        return torch.cat([torch.from_numpy(instance[field]) for instance in batch])
 
 class LAS(Validator):
 

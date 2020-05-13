@@ -9,7 +9,7 @@ import numpy as np
 from conllutils import pipe
 from .tagger import BiaffineTagger
 from .parser import BiaffineParser
-from .trainer import Trainer, UPosFeatsF1, LAS
+from .trainer import Trainer, UPosFeatsAcc, LAS
 
 def build_index(treebanks, p):
     print('building index...')
@@ -35,7 +35,7 @@ def get_validator(model_type, treebank, *args, **kwargs):
     if treebank is None:
         return None
     if model_type == 'tagger':
-        return UPosFeatsF1(treebank, *args, **kwargs)
+        return UPosFeatsAcc(treebank, *args, **kwargs)
     if model_type == 'parser':
         return LAS(treebank, *args, **kwargs)
     return None
@@ -74,7 +74,7 @@ def log_config(model_dir, logger):
 def main():
     random_seed = 0
     max_epochs = 10
-    model_type = 'parser'
+    model_type = 'tagger'
 
     model_dir = 'build/en_ewt'
     treebanks = {
