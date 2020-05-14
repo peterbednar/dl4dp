@@ -70,10 +70,11 @@ class Trainer(object):
 
 class Validator(ABC):
 
-    def __init__(self, validation_data, batch_size=100, logger=None):
+    def __init__(self, data, batch_size=100, logger=None):
         self.step = 0
-        self.progress = progressbar(len(validation_data))
-        self.data = pipe(validation_data).batch(batch_size)
+        self.progress = progressbar(len(data))
+        self.data = data
+        self.batches = pipe(data).batch(batch_size)
         if isinstance(logger, str):
             logger = get_logger(logger)
         self.logger = logger
@@ -103,7 +104,13 @@ class Validator(ABC):
 
     def _log(self, metrics):
         if self.logger:
-            self.logger.log(metrics)
+            record = {
+                    'step': self.step,
+                    'elapsed_time': self.progress.elapsed_time().total_seconds(),
+                    'total_sentences': len(self.data),
+                    'total_words': sum((instance.length for instance in self.data))
+                } + metrics
+            self.logger.log(record)
         
 class UPosFeatsAcc(Validator):
 
@@ -114,7 +121,7 @@ class UPosFeatsAcc(Validator):
         counts = Counter()
         total_words = 0
 
-        for batch in self.data:
+        for batch in self.batches:
             pred = model.parse(batch, unbind=False)
             total_words += sum([instance.length for instance in batch])
             for f, pr in pred.items():
@@ -127,7 +134,9 @@ class UPosFeatsAcc(Validator):
         upos_acc = counts.pop('upos')
         feats_acc = sum(counts.values()) / len(counts)
 
-        return (upos_acc + feats_acc)/2, {'UPosAcc': upos_acc, 'UFeatsAcc': feats_acc}
+        score = (upos_acc + feats_acc)/2 
+        metrics = {'UPosAcc': upos_acc, 'UFeatsAcc': feats_acc}
+        return score, metrics 
 
     def _get_gold(self, field, batch):
         return torch.cat([torch.from_numpy(instance[field]) for instance in batch])
@@ -142,7 +151,7 @@ class LAS(Validator):
         uas_correct = las_correct = 0
         total_words = total_sentences = 0
 
-        for batch in self.data:
+        for batch in self.batches:
             pred = model.parse(batch, unbind=True)
 
             for gold, pred in zip(batch, zip(pred['head'], pred['deprel'])):
