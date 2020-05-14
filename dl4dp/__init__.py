@@ -10,6 +10,16 @@ from .parser import BiaffineParser
 from .trainer import Trainer, UPosFeatsAcc, LAS
 from .utils import register_logger
 
+def preprocess():
+    p = pipe()
+    p.only_words()
+    p.only_fields('form', 'upos', 'feats', 'head', 'deprel')
+    p.unwind_feats()
+    p.split_chars('form')
+    p.lowercase('form')
+    p.replace('form', r'[0-9]+|[0-9]+\.[0-9]+|[0-9]+[0-9,]+', '__number__')
+    return p
+
 def build_index(treebanks, p):
     print('building index...')
     index = pipe().read_conllu(treebanks['train']).pipe(p).create_index(missing_index=1)
@@ -87,14 +97,7 @@ def main():
     torch.manual_seed(random_seed)
     torch.cuda.manual_seed(random_seed)
 
-    p = pipe()
-    p.only_words()
-    p.only_fields('form', 'upos', 'feats', 'head', 'deprel')
-    p.unwind_feats()
-    p.split_chars('form')
-    p.lowercase('form')
-    p.replace('form', r'[0-9]+|[0-9]+\.[0-9]+|[0-9]+[0-9,]+', '__number__')
-
+    p = preprocess()
     index = build_index(treebanks, p)
     treebanks = load_treebanks(treebanks, p, index)
 
