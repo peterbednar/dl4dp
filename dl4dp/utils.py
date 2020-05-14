@@ -4,6 +4,7 @@ import time
 from datetime import timedelta
 from collections import defaultdict
 from functools import total_ordering
+from csv import DictWriter
 import numpy as np
 
 def tarjan(scores, heads):
@@ -158,3 +159,33 @@ class progressbar(object):
         self.start_time = time.time()
         if total is not None:
             self.total = total
+
+_loggers = {}
+
+def get_logger(name):
+    return _loggers[name]
+
+def register_logger(name, filename):
+    if name in _loggers:
+        _loggers[name].close()
+    _loggers[name] = CsvLogger(filename)
+
+class CsvLogger(object):
+
+    def __init__(self, filename):
+        self.filename = filename
+        self.writer = None
+        self.stream = None
+
+    def log(self, data):
+        if self.writer is None:
+            fieldnames = data.keys()
+            self.stream = open(self.filename, 'w', encoding='utf8', newline='')
+            self.writer = DictWriter(self.stream, fieldnames)
+            self.writer.writeheader()
+        self.writer.writerow(data)
+        self.stream.flush()
+
+    def close(self):
+        if self.stream:
+            self.stream.close()

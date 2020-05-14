@@ -1,12 +1,12 @@
-import logging
 from pathlib import Path
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from collections import Counter
 
 import torch
 from torch.optim import Adam
 from conllutils import pipe
-from .utils import progressbar
+
+from .utils import progressbar, get_logger
 
 class Trainer(object):
 
@@ -18,9 +18,7 @@ class Trainer(object):
         self.max_epochs = max_epochs
         self.batch_size = batch_size
         self.validator = validator
-        if isinstance(logger, str):
-            logger = logging.getLogger(logger)
-        self.logger = logger
+        self.logger = None
 
     def train(self, model, train_data):
         best_epoch = 0
@@ -70,15 +68,19 @@ class Trainer(object):
     def _optimizer(self, model):
         return Adam(model.parameters(), betas=(0.9, 0.9))
 
-class Validator(object):
+class Validator(ABC):
 
     def __init__(self, validation_data, batch_size=100, logger=None):
         self.step = 0
         self.progress = progressbar(len(validation_data))
         self.data = pipe(validation_data).batch(batch_size)
         if isinstance(logger, str):
-            logger = logging.getLogger(logger)
+            logger = get_logger(logger)
         self.logger = logger
+
+    @abstractmethod
+    def validate(self, model):
+        pass
 
     def __call__(self, model):
         mode = model.training
@@ -100,12 +102,9 @@ class Validator(object):
         print(', '.join(f'{n}: {v:.4f}' for n, v in metrics.items()))
 
     def _log(self, metrics):
-        pass
+        if self.logger:
+            self.logger.log(metrics)
         
-    @abstractmethod
-    def validate(self, model):
-        pass
-
 class UPosFeatsAcc(Validator):
 
     def __init__(self, *args, **kwargs):

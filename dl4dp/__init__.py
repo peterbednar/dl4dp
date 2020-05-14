@@ -1,15 +1,14 @@
 import os
 from pathlib import Path
-import logging
-from logging import FileHandler
+from conllutils import pipe
 
 import torch
 import numpy as np
 
-from conllutils import pipe
 from .tagger import BiaffineTagger
 from .parser import BiaffineParser
 from .trainer import Trainer, UPosFeatsAcc, LAS
+from .utils import register_logger
 
 def build_index(treebanks, p):
     print('building index...')
@@ -66,14 +65,9 @@ def get_dims(dims, index):
 
     return index_dims
 
-def log_config(model_dir, logger):
-    log = logging.getLogger('dl4dp.' + logger)
-    log.setLevel(logging.INFO)
-    log.addHandler(FileHandler(model_dir / (logger + '.log'), mode='w'))
-
 def main():
     random_seed = 0
-    max_epochs = 10
+    max_epochs = 30
     model_type = 'tagger'
 
     model_dir = 'build/en_ewt'
@@ -86,8 +80,8 @@ def main():
     dims = {'form': 100, 'form:chars': (32, 50), 'upos_feats': 100}
 
     model_dir = Path(model_dir)
-    log_config(model_dir, 'training')
-    log_config(model_dir, 'validation')
+    register_logger('training', model_dir / 'trainining.csv')
+    register_logger('validation', model_dir / 'validation.csv')
 
     np.random.seed(random_seed)
     torch.manual_seed(random_seed)
@@ -111,8 +105,8 @@ def main():
     if torch.cuda.is_available():
         model.to(torch.device('cuda'))
 
-    validator = get_validator(model_type, treebanks.get('dev'), logger='dl4dp.validation')
-    trainer = Trainer(model_dir, max_epochs=max_epochs, validator=validator, logger='dl4dp.training')
+    validator = get_validator(model_type, treebanks.get('dev'), logger='validation')
+    trainer = Trainer(model_dir, max_epochs=max_epochs, validator=validator, logger='training')
     best_path = trainer.train(model, treebanks['train'])
 
     test = get_validator(model_type, treebanks.get('test'))
