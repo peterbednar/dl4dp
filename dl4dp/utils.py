@@ -1,6 +1,7 @@
 import math
 import heapq
 import time
+import requests
 from datetime import timedelta
 from collections import defaultdict
 from functools import total_ordering
@@ -189,3 +190,16 @@ class CsvLogger(object):
     def close(self):
         if self.stream:
             self.stream.close()
+
+def get_url(url, path, progress=True):
+    request = requests.get(url, stream=True)
+    with open(path, 'wb') as f:
+        if progress:
+            total_length = int(request.headers.get('content-length'))
+            pb = progressbar(total_length)
+        for chunk in request:
+            f.write(chunk)
+            if progress:
+                pb.update(len(chunk))
+        if progress:
+            pb.finish()

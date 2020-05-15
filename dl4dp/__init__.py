@@ -1,14 +1,14 @@
 import os
 from pathlib import Path
-from conllutils import pipe
 
 import torch
 import numpy as np
+from conllutils import pipe
 
 from .tagger import BiaffineTagger
 from .parser import BiaffineParser
 from .trainer import Trainer, UPosFeatsAcc, LAS
-from .utils import register_logger
+from .utils import register_logger, get_url
 
 def preprocess():
     p = pipe()
@@ -75,6 +75,8 @@ def get_dims(dims, index):
 
     return index_dims
 
+_UD_URL = 'https://lindat.mff.cuni.cz/repository/xmlui/bitstream/handle/11234/1-3226/ud-treebanks-v2.6.tgz?sequence=1&isAllowed=y'
+
 def main():
     random_seed = 0
     max_epochs = 30
@@ -85,7 +87,7 @@ def main():
         'train': 'build/en_ewt-ud-train.conllu',
         'dev': 'build/en_ewt-ud-dev.conllu',
         'test': 'build/en_ewt-ud-test.conllu'
-        }
+    }
 
     dims = {'form': 100, 'form:chars': (32, 50), 'upos_feats': 100}
 
