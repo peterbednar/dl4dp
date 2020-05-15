@@ -123,7 +123,7 @@ class _edge(object):
 
 class progressbar(object):
 
-    def __init__(self, total, width=50, bar='.', end='\n'):
+    def __init__(self, total=100, width=50, bar='.', end='\n'):
         self.total = total
         self.value = 0
         self.start_time = time.time()

@@ -8,7 +8,7 @@ import numpy as np
 def loss_and_error(scores, gold):
     pred = scores.max(1)[1]
     loss = cross_entropy(scores, gold)
-    error = 1 - (pred.eq(gold).sum() / float(gold.size()[0]))
+    error = 1 - (pred.eq(gold).sum() / gold.size()[0])
     return loss, error
 
 def unpad_sequence(batch, lengths):

@@ -43,7 +43,13 @@ class BiaffineParser(nn.Module):
         arc_loss, arc_error = self.arc_biaff.loss(h, indexes)
         lab_loss, lab_error = self.lab_biaff.loss(h, indexes)
         loss = arc_loss + lab_loss
-        return loss, (arc_loss, lab_loss, arc_error, lab_error)
+        metrics = {
+            'head_loss': arc_loss,
+            'deprel_loss': lab_loss,
+            'head_error': arc_error,
+            'deprel_error': lab_error
+        }
+        return loss, metrics
 
     def parse(self, batch, unbind=True):
         if self.training:

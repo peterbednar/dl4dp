@@ -49,10 +49,12 @@ class BiaffineTagger(nn.Module):
         h = self(batch)
         tags_gold = {f: self._tag_gold(f, batch) for f in self.tags.keys()}
         upos_embedding = self.upos_embedding(tags_gold['upos'])
-
         losses, errors = zip(*[self._tag_loss(f, h, tags_gold, upos_embedding) for f in self.tags.keys()])
+
         loss = torch.stack(losses).sum()
-        return loss, (losses + errors)
+        metrics = {f + '_loss': l for f, l in zip(self.tags.keys(), losses)}
+        metrics.update({f + '_error': e for f, e in zip(self.tags.keys(), errors)})
+        return loss, metrics
 
     def parse(self, batch, unbind=True):
         if self.training:

@@ -90,7 +90,7 @@ def main():
     dims = {'form': 100, 'form:chars': (32, 50), 'upos_feats': 100}
 
     model_dir = Path(model_dir)
-    register_logger('training', model_dir / 'trainining.csv')
+    register_logger('training', model_dir / 'training.csv')
     register_logger('validation', model_dir / 'validation.csv')
 
     np.random.seed(random_seed)

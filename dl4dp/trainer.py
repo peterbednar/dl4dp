@@ -18,7 +18,10 @@ class Trainer(object):
         self.max_epochs = max_epochs
         self.batch_size = batch_size
         self.validator = validator
-        self.logger = None
+        if isinstance(logger, str):
+            logger = get_logger(logger)
+        self.logger = logger
+        self.progress = progressbar()
 
     def train(self, model, train_data):
         best_epoch = 0
@@ -28,12 +31,12 @@ class Trainer(object):
         if total_size % self.batch_size:
             total_size += self.batch_size - (total_size % self.batch_size)
 
-        pb = progressbar(total_size)
+        self.progress.reset(total=total_size)
         optimizer = self._optimizer(model)
 
         for epoch in range(self.max_epochs):
             print(f'epoch: {epoch + 1}/{self.max_epochs}')
-            pb.reset()
+            self.progress.reset()
 
             for step, batch in enumerate(pipe(train_data).stream(total_size).shuffle().batch(self.batch_size)):
                 optimizer.zero_grad()
@@ -41,14 +44,11 @@ class Trainer(object):
                 loss.backward()
                 optimizer.step()
 
-                pb.update(len(batch))
-                if self.logger:
-                    num_words = sum([instance.length for instance in batch])
-                    self.logger.info(f'{epoch + 1} {step + 1} {pb.elapsed_time()} {len(batch)} {num_words} {loss.item()} '
-                            + ' '.join([str(metric.item()) for metric in metrics]))
+                self.progress.update(len(batch))
+                self._log(epoch + 1, step + 1, batch, loss, metrics)
             
-            pb.finish()
-            pb.print_elapsed_time('sentences')
+            self.progress.finish()
+            self.progress.print_elapsed_time('sentences')
 
             torch.save(model, self.model_dir / f'model_{epoch + 1}.pth')
 
@@ -67,6 +67,19 @@ class Trainer(object):
 
     def _optimizer(self, model):
         return Adam(model.parameters(), betas=(0.9, 0.9))
+
+    def _log(self, epoch, step, batch, loss, metrics):
+        if self.logger:
+            record = {
+                'epoch': epoch,
+                'step': step,
+                'elapsed_time': self.progress.elapsed_time().total_seconds(),
+                'batch_sentences': len(batch),
+                'batch_words': sum((instance.length for instance in batch)),
+                'loss': loss.item()
+            }
+            record.update({f: m.item() for f, m in metrics.items()})
+            self.logger.log(record)            
 
 class Validator(ABC):
 
@@ -105,11 +118,12 @@ class Validator(ABC):
     def _log(self, metrics):
         if self.logger:
             record = {
-                    'step': self.step,
-                    'elapsed_time': self.progress.elapsed_time().total_seconds(),
-                    'total_sentences': len(self.data),
-                    'total_words': sum((instance.length for instance in self.data))
-                } + metrics
+                'step': self.step,
+                'elapsed_time': self.progress.elapsed_time().total_seconds(),
+                'total_sentences': len(self.data),
+                'total_words': sum((instance.length for instance in self.data))
+             }
+            record.update(metrics)
             self.logger.log(record)
         
 class UPosFeatsAcc(Validator):
