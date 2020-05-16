@@ -36,6 +36,47 @@ def load_treebanks(files, p, index):
         treebanks[name] = data
     return treebanks
 
+def get_model(model_type, *args, **kwargs):
+    if model_type == 'tagger':
+        return BiaffineTagger(*args, **kwargs)
+    if model_type == 'parser':
+        return BiaffineParser(*args, **kwargs)
+
+def get_validator(model_type, treebank, *args, **kwargs):
+    if treebank is None:
+        return None
+    if model_type == 'tagger':
+        return UPosFeatsAcc(treebank, *args, **kwargs)
+    if model_type == 'parser':
+        return LAS(treebank, *args, **kwargs)
+    return None
+
+def get_dims(dims, index):
+
+    def _dims(f, c, sub=None):
+        n = len(c) + 1
+        if isinstance(dims, dict):
+            embd = dims[f][sub] if isinstance(dims[f], dict) else dims[f]
+            return (n, embd)
+        else:
+            return n
+
+    index_dims = {}
+    if 'feats' in dims:
+        index_dims['feats'] = {}
+    if 'upos_feats' in dims:
+        index_dims['upos_feats'] = {}
+
+    for f, c in index.items():
+        if f in dims and f not in index_dims:
+            index_dims[f] = _dims(f, c)
+        if 'feats' in dims and f.startswith('feats:'):
+            index_dims['feats'][f] = _dims('feats', c, f)
+        if 'upos_feats' in dims and (f == 'upos' or f.startswith('feats:')):
+            index_dims['upos_feats'][f] = _dims('upos_feats', c, f)
+
+    return index_dims
+
 def home_dir():
     path = Path('./home')
     path.mkdir(parents=True, exist_ok=True)
@@ -91,47 +132,6 @@ def extract_ud_treebank(treebank):
 
     return files
 
-def get_model(model_type, *args, **kwargs):
-    if model_type == 'tagger':
-        return BiaffineTagger(*args, **kwargs)
-    if model_type == 'parser':
-        return BiaffineParser(*args, **kwargs)
-
-def get_validator(model_type, treebank, *args, **kwargs):
-    if treebank is None:
-        return None
-    if model_type == 'tagger':
-        return UPosFeatsAcc(treebank, *args, **kwargs)
-    if model_type == 'parser':
-        return LAS(treebank, *args, **kwargs)
-    return None
-
-def get_dims(dims, index):
-
-    def _dims(f, c, sub=None):
-        n = len(c) + 1
-        if isinstance(dims, dict):
-            embd = dims[f][sub] if isinstance(dims[f], dict) else dims[f]
-            return (n, embd)
-        else:
-            return n
-
-    index_dims = {}
-    if 'feats' in dims:
-        index_dims['feats'] = {}
-    if 'upos_feats' in dims:
-        index_dims['upos_feats'] = {}
-
-    for f, c in index.items():
-        if f in dims and f not in index_dims:
-            index_dims[f] = _dims(f, c)
-        if 'feats' in dims and f.startswith('feats:'):
-            index_dims['feats'][f] = _dims('feats', c, f)
-        if 'upos_feats' in dims and (f == 'upos' or f.startswith('feats:')):
-            index_dims['upos_feats'][f] = _dims('upos_feats', c, f)
-
-    return index_dims
-
 def train(config):
     treebank    = config['treebank']
     random_seed = config.get('random_seed', 0)
@@ -145,12 +145,15 @@ def train(config):
     torch.manual_seed(random_seed)
     torch.cuda.manual_seed(random_seed)
 
-    register_logger('training', model_dir / 'training.csv')
-    register_logger('validation', model_dir / 'validation.csv')
+    register_logger('training', model_dir / f'{model_type}-training.csv')
+    register_logger('validation', model_dir / f'{model_type}-validation.csv')
 
     p = preprocess()
     index = build_index(files, p)
     treebanks = load_treebanks(files, p, index)
+
+    model_dir.mkdir(parents=True, exist_ok=True)
+    torch.save(index, model_dir / 'index.pth')
 
     input_dims = get_dims(embedding_dims, index)
     output_dims = get_dims({'upos', 'feats', 'deprel'}, index)
