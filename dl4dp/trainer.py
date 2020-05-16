@@ -8,25 +8,57 @@ from conllutils import pipe
 
 from .utils import progressbar, get_logger
 
-class Trainer(object):
+class Checkpoint(object):
 
-    def __init__(self, model_dir=None, max_epochs=1, batch_size=100, validator=None, logger=None):
+    def __init__(self, epoch, score=None, path=None):
+        self.epoch = epoch
+        self.score = score
+        self.path = path
+
+class CheckpointManager(object):
+
+    def __init__(self, model_dir, model_name, validator=None, best_only=True):
         if isinstance(model_dir, str):
             model_dir = Path(model_dir)
         self.model_dir = model_dir
         self.model_dir.mkdir(parents=True, exist_ok=True)
+        self.model_name = model_name
+        self.validator = validator
+        self.best_only = best_only
+        self.best = None
+        self.history = []
+
+    def check(self, epoch, model):
+        chck = Checkpoint(epoch)
+        self.history.append(chck)
+
+        if self.validator:
+            print(f'validating epoch: {epoch}')
+            score, _ = self.validator(model)
+            chck.score = score
+            if self.best is None or self.best.score < score:
+                self.best = chck
+        else:
+            self.best = chck
+        
+        if not self.best_only or self.best == chck:
+            chck.path = self.model_dir / (self.model_name + '.pth' if self.best_only else f'_{epoch}.pth')
+            torch.save(model, chck.path)
+
+        return True
+
+class Trainer(object):
+
+    def __init__(self, max_epochs=1, batch_size=100, logger=None, **kwargs):
         self.max_epochs = max_epochs
         self.batch_size = batch_size
-        self.validator = validator
+        self.checkpoints = CheckpointManager(**kwargs)
         if isinstance(logger, str):
             logger = get_logger(logger)
         self.logger = logger
         self.progress = progressbar()
 
     def train(self, model, train_data):
-        best_epoch = 0
-        best_score = None
-
         total_size = len(train_data)
         if total_size % self.batch_size:
             total_size += self.batch_size - (total_size % self.batch_size)
@@ -49,21 +81,13 @@ class Trainer(object):
             
             self.progress.finish()
             self.progress.print_elapsed_time('sentences')
+            self.checkpoints.check(epoch + 1, model)
 
-            torch.save(model, self.model_dir / f'model_{epoch + 1}.pth')
+        best = self.checkpoints.best
+        if best.score is not None:
+            print(f'best epoch: {best.epoch}, score: {best.score:.4f}')
 
-            if self.validator:
-                print(f'validating epoch: {epoch + 1}/{self.max_epochs}')
-                score, metrics = self.validator(model)
-                if best_score is None or best_score < score:
-                    best_score = score
-                    best_epoch = epoch + 1
-            else:
-                best_epoch = epoch + 1
-
-        if best_score is not None:
-            print(f'best epoch: {best_epoch}, score: {best_score:.4f}')
-        return self.model_dir / f'model_{best_epoch}.pth'
+        return best, self.checkpoints.history
 
     def _optimizer(self, model):
         return Adam(model.parameters(), betas=(0.9, 0.9))

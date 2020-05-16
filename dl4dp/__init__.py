@@ -37,7 +37,7 @@ def load_treebanks(files, p, index):
     return treebanks
 
 def home_dir():
-    path = Path('./build')
+    path = Path('./home')
     path.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -50,7 +50,7 @@ def treebank_dir(treebank=None, create=False):
 def _match_treebank_name(treebank, name):
     return re.compile(fr'.*\/{treebank}-ud-(train|test|dev).conllu').match(name)
 
-def get_ud_treebank_files(treebank):
+def get_treebank_files(treebank):
     tb_dir = treebank_dir(treebank)
     if not tb_dir.exists():
         return extract_ud_treebank(treebank)
@@ -132,33 +132,27 @@ def get_dims(dims, index):
 
     return index_dims
 
-def train():
-    random_seed = 0
-    max_epochs = 30
-    model_type = 'tagger'
-
-    model_dir = 'build/en_ewt'
-    treebanks = {
-        'train': 'build/en_ewt-ud-train.conllu',
-        'dev': 'build/en_ewt-ud-dev.conllu',
-        'test': 'build/en_ewt-ud-test.conllu'
-    }
-
-    dims = {'form': 100, 'form:chars': (32, 50), 'upos_feats': 100}
-
-    model_dir = Path(model_dir)
-    register_logger('training', model_dir / 'training.csv')
-    register_logger('validation', model_dir / 'validation.csv')
+def train(config):
+    treebank    = config['treebank']
+    random_seed = config.get('random_seed', 0)
+    max_epochs  = config.get('max_epochs', 10)
+    model_type  = config.get('model_type', 'parser')
+    model_dir   = config.get('model_dir', home_dir() / f'build/{treebank}')
+    files       = config.get('files', get_treebank_files(treebank))
+    embedding_dims = config.get('embedding_dims', {'form': 100, 'form:chars': (32, 50), 'upos_feats': 100})
 
     np.random.seed(random_seed)
     torch.manual_seed(random_seed)
     torch.cuda.manual_seed(random_seed)
 
-    p = preprocess()
-    index = build_index(treebanks, p)
-    treebanks = load_treebanks(treebanks, p, index)
+    register_logger('training', model_dir / 'training.csv')
+    register_logger('validation', model_dir / 'validation.csv')
 
-    input_dims = get_dims(dims, index)
+    p = preprocess()
+    index = build_index(files, p)
+    treebanks = load_treebanks(files, p, index)
+
+    input_dims = get_dims(embedding_dims, index)
     output_dims = get_dims({'upos', 'feats', 'deprel'}, index)
 
     model = get_model(model_type, input_dims, output_dims)
@@ -166,16 +160,23 @@ def train():
         model.to(torch.device('cuda'))
 
     validator = get_validator(model_type, treebanks.get('dev'), logger='validation')
-    trainer = Trainer(model_dir, max_epochs=max_epochs, validator=validator, logger='training')
-    best_path = trainer.train(model, treebanks['train'])
+    trainer = Trainer(
+        max_epochs=max_epochs,
+        logger='training',
+        model_dir=model_dir,
+        model_name=model_type,
+        validator=validator
+    )
+
+    print('training ' + model_type)
+    best, _ = trainer.train(model, treebanks['train'])
 
     test = get_validator(model_type, treebanks.get('test'))
     if test:
-        model = torch.load(best_path)
+        model = torch.load(best.path)
         print('testing:')
         test(model)
 
 def main():
-    files = get_ud_treebank_files('en_ewt')
-    for setence in pipe().read_conllu(files['train']):
-        print(setence.text())
+    config = {'treebank': 'en_ewt', 'max_epochs': 1}
+    train(config)
