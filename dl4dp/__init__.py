@@ -1,4 +1,6 @@
 import os
+import re
+import tarfile
 from pathlib import Path
 
 import torch
@@ -33,6 +35,61 @@ def load_treebanks(files, p, index):
         print(f'{name}: {len(data)} sentences, {sum([i.length for i in data])} words')
         treebanks[name] = data
     return treebanks
+
+def home_dir():
+    path = Path('./build')
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+def treebank_dir(treebank=None, create=False):
+    path = home_dir() / 'treebanks' if treebank is None else home_dir() / 'treebanks' / treebank
+    if create:
+        path.mkdir(parents=True, exist_ok=True)
+    return path
+
+def _match_treebank_name(treebank, name):
+    return re.compile(fr'.*\/{treebank}-ud-(train|test|dev).conllu').match(name)
+
+def get_ud_treebank_files(treebank):
+    tb_dir = treebank_dir(treebank)
+    if not tb_dir.exists():
+        return extract_ud_treebank(treebank)
+    files = {}
+    for name in tb_dir.iterdir():
+        match = _match_treebank_name(treebank, str(name))
+        if match:
+            files[match.group(1)] = name
+    return files
+
+_UD_FILE = 'ud-treebanks-v2.6.tgz'
+_UD_URL = 'https://lindat.mff.cuni.cz/repository/xmlui/bitstream/handle/11234/1-3226/ud-treebanks-v2.6.tgz?sequence=1&isAllowed=y'
+
+def extract_ud_treebank(treebank):
+    td_dir = treebank_dir()
+    archive = td_dir / _UD_FILE
+
+    if not archive.exists():
+        td_dir.mkdir(exist_ok=True)
+        print('downloading ' + _UD_FILE, flush=True)
+        get_url(_UD_URL, archive)
+    
+    files = {}
+    print(f'extracting {treebank} from UD archive...')
+
+    with tarfile.open(archive, 'r', encoding='utf-8') as tar:
+        for member in tar.getmembers():
+            match = _match_treebank_name(treebank, member.name)
+            if match:
+                member.name = Path(member.name).name    # Extract only file name without path
+                td_dir = treebank_dir(treebank, create=True)
+                tar.extract(member, td_dir)
+                files[match.group(1)] = td_dir / member.name
+
+    print('extracting done')
+    if not files:
+        raise ValueError(f'Unknown treebank {treebank}.')
+
+    return files
 
 def get_model(model_type, *args, **kwargs):
     if model_type == 'tagger':
@@ -75,9 +132,7 @@ def get_dims(dims, index):
 
     return index_dims
 
-_UD_URL = 'https://lindat.mff.cuni.cz/repository/xmlui/bitstream/handle/11234/1-3226/ud-treebanks-v2.6.tgz?sequence=1&isAllowed=y'
-
-def main():
+def train():
     random_seed = 0
     max_epochs = 30
     model_type = 'tagger'
@@ -119,3 +174,8 @@ def main():
         model = torch.load(best_path)
         print('testing:')
         test(model)
+
+def main():
+    files = get_ud_treebank_files('en_ewt')
+    for setence in pipe().read_conllu(files['train']):
+        print(setence.text())
