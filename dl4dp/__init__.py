@@ -85,6 +85,9 @@ def home_dir():
     path.mkdir(parents=True, exist_ok=True)
     return path
 
+def set_home_dir(path):
+    _home_dir = Path(path)
+
 def get_treebank_dir(treebank=None, create=False):
     path = home_dir() / 'treebanks'
     if treebank is not None:
@@ -143,14 +146,27 @@ def extract_ud_treebank(treebank):
 
     return files
 
-def train(config):
-    treebank    = config['treebank']
-    random_seed = config.get('random_seed', 0)
-    max_epochs  = config.get('max_epochs', 10)
-    model_type  = config.get('model_type', 'parser')
-    build_dir   = config.get('build_dir', get_build_dir(treebank))
-    files       = config.get('files', get_treebank_files(treebank))
-    embedding_dims = config.get('embedding_dims', {'form': 100, 'form:chars': (32, 50), 'upos_feats': 100})
+def get_config(args):
+    config = {
+        'random_seed': 0,
+        'embedding_dims': {'form': 100, 'form:chars': (32, 50), 'upos_feats': 100},
+        'model_type': args.model_type
+    }
+
+    if args.config is not None:
+        # Load config from yaml file.
+        pass
+    
+    if args.treebank is not None:
+        config['treebank'] = args.treebank
+        if 'files' not in config:
+            config['files'] = get_treebank_files(args.treebank)
+        if 'build_dir' not in config:
+            config['build_dir'] = get_build_dir(args.treebank)
+    
+    return config
+
+def train(model_type, build_dir, files, embedding_dims, random_seed, **kwargs):
 
     np.random.seed(random_seed)
     torch.manual_seed(random_seed)
@@ -175,11 +191,11 @@ def train(config):
 
     validator = get_validator(model_type, treebank.get('dev'), logger='validation')
     trainer = Trainer(
-        max_epochs=max_epochs,
-        logger='training',
         build_dir=build_dir,
         model_name=model_type,
-        validator=validator
+        validator=validator,
+        logger='training',
+        **kwargs
     )
 
     print('training ' + model_type)
@@ -209,7 +225,10 @@ def get_argparser():
     return p
 
 def main():
-    # config = {'treebank': 'en_ewt', 'max_epochs': 1}
-    # train(config)
     args = get_argparser().parse_args()
-    print(args)
+
+    if args.home_dir is not None:
+        set_home_dir(args.home_dir)
+
+    if args.cmd == 'train':
+        train(**get_config(args))

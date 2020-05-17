@@ -17,7 +17,7 @@ class Checkpoint(object):
 
 class CheckpointManager(object):
 
-    def __init__(self, build_dir, model_name, validator=None, best_only=True):
+    def __init__(self, build_dir, model_name, validator=None, best_only=True, **kwargs):
         if isinstance(build_dir, str):
             build_dir = Path(build_dir)
         self.build_dir = build_dir
