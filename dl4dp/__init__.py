@@ -1,6 +1,7 @@
 import os
 import re
 import tarfile
+import argparse
 from pathlib import Path
 
 import torch
@@ -28,13 +29,13 @@ def build_index(treebanks, p):
     print('building index done')
     return index
 
-def load_treebanks(files, p, index):
-    treebanks = {}
+def load_treebank(files, p, index):
+    treebank = {}
     for name, f in files.items():
         data = pipe().read_conllu(f).pipe(p).to_instance(index).collect()
         print(f'{name}: {len(data)} sentences, {sum([i.length for i in data])} words')
-        treebanks[name] = data
-    return treebanks
+        treebank[name] = data
+    return treebank
 
 def get_model(model_type, *args, **kwargs):
     if model_type == 'tagger':
@@ -77,13 +78,23 @@ def get_dims(dims, index):
 
     return index_dims
 
+_home_dir = Path('./home')
+
 def home_dir():
-    path = Path('./home')
+    path = _home_dir
     path.mkdir(parents=True, exist_ok=True)
     return path
 
-def treebank_dir(treebank=None, create=False):
-    path = home_dir() / 'treebanks' if treebank is None else home_dir() / 'treebanks' / treebank
+def get_treebank_dir(treebank=None, create=False):
+    path = home_dir() / 'treebanks'
+    if treebank is not None:
+        path /= treebank
+    if create:
+        path.mkdir(parents=True, exist_ok=True)
+    return path
+
+def get_build_dir(treebank, create=False):
+    path = home_dir() / 'build' / treebank
     if create:
         path.mkdir(parents=True, exist_ok=True)
     return path
@@ -92,7 +103,7 @@ def _match_treebank_name(treebank, name):
     return re.compile(fr'.*\/{treebank}-ud-(train|test|dev).conllu').match(name)
 
 def get_treebank_files(treebank):
-    tb_dir = treebank_dir(treebank)
+    tb_dir = get_treebank_dir(treebank)
     if not tb_dir.exists():
         return extract_ud_treebank(treebank)
     files = {}
@@ -106,7 +117,7 @@ _UD_FILE = 'ud-treebanks-v2.6.tgz'
 _UD_URL = 'https://lindat.mff.cuni.cz/repository/xmlui/bitstream/handle/11234/1-3226/ud-treebanks-v2.6.tgz?sequence=1&isAllowed=y'
 
 def extract_ud_treebank(treebank):
-    td_dir = treebank_dir()
+    td_dir = get_treebank_dir()
     archive = td_dir / _UD_FILE
 
     if not archive.exists():
@@ -137,7 +148,7 @@ def train(config):
     random_seed = config.get('random_seed', 0)
     max_epochs  = config.get('max_epochs', 10)
     model_type  = config.get('model_type', 'parser')
-    model_dir   = config.get('model_dir', home_dir() / f'build/{treebank}')
+    build_dir   = config.get('build_dir', get_build_dir(treebank))
     files       = config.get('files', get_treebank_files(treebank))
     embedding_dims = config.get('embedding_dims', {'form': 100, 'form:chars': (32, 50), 'upos_feats': 100})
 
@@ -145,15 +156,15 @@ def train(config):
     torch.manual_seed(random_seed)
     torch.cuda.manual_seed(random_seed)
 
-    register_logger('training', model_dir / f'{model_type}-training.csv')
-    register_logger('validation', model_dir / f'{model_type}-validation.csv')
+    register_logger('training', build_dir / f'{model_type}-training.csv')
+    register_logger('validation', build_dir / f'{model_type}-validation.csv')
 
     p = preprocess()
     index = build_index(files, p)
-    treebanks = load_treebanks(files, p, index)
+    treebank = load_treebank(files, p, index)
 
-    model_dir.mkdir(parents=True, exist_ok=True)
-    torch.save(index, model_dir / 'index.pth')
+    build_dir.mkdir(parents=True, exist_ok=True)
+    torch.save(index, build_dir / 'index.pth')
 
     input_dims = get_dims(embedding_dims, index)
     output_dims = get_dims({'upos', 'feats', 'deprel'}, index)
@@ -162,24 +173,43 @@ def train(config):
     if torch.cuda.is_available():
         model.to(torch.device('cuda'))
 
-    validator = get_validator(model_type, treebanks.get('dev'), logger='validation')
+    validator = get_validator(model_type, treebank.get('dev'), logger='validation')
     trainer = Trainer(
         max_epochs=max_epochs,
         logger='training',
-        model_dir=model_dir,
+        build_dir=build_dir,
         model_name=model_type,
         validator=validator
     )
 
     print('training ' + model_type)
-    best, _ = trainer.train(model, treebanks['train'])
+    best, _ = trainer.train(model, treebank['train'])
 
-    test = get_validator(model_type, treebanks.get('test'))
+    test = get_validator(model_type, treebank.get('test'))
     if test:
         model = torch.load(best.path)
         print('testing:')
         test(model)
 
+def get_argparser():
+    p = argparse.ArgumentParser(prog='dl4dp')
+    p.add_argument('--home', dest='home_dir')
+    ps = p.add_subparsers(dest='cmd')
+    ps.required = True
+
+    train = ps.add_parser('train')
+    train.add_argument('model_type', choices=('tagger','parser'))
+    train.add_argument('-t', '--treebank')
+    train.add_argument('-c', '--config')
+
+    parse = ps.add_parser('parse')
+    parse.add_argument('input')
+    parse.add_argument('output')
+    parse.add_argument('-m', '--model')
+    return p
+
 def main():
-    config = {'treebank': 'en_ewt', 'max_epochs': 1}
-    train(config)
+    # config = {'treebank': 'en_ewt', 'max_epochs': 1}
+    # train(config)
+    args = get_argparser().parse_args()
+    print(args)
