@@ -4,6 +4,7 @@ import argparse
 from pathlib import Path
 
 import torch
+import yaml
 import numpy as np
 from conllutils import pipe
 
@@ -158,12 +159,12 @@ def get_config(args):
     }
 
     if args.config is not None:
-        # Load config from yaml file.
-        pass
+        with open(args.config, 'rt', encoding='utf-8') as f:
+            config.update(yaml.safe_load(f))
 
     if args.treebank is not None:
         config['treebank'] = args.treebank
-    
+
     return config
 
 def train(model_type,
