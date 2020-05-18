@@ -17,7 +17,7 @@ setup(
     author=u"Peter Bednár",
     author_email="peter.bednar@tuke.sk",
     url="https://github.com/peterbednar/dl4dp",
-    install_requires=["numpy", "torch", "pyyaml"],
+    install_requires=["numpy", "torch", "pyyaml", "conllutils"],
     python_requires='>=3.6',
     classifiers=[
         'Development Status :: 4 - Beta',
