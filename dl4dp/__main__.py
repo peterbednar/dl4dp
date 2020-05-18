@@ -141,7 +141,7 @@ def extract_ud_treebank(treebank):
         for member in tar.getmembers():
             match = _match_ud_treebank_name(treebank, member.name)
             if match:
-                member.name = Path(member.name).name    # Extract only file name without path
+                member.name = Path(member.name).name  # Extract only file name without path
                 td_dir = get_treebank_dir(treebank, create=True)
                 tar.extract(member, td_dir)
                 files[match.group(1)] = td_dir / member.name
@@ -154,29 +154,29 @@ def extract_ud_treebank(treebank):
 
 def get_config(args):
     config = {
-        'random_seed': 0,
-        'embedding_dims': {'form': 100, 'form:chars': (32, 50), 'upos_feats': 100},
         'model_type': args.model_type
     }
 
     if args.config is not None:
         # Load config from yaml file.
         pass
-    
+
     if args.treebank is not None:
         config['treebank'] = args.treebank
-        if 'files' not in config:
-            config['files'] = get_treebank_files(args.treebank)
-        if 'build_dir' not in config:
-            config['build_dir'] = get_build_dir(args.treebank)
     
     return config
 
-def train(model_type, build_dir, files, embedding_dims, random_seed, **kwargs):
+def train(model_type,
+          treebank=None,
+          random_seed=0,
+          **kwargs):
 
     np.random.seed(random_seed)
     torch.manual_seed(random_seed)
     torch.cuda.manual_seed(random_seed)
+
+    build_dir = get_build_dir(treebank)
+    files = get_treebank_files(treebank)
 
     register_logger('training', build_dir / f'{model_type}-training.csv')
     register_logger('validation', build_dir / f'{model_type}-validation.csv')
@@ -188,10 +188,13 @@ def train(model_type, build_dir, files, embedding_dims, random_seed, **kwargs):
     build_dir.mkdir(parents=True, exist_ok=True)
     torch.save(index, build_dir / 'index.pth')
 
+    model_config = kwargs.get(model_type, {})
+    embedding_dims = model_config.get('embedding_dims', {'form': 100, 'form:chars': (32, 50), 'upos_feats': 100})
+
     input_dims = get_dims(embedding_dims, index)
     output_dims = get_dims({'upos', 'feats', 'deprel'}, index)
 
-    model = get_model(model_type, input_dims, output_dims)
+    model = get_model(model_type, input_dims, output_dims, **model_config)
     if torch.cuda.is_available():
         model.to(torch.device('cuda'))
 

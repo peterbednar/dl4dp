@@ -17,14 +17,14 @@ class Checkpoint(object):
 
 class CheckpointManager(object):
 
-    def __init__(self, build_dir, model_name, validator=None, best_only=True, **kwargs):
+    def __init__(self, build_dir, model_name, validator=None, check_best_only=True, **kwargs):
         if isinstance(build_dir, str):
             build_dir = Path(build_dir)
         self.build_dir = build_dir
         self.build_dir.mkdir(parents=True, exist_ok=True)
         self.model_name = model_name
         self.validator = validator
-        self.best_only = best_only
+        self.check_best_only = check_best_only
         self.best = None
         self.history = []
 
@@ -41,8 +41,8 @@ class CheckpointManager(object):
         else:
             self.best = chck
         
-        if not self.best_only or self.best == chck:
-            chck.path = self.build_dir / (self.model_name + '.pth' if self.best_only else f'_{epoch}.pth')
+        if not self.check_best_only or self.best == chck:
+            chck.path = self.build_dir / (self.model_name + '.pth' if self.check_best_only else f'_{epoch}.pth')
             torch.save(model, chck.path)
 
         return True
