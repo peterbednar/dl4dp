@@ -87,43 +87,50 @@ def home_dir():
 def set_home_dir(path):
     _home_dir = Path(path)
 
-def get_treebank_dir(treebank=None, create=False):
-    path = home_dir() / 'treebanks'
+def _get_dir(dir, treebank=None, create=False):
+    path = home_dir() / dir
     if treebank is not None:
         path /= treebank
     if create:
-        path.mkdir(parents=True, exist_ok=True)
+        path.mkdir(parents=True, exist_of=True)
     return path
+
+def get_treebank_dir(treebank=None, create=False):
+    return _get_dir('treebanks', treebank, create)
 
 def get_build_dir(treebank, create=False):
-    path = home_dir() / 'build' / treebank
-    if create:
-        path.mkdir(parents=True, exist_ok=True)
-    return path
+    return _get_dir('build', treebank, create)
 
-def _match_treebank_name(treebank, name):
-    return re.compile(fr'.*\/{treebank}-ud-(train|test|dev).conllu').match(name)
+_FILE_NAME = re.compile(r'.*-(train|test|dev).conllu')
 
-def get_treebank_files(treebank):
+def get_treebank_files(treebank, extract_ud=True):
     tb_dir = get_treebank_dir(treebank)
-    if not tb_dir.exists():
+
+    if not tb_dir.exists() and extract_ud:
         return extract_ud_treebank(treebank)
+
     files = {}
     for name in tb_dir.iterdir():
-        match = _match_treebank_name(treebank, str(name))
+        match = _FILE_NAME.match(str(name))
         if match:
             files[match.group(1)] = name
+
+    if not files:
+        raise ValueError(f'No data found in {tb_dir}.')
+
     return files
 
 _UD_FILE = 'ud-treebanks-v2.6.tgz'
 _UD_URL = 'https://lindat.mff.cuni.cz/repository/xmlui/bitstream/handle/11234/1-3226/ud-treebanks-v2.6.tgz?sequence=1&isAllowed=y'
 
+def _match_ud_treebank_name(treebank, name):
+    return re.compile(fr'.*\/{treebank}-ud-(train|test|dev).conllu').match(name)
+
 def extract_ud_treebank(treebank):
-    td_dir = get_treebank_dir()
+    td_dir = get_treebank_dir(create=True)
     archive = td_dir / _UD_FILE
 
     if not archive.exists():
-        td_dir.mkdir(exist_ok=True)
         print('downloading ' + _UD_FILE, flush=True)
         get_url(_UD_URL, archive)
     
@@ -132,16 +139,16 @@ def extract_ud_treebank(treebank):
 
     with tarfile.open(archive, 'r', encoding='utf-8') as tar:
         for member in tar.getmembers():
-            match = _match_treebank_name(treebank, member.name)
+            match = _match_ud_treebank_name(treebank, member.name)
             if match:
                 member.name = Path(member.name).name    # Extract only file name without path
-                td_dir = treebank_dir(treebank, create=True)
+                td_dir = get_treebank_dir(treebank, create=True)
                 tar.extract(member, td_dir)
                 files[match.group(1)] = td_dir / member.name
 
-    print('extracting done')
     if not files:
-        raise ValueError(f'Unknown treebank {treebank}.')
+        raise ValueError(f'Treebank {treebank} not found in UD archive.')
+    print('extracting done')
 
     return files
 
