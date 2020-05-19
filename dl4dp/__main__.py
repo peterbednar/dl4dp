@@ -225,7 +225,7 @@ def train(model_type,
         **trainer_config
     )
 
-    print('training ' + model_type)
+    print('training ' + model_type if treebank is None else treebank + ' ' + model_type)
     best, _ = trainer.train(model)
 
     test = get_validator(model_type, treebank.get('test'))
