@@ -93,7 +93,7 @@ def _get_dir(dir, treebank=None, create=False):
     if treebank is not None:
         path /= treebank
     if create:
-        path.mkdir(parents=True, exist_of=True)
+        path.mkdir(parents=True, exist_ok=True)
     return path
 
 def get_treebank_dir(treebank=None, create=False):
@@ -108,8 +108,8 @@ def get_model_dir(create=False):
 def get_model_name(treebank, version=None):
     name = 'model' if treebank is None else treebank
     if version is not None:
-        name += '-' + (version if isinstance(str) else '.'.join(str(v) for v in version))
-    return name
+        name += '-' + (version if isinstance(version, str) else '.'.join(str(v) for v in version))
+    return name + '.tar.gz'
    
 _FILE_NAME = re.compile(r'.*-(train|test|dev).conllu')
 
@@ -126,7 +126,7 @@ def get_treebank_files(treebank, extract_ud=True):
             files[match.group(1)] = name
 
     if not files:
-        raise ValueError(f'No data found in {tb_dir}.')
+        raise ConfigError(f'no data found in treebank directory {tb_dir}')
 
     return files
 
@@ -157,10 +157,15 @@ def extract_ud_treebank(treebank):
                 files[match.group(1)] = td_dir / member.name
 
     if not files:
-        raise ValueError(f'Treebank {treebank} not found in UD archive.')
+        raise ConfigError(f'treebank {treebank} not found in the UD archive')
     print('extracting done')
 
     return files
+
+class ConfigError(Exception):
+
+    def __init__(self, message):
+        self.message = message
 
 def get_config(args):
     config = {
@@ -229,21 +234,33 @@ def train(model_type,
         print('testing:')
         test(model)
 
-def create_package(treebank=None, files=None, version=None):
+_DEFAULT_VERSION = (0,1,0)
+
+def create_model_package(treebank=None, files=None, version=None, update=False):
     build_dir = get_build_dir(treebank)
     model_dir = get_model_dir(create=True)
 
     if files is None:
         files = {'*.pth', 'LICENSE'}
 
+    if version is None:
+        version = _DEFAULT_VERSION
+
     package_files = set()
     for p in files:
         package_files |= set(build_dir.glob(p))
+    if not package_files:
+        raise ConfigError(f'no package files found in {build_dir}')
 
     path = model_dir / get_model_name(treebank, version)
+    print(f'creating package {path.name} ...')
+    if path.exists() and not update:
+        raise ConfigError(f'package {path.name} is already installed, use --update option to overwrite')
+
     with tarfile.open(path, 'w:gz') as tar:
         for f in package_files:
             tar.add(f, arcname=f.name)
+    print('updating done' if update else 'installation done')
 
 def get_argparser():
     p = argparse.ArgumentParser(prog='dl4dp')
@@ -255,13 +272,16 @@ def get_argparser():
     train.add_argument('model_type', choices=('tagger','parser'))
     train.add_argument('-t', '--treebank')
     train.add_argument('-c', '--config')
-    train.add_argument('-i', '--install', action='store_true')
-    train.add_argument('-v', '--version')
 
     parse = ps.add_parser('parse')
     parse.add_argument('input')
     parse.add_argument('output')
     parse.add_argument('-m', '--model')
+
+    package = ps.add_parser('package')
+    package.add_argument('package_opr', choices=('install','update'))
+    package.add_argument('-t', '--treebank')
+    package.add_argument('-v', '--version')
     return p
 
 def main():
@@ -270,10 +290,15 @@ def main():
     if args.home_dir is not None:
         set_home_dir(args.home_dir)
 
-    if args.cmd == 'train':
-        train(**get_config(args))
-        if args.install:
-            create_package(args.treebank, version=args.version)
+    try:
+        if args.cmd == 'train':
+            train(**get_config(args))
+        elif args.cmd == 'package':
+            opr = args.package_opr
+            if opr == 'install' or opr == 'update':
+                create_model_package(args.treebank, update=opr=='update', version=args.version)
+    except ConfigError as err:
+        print('error:', err.message)
 
 if __name__ == "__main__":
     main()
