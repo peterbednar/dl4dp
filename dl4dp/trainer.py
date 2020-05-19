@@ -1,3 +1,4 @@
+import math
 from pathlib import Path
 from abc import ABC, abstractmethod
 from collections import Counter
@@ -49,39 +50,48 @@ class CheckpointManager(object):
 
 class Trainer(object):
 
-    def __init__(self, max_epochs=1, batch_size=100, logger=None, **kwargs):
+    def __init__(self, data, steps_per_epoch=None, max_epochs=1, batch_size=100, logger=None, **kwargs):
+        if steps_per_epoch is None:
+            steps_per_epoch = math.ceil(len(data) / batch_size)
+        self.steps_per_epoch = steps_per_epoch
         self.max_epochs = max_epochs
         self.batch_size = batch_size
+
+        total_size = self.steps_per_epoch * self.batch_size
+        self.data = data
+        self.batches = pipe(data).stream(total_size).shuffle().batch(self.batch_size)
+
         self.checkpoints = CheckpointManager(**kwargs)
         if isinstance(logger, str):
             logger = get_logger(logger)
         self.logger = logger
-        self.progress = progressbar()
+        self.progress = progressbar(total_size)
 
-    def train(self, model, train_data):
-        total_size = len(train_data)
-        if total_size % self.batch_size:
-            total_size += self.batch_size - (total_size % self.batch_size)
-
-        self.progress.reset(total=total_size)
+    def train(self, model):
         optimizer = self._optimizer(model)
 
-        for epoch in range(self.max_epochs):
-            print(f'epoch: {epoch + 1}/{self.max_epochs}')
+        epoch = 1
+        while True:
+            print(f'epoch: {epoch}/{self.max_epochs}')
             self.progress.reset()
 
-            for step, batch in enumerate(pipe(train_data).stream(total_size).shuffle().batch(self.batch_size)):
+            for step, batch in enumerate(self.batches):
                 optimizer.zero_grad()
                 loss, metrics = model.loss(batch)
                 loss.backward()
                 optimizer.step()
 
                 self.progress.update(len(batch))
-                self._log(epoch + 1, step + 1, batch, loss, metrics)
+                self._log(epoch, step + 1, batch, loss, metrics)
             
             self.progress.finish()
             self.progress.print_elapsed_time('sentences')
-            self.checkpoints.check(epoch + 1, model)
+            
+            if not self.checkpoints.check(epoch, model):
+                break
+            if epoch >= self.max_epochs:
+                break
+            epoch += 1
 
         best = self.checkpoints.best
         if best.score is not None:
@@ -109,12 +119,12 @@ class Validator(ABC):
 
     def __init__(self, data, batch_size=100, logger=None):
         self.step = 0
-        self.progress = progressbar(len(data))
         self.data = data
         self.batches = pipe(data).batch(batch_size)
         if isinstance(logger, str):
             logger = get_logger(logger)
         self.logger = logger
+        self.progress = progressbar(len(data))
 
     @abstractmethod
     def validate(self, model):

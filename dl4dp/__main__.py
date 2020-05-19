@@ -200,16 +200,18 @@ def train(model_type,
         model.to(torch.device('cuda'))
 
     validator = get_validator(model_type, treebank.get('dev'), logger='validation')
+    trainer_config = kwargs.get('trainer', {})
     trainer = Trainer(
+        treebank['train'],
         build_dir=build_dir,
         model_name=model_type,
         validator=validator,
         logger='training',
-        **kwargs
+        **trainer_config
     )
 
     print('training ' + model_type)
-    best, _ = trainer.train(model, treebank['train'])
+    best, _ = trainer.train(model)
 
     test = get_validator(model_type, treebank.get('test'))
     if test:
