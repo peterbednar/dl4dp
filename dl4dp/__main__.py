@@ -199,7 +199,7 @@ def train(model_type,
 
     p = preprocess()
     index = build_index(files, p)
-    treebank = load_treebank(files, p, index)
+    data = load_treebank(files, p, index)
 
     build_dir.mkdir(parents=True, exist_ok=True)
     torch.save(index, build_dir / 'index.pth')
@@ -214,10 +214,10 @@ def train(model_type,
     if enable_gpu and torch.cuda.is_available():
         model.to(torch.device('cuda'))
 
-    validator = get_validator(model_type, treebank.get('dev'), logger='validation')
+    validator = get_validator(model_type, data.get('dev'), logger='validation')
     trainer_config = kwargs.get('trainer', {})
     trainer = Trainer(
-        treebank['train'],
+        data['train'],
         build_dir=build_dir,
         model_name=model_type,
         validator=validator,
@@ -225,10 +225,10 @@ def train(model_type,
         **trainer_config
     )
 
-    print('training ' + model_type if treebank is None else treebank + ' ' + model_type)
+    print(f'training {model_type if treebank is None else treebank + " " + model_type}')
     best, _ = trainer.train(model)
 
-    test = get_validator(model_type, treebank.get('test'))
+    test = get_validator(model_type, data.get('test'))
     if test:
         model = torch.load(best.path)
         print('testing:')

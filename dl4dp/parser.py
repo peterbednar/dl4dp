@@ -51,17 +51,24 @@ class BiaffineParser(nn.Module):
         }
         return loss, metrics
 
-    def parse(self, batch, unbind=True):
+    def parse(self, batch, unbind=True, device=None):
         if self.training:
-            raise RuntimeError('Not in eval mode.')
+            raise RuntimeError('not in eval mode.')
 
         with torch.no_grad():
             h, indexes, lengths = self(batch)
             pred_arcs = self.arc_biaff.parse(h, indexes, lengths)
             pred_labs = self.lab_biaff.parse(h, indexes, pred_arcs)
+
+            if device is not None:
+                device = torch.device(device)
+                pred_arcs = pred_arcs.to(device)
+                pred_labs = pred_labs.to(device)
+
             if unbind:
-                pred_arcs = unbind_sequence(pred_arcs.cpu(), lengths)
-                pred_labs = unbind_sequence(pred_labs.cpu(), lengths)
+                pred_arcs = unbind_sequence(pred_arcs, lengths)
+                pred_labs = unbind_sequence(pred_labs, lengths)
+
             return {'head': pred_arcs, 'deprel': pred_labs}
 
     def _get_batch_indexes(self, batch, device):

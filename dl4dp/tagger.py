@@ -56,9 +56,9 @@ class BiaffineTagger(nn.Module):
         metrics.update({f + '_error': e for f, e in zip(self.tags.keys(), errors)})
         return loss, metrics
 
-    def parse(self, batch, unbind=True):
+    def parse(self, batch, unbind=True, device=None):
         if self.training:
-            raise RuntimeError('Not in eval mode.')
+            raise RuntimeError('not in eval mode.')
 
         with torch.no_grad():
             h = self(batch)
@@ -67,9 +67,14 @@ class BiaffineTagger(nn.Module):
 
             tags_pred = {f: self._tag_parse(f, h, upos_embedding) for f in self.tags.keys() if f != 'upos'}
             tags_pred['upos'] = upos_pred
+
+            if device is not None:
+                device = torch.device(device)
+                tags_pred = {f: pred.to(device) for f, pred in self.tags_pred.items()}
             if unbind:
                 lengths = [instance.length for instance in batch]
-                tags_pred = {f: unbind_sequence(pred.cpu(), lengths) for f, pred in self.tags.items()}
+                tags_pred = {f: unbind_sequence(pred, lengths) for f, pred in tags_pred.items()}
+
             return tags_pred
 
     def _tag_gold(self, field, batch):

@@ -170,11 +170,11 @@ class UPosFeatsAcc(Validator):
         total_words = 0
 
         for batch in self.batches:
-            pred = model.parse(batch, unbind=False)
+            pred = model.parse(batch, unbind=False, device='cpu')
             total_words += sum([instance.length for instance in batch])
             for f, pr in pred.items():
                 gold = self._get_gold(f, batch)
-                counts[f] += gold.eq(pr.cpu()).sum().item()
+                counts[f] += gold.eq(pr).sum().item()
             self.progress.update(len(batch))
 
         for f in counts:
@@ -200,7 +200,7 @@ class LAS(Validator):
         total_words = total_sentences = 0
 
         for batch in self.batches:
-            pred = model.parse(batch, unbind=True)
+            pred = model.parse(batch, unbind=True, device='cpu')
 
             for gold, pred in zip(batch, zip(pred['head'], pred['deprel'])):
                 gold_head = torch.from_numpy(gold.head)
