@@ -143,23 +143,28 @@ def extract_ud_treebank(treebank):
     if not archive.exists():
         print('downloading ' + _UD_FILE, flush=True)
         get_url(_UD_URL, archive)
-    
+
     files = {}
     print(f'extracting {treebank} from UD archive...')
 
     with tarfile.open(archive, 'r', encoding='utf-8') as tar:
+        extract_members = {}
+
         for member in tar.getmembers():
             match = _match_ud_treebank_name(treebank, member.name)
             if match:
-                member.name = Path(member.name).name  # Extract only file name without path
-                td_dir = get_treebank_dir(treebank, create=True)
-                tar.extract(member, td_dir)
-                files[match.group(1)] = td_dir / member.name
+                extract_members[match.group(1)] = member
 
-    if not files:
-        raise ConfigError(f'treebank {treebank} not found in the UD archive')
+        if not extract_members:
+            raise ConfigError(f'treebank {treebank} not found in the UD archive')
+
+        td_dir = get_treebank_dir(treebank, create=True)
+        for f, member in extract_members.items():
+            member.name = Path(member.name).name  # Extract only file name without path
+            tar.extract(member, td_dir)
+            files[f] = td_dir / member.name
+    
     print('extracting done')
-
     return files
 
 class ConfigError(Exception):
