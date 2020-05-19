@@ -102,6 +102,15 @@ def get_treebank_dir(treebank=None, create=False):
 def get_build_dir(treebank, create=False):
     return _get_dir('build', treebank, create)
 
+def get_model_dir(create=False):
+    return _get_dir('models', None, create)
+
+def get_model_name(treebank, version=None):
+    name = 'model' if treebank is None else treebank
+    if version is not None:
+        name += '-' + (version if isinstance(str) else '.'.join(str(v) for v in version))
+    return name
+   
 _FILE_NAME = re.compile(r'.*-(train|test|dev).conllu')
 
 def get_treebank_files(treebank, extract_ud=True):
@@ -220,6 +229,22 @@ def train(model_type,
         print('testing:')
         test(model)
 
+def create_package(treebank=None, files=None, version=None):
+    build_dir = get_build_dir(treebank)
+    model_dir = get_model_dir(create=True)
+
+    if files is None:
+        files = {'*.pth', 'LICENSE'}
+
+    package_files = set()
+    for p in files:
+        package_files |= set(build_dir.glob(p))
+
+    path = model_dir / get_model_name(treebank, version)
+    with tarfile.open(path, 'w:gz') as tar:
+        for f in package_files:
+            tar.add(f, arcname=f.name)
+
 def get_argparser():
     p = argparse.ArgumentParser(prog='dl4dp')
     p.add_argument('--home', dest='home_dir')
@@ -230,6 +255,8 @@ def get_argparser():
     train.add_argument('model_type', choices=('tagger','parser'))
     train.add_argument('-t', '--treebank')
     train.add_argument('-c', '--config')
+    train.add_argument('-i', '--install', action='store_true')
+    train.add_argument('-v', '--version')
 
     parse = ps.add_parser('parse')
     parse.add_argument('input')
@@ -245,6 +272,8 @@ def main():
 
     if args.cmd == 'train':
         train(**get_config(args))
+        if args.install:
+            create_package(args.treebank, version=args.version)
 
 if __name__ == "__main__":
     main()
