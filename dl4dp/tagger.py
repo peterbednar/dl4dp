@@ -70,7 +70,7 @@ class BiaffineTagger(nn.Module):
 
             if device is not None:
                 device = torch.device(device)
-                tags_pred = {f: pred.to(device) for f, pred in self.tags_pred.items()}
+                tags_pred = {f: pred.to(device) for f, pred in tags_pred.items()}
             if unbind:
                 lengths = [instance.length for instance in batch]
                 tags_pred = {f: unbind_sequence(pred, lengths) for f, pred in tags_pred.items()}
