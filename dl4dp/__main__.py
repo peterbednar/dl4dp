@@ -170,6 +170,7 @@ def get_config(args):
 def train(model_type,
           treebank=None,
           random_seed=0,
+          enable_gpu=True,
           **kwargs):
 
     np.random.seed(random_seed)
@@ -196,7 +197,7 @@ def train(model_type,
     output_dims = get_dims({'upos', 'feats', 'deprel'}, index)
 
     model = get_model(model_type, input_dims, output_dims, **model_config)
-    if torch.cuda.is_available():
+    if enable_gpu and torch.cuda.is_available():
         model.to(torch.device('cuda'))
 
     validator = get_validator(model_type, treebank.get('dev'), logger='validation')
