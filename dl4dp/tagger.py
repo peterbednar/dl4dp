@@ -82,7 +82,7 @@ class BiaffineTagger(nn.Module):
 
     def _tag_loss(self, field, h, tags_gold, upos_embedding=None):
         tag = self.tags[field]
-        gold = tags_gold[field]
+        gold = tags_gold[field].to(h.device)
         return tag.loss(h, gold) if field == 'upos' else tag.loss(h, gold, upos_embedding)
 
     def _tag_parse(self, field, h, upos_embedding=None):
