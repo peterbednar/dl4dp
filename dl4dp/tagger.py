@@ -58,7 +58,7 @@ class BiaffineTagger(nn.Module):
 
     def parse(self, batch, unbind=True, device=None):
         if self.training:
-            raise RuntimeError('not in eval mode.')
+            raise RuntimeError('not in eval mode')
 
         with torch.no_grad():
             h = self(batch)

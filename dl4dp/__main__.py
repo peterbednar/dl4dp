@@ -108,8 +108,10 @@ def get_model_dir(create=False):
 def get_model_name(treebank, version=None):
     name = 'model' if treebank is None else treebank
     if version is not None:
-        name += '-' + (version if isinstance(version, str) else '.'.join(str(v) for v in version))
-    return name + '.tar.gz'
+        if isinstance(version, (tuple, list)):
+            version = '.'.join(str(v) for v in version)
+        name += '-' + version
+    return name + '.tgz'
    
 _FILE_NAME = re.compile(r'.*-(train|test|dev).conllu')
 
@@ -168,9 +170,7 @@ def extract_ud_treebank(treebank):
     return files
 
 class ConfigError(Exception):
-
-    def __init__(self, message):
-        self.message = message
+    pass
 
 def get_config(args):
     config = {
@@ -303,7 +303,7 @@ def main():
             if opr == 'install' or opr == 'update':
                 create_model_package(args.treebank, update=opr=='update', version=args.version)
     except ConfigError as err:
-        print('error:', err.message)
+        print('error:', err)
 
 if __name__ == "__main__":
     main()

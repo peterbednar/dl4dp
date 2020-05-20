@@ -89,7 +89,7 @@ class Embeddings(nn.Module):
             x = torch.stack(x)
             x = torch.sum(x, 0)
         else:
-            raise ValueError(f'Unknown operator {self.opr}.')
+            raise ValueError(f'unknown operator {self.opr}')
         return x
 
 class LSTM(nn.Module):
