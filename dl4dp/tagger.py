@@ -64,13 +64,13 @@ class BiaffineTagger(nn.Module):
             h = self(batch)
             upos_pred = self._tag_parse('upos', h)
             upos_embedding = self.upos_embedding(upos_pred)
-
             tags_pred = {f: self._tag_parse(f, h, upos_embedding) for f in self.tags.keys() if f != 'upos'}
             tags_pred['upos'] = upos_pred
 
             if device is not None:
                 device = torch.device(device)
                 tags_pred = {f: pred.to(device) for f, pred in tags_pred.items()}
+
             if unbind:
                 lengths = [instance.length for instance in batch]
                 tags_pred = {f: unbind_sequence(pred, lengths) for f, pred in tags_pred.items()}
