@@ -1,5 +1,8 @@
+import re
 import copy
+import tarfile
 
+import torch
 from conllutils import pipe, create_inverse_index
 
 def preprocess():
@@ -43,6 +46,13 @@ def batch_pipeline(models, index):
 
     return _batch_pipeline
 
-def load_pipeline(name, pipeline='tagger,parser'):
-    pass
+_PIPELINE_NAME = re.compile(r'.*(tagger|parser|index).pth')
 
+def load_pipeline(name):
+    pipeline = {}
+    with tarfile.open(name, 'r:gz') as tar:
+        for member in tar.getmembers():
+            match = _PIPELINE_NAME.match(member.name)
+            if match:
+                pipeline[match.group(1)] = torch.load(tar.extractfile(member))
+    return pipeline

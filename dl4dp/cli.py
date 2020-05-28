@@ -142,7 +142,6 @@ def extract_ud_treebank(treebank):
 
     with tarfile.open(archive, 'r', encoding='utf-8') as tar:
         extract_members = {}
-
         for member in tar.getmembers():
             match = _match_ud_treebank_name(treebank, member.name)
             if match:
