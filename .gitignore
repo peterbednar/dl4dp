@@ -4,3 +4,4 @@ home
 **/*.py[cod]
 .vscode
 .pytest_cache
+*.egg-info

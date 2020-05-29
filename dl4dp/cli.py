@@ -8,7 +8,7 @@ import yaml
 import numpy as np
 from conllutils import pipe
 
-from . import preprocess
+from . import preprocess, pipeline
 from .tagger import BiaffineTagger
 from .parser import BiaffineParser
 from .trainer import Trainer, UPosFeatsAcc, LAS
@@ -47,7 +47,7 @@ def get_model_name(treebank, version=None):
         if isinstance(version, (tuple, list)):
             version = '.'.join(str(v) for v in version)
         name += '-' + version
-    return name + '.tgz'
+    return name + '.tar.gz'
    
 def build_index(treebanks, p):
     print('building index...')
@@ -233,7 +233,7 @@ def create_model_package(treebank=None, files=None, version=None, update=False):
     path = model_dir / get_model_name(treebank, version)
     print(f'creating package {path.name} ...')
     if path.exists() and not update:
-        raise ConfigError(f'package {path.name} is already installed, use --update option to overwrite')
+        raise ConfigError(f'package {path.name} is already installed, use update command to overwrite')
 
     with tarfile.open(path, 'w:gz') as tar:
         for f in package_files:
@@ -292,5 +292,8 @@ def main():
             opr = args.package_opr
             if opr == 'install' or opr == 'update':
                 create_model_package(args.treebank, update=opr=='update', version=args.version)
+        elif args.cmd == 'parse':
+            p = pipeline('en_ewt-0.1.0')
+
     except ConfigError as err:
         print('error:', err)

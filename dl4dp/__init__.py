@@ -1,6 +1,7 @@
 import re
 import copy
 import tarfile
+from pathlib import Path
 
 import torch
 from conllutils import pipe, create_inverse_index
@@ -15,12 +16,19 @@ def preprocess():
     p.replace('form', r'[0-9]+|[0-9]+\.[0-9]+|[0-9]+[0-9,]+', '__number__')
     return p
 
+def pipeline(name, pipeline='tagger,parser', batch_size=100):
+    p = pipe()
+    p = p.batch(batch_size)
+    p = p.map(load_pipeline(name, pipeline))
+    p = p.flatten()
+    return p
+
 def apply_model(batch, model, fields):
     preds = model.parse(batch, unbind=True, device='cpu')
     fields |= preds.keys()
     for f, pred in preds.items():
-        for instance, value in zip(batch, pred):
-            instance[f] = value
+        for instance, array in zip(batch, pred):
+            instance[f] = array.numpy()
     return batch
 
 def batch_pipeline(models, index):
@@ -46,13 +54,20 @@ def batch_pipeline(models, index):
 
     return _batch_pipeline
 
-_PIPELINE_NAME = re.compile(r'.*(tagger|parser|index).pth')
+def get_model_name(name):
+    if isinstance(name, str):
+        name = Path(name)
+    if name.exists():
+        return name
+    return Path('./home/models') / (name.name + '.tar.gz')
 
-def load_pipeline(name):
-    pipeline = {}
+def load_pipeline(name, pipeline):
+    name = get_model_name(name)
+
+    if isinstance(pipeline, str):
+        pipeline = pipeline.split(',')
+
     with tarfile.open(name, 'r:gz') as tar:
-        for member in tar.getmembers():
-            match = _PIPELINE_NAME.match(member.name)
-            if match:
-                pipeline[match.group(1)] = torch.load(tar.extractfile(member))
-    return pipeline
+        index = torch.load(tar.extractfile('index.pth'))
+        models = [torch.load(tar.extractfile(model.strip() + '.pth')) for model in pipeline]
+        return batch_pipeline(models, index)
