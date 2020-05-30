@@ -254,7 +254,6 @@ def pipeline(name, models='tagger,parser', batch_size=100):
     p = pipe()
     p = p.batch(batch_size)
     p = p.map(load_pipeline(name, models))
-    p = p.flatten()
     return p
 
 def apply_model(batch, model, fields):
@@ -266,17 +265,18 @@ def apply_model(batch, model, fields):
     return batch
 
 def batch_pipeline(models, index):
+    prep = preprocess()
     inverse_index = create_inverse_index(index)
-
-    p = pipe()
-    p = p.map(lambda instance: copy.deepcopy(instance))
-    p = p.pipe(preprocess())
-    p = p.to_instance(index)
 
     def _batch_pipeline(batch):
         parsed_fields = set()
-        parsed = pipe(batch).pipe(p).collect()
 
+        p = pipe(batch)
+        p = p.map(lambda s: copy.deepcopy(s))
+        p = p.pipe(prep)
+        p = p.to_instance(index)
+
+        parsed = p.collect()
         for model in models:
             parsed = apply_model(parsed, model, parsed_fields)
         parsed = pipe(parsed).only_fields(parsed_fields).to_sentence(inverse_index).collect()
@@ -285,6 +285,7 @@ def batch_pipeline(models, index):
             for i, parsed_word in enumerate(parsed_sentence):
                 word = sentence.get(i + 1)
                 word.update(parsed_word)
+
         return batch
 
     return _batch_pipeline
@@ -355,6 +356,7 @@ def main():
         set_home_dir(args.home_dir)
 
     try:
+
         if args.cmd == 'train':
             train(**get_config(args))
         elif args.cmd == 'package':
@@ -363,6 +365,7 @@ def main():
                 create_model_package(args.treebank, update=opr=='update', version=args.version)
         elif args.cmd == 'parse':
             p = pipeline(args.model)
-            pipe().read_conllu(args.input).pipe(p).count()
+            pipe().read_conllu(args.input).pipe(p).flatten().write_conllu(args.output)
+
     except ConfigError as err:
         print('error:', err)
