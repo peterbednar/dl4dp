@@ -1,4 +1,5 @@
 import re
+import copy
 import tarfile
 import argparse
 from pathlib import Path
@@ -249,10 +250,10 @@ def preprocess():
     p.replace('form', r'[0-9]+|[0-9]+\.[0-9]+|[0-9]+[0-9,]+', '__number__')
     return p
 
-def pipeline(name, pipeline='tagger,parser', batch_size=100):
+def pipeline(name, models='tagger,parser', batch_size=100):
     p = pipe()
     p = p.batch(batch_size)
-    p = p.map(load_pipeline(name, pipeline))
+    p = p.map(load_pipeline(name, models))
     p = p.flatten()
     return p
 
@@ -274,16 +275,17 @@ def batch_pipeline(models, index):
 
     def _batch_pipeline(batch):
         parsed_fields = set()
-
         parsed = pipe(batch).pipe(p).collect()
+
         for model in models:
             parsed = apply_model(parsed, model, parsed_fields)
-        parsed = pipe(parsed).only_fields(parsed_fields).map_to_sentence(inverse_index).collect()
+        parsed = pipe(parsed).only_fields(parsed_fields).to_sentence(inverse_index).collect()
 
         for sentence, parsed_sentence in zip(batch, parsed):
             for i, parsed_word in enumerate(parsed_sentence):
                 word = sentence.get(i + 1)
                 word.update(parsed_word)
+        return batch
 
     return _batch_pipeline
 
@@ -294,15 +296,17 @@ def get_model_name(name):
         return name
     return get_model_dir() / (name.name + '.tar.gz')
 
-def load_pipeline(name, pipeline):
+def load_pipeline(name, models):
     name = get_model_name(name)
 
-    if isinstance(pipeline, str):
-        pipeline = pipeline.split(',')
+    if isinstance(models, str):
+        models = models.split(',')
 
     with tarfile.open(name, 'r:gz') as tar:
         index = torch.load(tar.extractfile('index.pth'))
-        models = [torch.load(tar.extractfile(model.strip() + '.pth')) for model in pipeline]
+        models = [torch.load(tar.extractfile(model.strip() + '.pth')) for model in models]
+        for model in models:
+            model.eval()
         return batch_pipeline(models, index)
 
 class ConfigError(Exception):
@@ -359,7 +363,6 @@ def main():
                 create_model_package(args.treebank, update=opr=='update', version=args.version)
         elif args.cmd == 'parse':
             p = pipeline(args.model)
-            pipe().read_conllu(args.input).pipe(p).write_conllu(args.output)
-
+            pipe().read_conllu(args.input).pipe(p).count()
     except ConfigError as err:
         print('error:', err)
