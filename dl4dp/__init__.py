@@ -258,7 +258,7 @@ def pipeline(name, models='tagger,parser', batch_size=100):
 
 def apply_model(batch, model, fields):
     preds = model.parse(batch, unbind=True, device='cpu')
-    fields |= preds.keys()
+    fields.update(preds.keys())
     for f, pred in preds.items():
         for instance, array in zip(batch, pred):
             instance[f] = array.numpy()
@@ -275,11 +275,16 @@ def batch_pipeline(models, index):
         p = p.map(lambda s: copy.deepcopy(s))
         p = p.pipe(prep)
         p = p.to_instance(index)
-
         parsed = p.collect()
+
         for model in models:
             parsed = apply_model(parsed, model, parsed_fields)
-        parsed = pipe(parsed).only_fields(parsed_fields).to_sentence(inverse_index).collect()
+
+        p = pipe(parsed)
+        p = p.to_sentence(inverse_index)
+        p = p.only_fields(parsed_fields)
+        p = p.merge_feats()
+        parsed = p.collect()
 
         for sentence, parsed_sentence in zip(batch, parsed):
             for i, parsed_word in enumerate(parsed_sentence):
