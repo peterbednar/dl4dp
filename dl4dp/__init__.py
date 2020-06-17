@@ -361,7 +361,6 @@ def main():
         set_home_dir(args.home_dir)
 
     try:
-
         if args.cmd == 'train':
             train(**get_config(args))
         elif args.cmd == 'package':
@@ -371,6 +370,5 @@ def main():
         elif args.cmd == 'parse':
             p = pipeline(args.model)
             pipe().read_conllu(args.input).pipe(p).flatten().write_conllu(args.output)
-
     except ConfigError as err:
         print('error:', err)

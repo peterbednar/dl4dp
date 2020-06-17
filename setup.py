@@ -11,7 +11,7 @@ setup(
     packages=["dl4dp"],
     version=VERSION,
     license="MIT",
-    description="A framework for deep learning dependency parsing.",
+    description="A Python library for morphological tagging, lemmatization and dependency parsing",
     long_description=long_description,
     long_description_content_type='text/markdown',
     author=u"Peter Bednár",

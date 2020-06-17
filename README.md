@@ -1,27 +1,57 @@
 # dl4dp
 
-Deep learning dependency parsing.
+**dl4dp** is a Python NLP library, which provides tools for morphological tagging, lemmatization and dependency parsing.
+The main motivation for this library is to provide state-of-the-art tools for Slovak language, but the models can build
+for any language with training data in [Universal Dependencies](https://universaldependencies.org).
 
-### State of the Art
+### Installation
 
-The following table summarizes the current state-of-the-art in dependency parsing from the raw text for the Slovak
-language.
+The library supports Python 3.6 and later.
 
-|    LAS    |    UAS    |  UPOS-F1  | UFeats-F1 | AllTags-F1 | Lemmas-F1 |  Method               |
-|-----------|-----------|-----------|-----------|------------|-----------|------------------------
-| **88.85** | **91.43** | **97.02** |   80.46   |   72.98    |   86.21   | HIT-SCIR (Harbin)     |
-|   87.59   |   90.49   |   96.98   | **91.07** | **85.88**  |   93.10   | Standford (Stanford)  |
-|   86.61   |   89.66   |   95.71   |   89.96   |   83.77    | **96.08** | TurkuNLP (Turku)      |
-|   85.06   |   87.96   |   96.65   |   90.33   |   84.60    |   95.66   | UDPipe Future (Praha) |
-|   86.38   |   89.24   |   96.61   |   90.89   |   74.57    |   86.21   | CEA LIST (Paris)      |
-|   83.76   |   87.60   |   93.62   |   84.46   |   70.78    |   94.01   | ICS PAS (Warszawa)    |
+#### pip
 
-#### References
+The dl4dp is available on [PyPi](https://pypi.python.org/pypi) and can be installed via `pip`. To install simply
+run:
+```
+pip install dl4dp
+```
 
-* [CoNLL 2018](https://universaldependencies.org/conll18/proceedings/pdf/K18-2001.pdf) CoNLL 2018 Shared Task: Multilingual Parsing from Raw Text to Universal Dependencies
-* [HIT-SCIR (Harbin)](https://universaldependencies.org/conll18/proceedings/pdf/K18-2005.pdf) Towards Better UD Parsing: Deep Contextualized Word Embeddings, Ensemble, and Treebank Concatenation
-* [Standford (Standford)](https://nlp.stanford.edu/pubs/qi2018universal.pdf) Universal Dependency Parsing from Scratch
-* [TurkuNLP (Turku)](https://universaldependencies.org/conll18/proceedings/pdf/K18-2013.pdf)Turku Neural Parser Pipeline: An End-to-End System for the CoNLL 2018 Shared Task
-* [UDPipe Future (Praha)](https://universaldependencies.org/conll18/proceedings/pdf/K18-2020.pdf) UDPipe 2.0 Prototype at CoNLL 2018 UD Shared Task
-* [CEA LIST (Paris)](https://universaldependencies.org/conll18/proceedings/pdf/K18-2003.pdf) CEA LIST: Processing Low-Resource Languages for CoNLL 2018
-* [ICS PAS Warszawa](https://universaldependencies.org/conll18/proceedings/pdf/K18-2004.pdf) Semi-Supervised Neural System for Tagging, Parsing and Lematization
+To upgrade the previous installation to the newest release, use:
+```
+pip install dl4dp -U
+```
+
+#### From source
+
+Alternatively, you can also install library from this git repository, which will give you more flexibility and allows
+you to start contributing to the dl4dp code. For this option, run:
+```
+git clone https://github.com/peterbednar/dl4dp.git
+cd dl4dp
+pip install -e .
+```
+
+### Getting started with dl4dp
+
+The library provides a command-line interface which allows you to train own model, create pipeline package for production deployment, or parse data. The following command will download [Universal Dependencies](https://universaldependencies.org)  archive and train morphological tagger model on English EWT treebank:
+
+```
+python -m dl4dp train tagger -t en_ewt
+```
+
+Similarly, the following command will train a model for dependency parser:
+
+```
+python -m dl4dp train parser -t en_ewt
+```
+
+Subsequently, you can create and install a pipeline package, which can be deployed for the parsing of new data:
+
+```
+python -m dl4dp package install -t en_ewt
+```
+
+### LICENSE
+
+dl4dp is released under the MIT License. See the [LICENSE](https://github.com/peterbednar/dl4dp/blob/master/LICENSE)
+file for more details.
