@@ -14,7 +14,7 @@ from .parser import BiaffineParser
 from .trainer import Trainer, UPosFeatsAcc, LAS
 from .utils import register_logger, get_url
 
-_home_dir = Path('./home')
+_home_dir = Path.home() / '.dl4dp'
 
 def home_dir():
     path = _home_dir

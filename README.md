@@ -45,10 +45,16 @@ Similarly, the following command will train a model for dependency parser:
 python -m dl4dp train parser -t en_ewt
 ```
 
-Subsequently, you can create and install a pipeline package, which can be deployed for the parsing of new data:
+Subsequently, you can create and install a pipeline package:
 
 ```
 python -m dl4dp package install -t en_ewt
+```
+
+After the installation of the pipeline, it can be used for the parsing of input data in CoNLL-U format:
+
+```
+python -m dl4dp parse ~/.dl4dp/treebanks/en_ewt/en_ewt-ud-test.conllu output.conllu -m en_ewt-0.1.0
 ```
 
 ### LICENSE
