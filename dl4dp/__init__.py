@@ -123,8 +123,8 @@ def get_treebank_files(treebank, extract_ud=True):
 
     return files
 
-_UD_FILE = 'ud-treebanks-v2.6.tgz'
-_UD_URL = 'https://lindat.mff.cuni.cz/repository/xmlui/bitstream/handle/11234/1-3226/ud-treebanks-v2.6.tgz?sequence=1&isAllowed=y'
+_UD_FILE = 'ud-treebanks-v2.7.tgz'
+_UD_URL = 'https://lindat.mff.cuni.cz/repository/xmlui/bitstream/handle/11234/1-3424/ud-treebanks-v2.7.tgz?sequence=1&isAllowed=y'
 
 def _match_ud_treebank_name(treebank, name):
     return re.compile(fr'.*\/{treebank}-ud-(train|test|dev).conllu').match(name)
