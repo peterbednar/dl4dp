@@ -191,6 +191,7 @@ def train(model_type,
     model = get_model(model_type, input_dims, output_dims, **model_config)
     if enable_gpu and torch.cuda.is_available():
         model.to(torch.device('cuda'))
+        print(f'device: {torch.cuda.get_device_name()}')
 
     validator = get_validator(model_type, data.get('dev'), logger='validation')
     trainer_config = kwargs.get('trainer', {})
