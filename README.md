@@ -1,7 +1,7 @@
 # dl4dp
 
 **dl4dp** is a Python NLP library, which provides tools for morphological tagging, lemmatization and dependency parsing.
-The main motivation for this library is to provide state-of-the-art tools for Slovak language, but the models can build
+The main motivation for this library is to provide state-of-the-art tools for Slovak language, but the models can be build
 for any language with training data in [Universal Dependencies](https://universaldependencies.org).
 
 ### Installation
