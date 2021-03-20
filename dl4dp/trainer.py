@@ -18,7 +18,7 @@ class Checkpoint(object):
 
 class CheckpointManager(object):
 
-    def __init__(self, build_dir, model_name, validator=None, check_best_only=True, **kwargs):
+    def __init__(self, build_dir, model_name, validator=None, check_best_only=True, patience=None, min_delta=0.5e-3, **kwargs):
         if isinstance(build_dir, str):
             build_dir = Path(build_dir)
         self.build_dir = build_dir
@@ -28,25 +28,40 @@ class CheckpointManager(object):
         self.check_best_only = check_best_only
         self.best = None
         self.history = []
+        self.patience = patience
+        self.min_delta = min_delta
 
     def check(self, epoch, model):
-        chck = Checkpoint(epoch)
-        self.history.append(chck)
+        last = Checkpoint(epoch)
+        self.history.append(last)
 
         if self.validator:
             print(f'validating epoch: {epoch}')
             score, _ = self.validator(model)
-            chck.score = score
+            last.score = score
             if self.best is None or self.best.score < score:
-                self.best = chck
+                self.best = last
         else:
-            self.best = chck
+            self.best = last
         
-        if not self.check_best_only or self.best == chck:
-            chck.path = self.build_dir / (self.model_name + '.pth' if self.check_best_only else f'_{epoch}.pth')
-            torch.save(model, chck.path)
+        if not self.check_best_only or self.best == last:
+            last.path = self.build_dir / (self.model_name + '.pth' if self.check_best_only else f'_{epoch}.pth')
+            torch.save(model, last.path)
 
-        return True
+        return self._check_early_stop()
+
+    def _check_early_stop(self):
+        if self.validator is None or self.patience is None:
+            return False
+
+        delta_count = 0
+        for prev in reversed(self.history):
+            if prev != self.best and self.best.score - prev.score < self.min_delta:
+                delta_count += 1
+                if delta_count >= self.patience:
+                    return True
+
+        return False
 
 class Trainer(object):
 
@@ -87,7 +102,7 @@ class Trainer(object):
             self.progress.finish()
             self.progress.print_elapsed_time('sentences')
             
-            if not self.checkpoints.check(epoch, model):
+            if self.checkpoints.check(epoch, model):
                 break
             if epoch >= self.max_epochs:
                 break
