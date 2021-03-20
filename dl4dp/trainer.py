@@ -1,7 +1,9 @@
 import math
-from pathlib import Path
+import time
 from abc import ABC, abstractmethod
 from collections import Counter
+from datetime import timedelta
+from pathlib import Path
 
 import torch
 from torch.optim import Adam
@@ -18,7 +20,7 @@ class Checkpoint(object):
 
 class CheckpointManager(object):
 
-    def __init__(self, build_dir, model_name, validator=None, check_best_only=True, patience=None, min_delta=0.5e-3, **kwargs):
+    def __init__(self, build_dir, model_name, validator=None, check_best_only=True, patience=None, min_delta=0.001, **kwargs):
         if isinstance(build_dir, str):
             build_dir = Path(build_dir)
         self.build_dir = build_dir
@@ -30,6 +32,7 @@ class CheckpointManager(object):
         self.history = []
         self.patience = patience
         self.min_delta = min_delta
+        self.no_progress = 0
 
     def check(self, epoch, model):
         last = Checkpoint(epoch)
@@ -39,8 +42,14 @@ class CheckpointManager(object):
             print(f'validating epoch: {epoch}')
             score, _ = self.validator(model)
             last.score = score
-            if self.best is None or self.best.score < score:
+
+            if self.best is None:
                 self.best = last
+            else:
+                if score - self.best.score < self.min_delta:
+                    self.no_progress += 1
+                if self.best.score < score:
+                    self.best = last
         else:
             self.best = last
         
@@ -48,20 +57,10 @@ class CheckpointManager(object):
             last.path = self.build_dir / (self.model_name + '.pth' if self.check_best_only else f'_{epoch}.pth')
             torch.save(model, last.path)
 
-        return self._check_early_stop()
-
-    def _check_early_stop(self):
-        if self.validator is None or self.patience is None:
+        if self.patience is not None and self.no_progress > self.patience:
+            return True
+        else:
             return False
-
-        delta_count = 0
-        for prev in reversed(self.history):
-            if prev != self.best and self.best.score - prev.score < self.min_delta:
-                delta_count += 1
-                if delta_count >= self.patience:
-                    return True
-
-        return False
 
 class Trainer(object):
 
@@ -83,11 +82,16 @@ class Trainer(object):
         self.progress = progressbar(total_size)
 
     def train(self, model):
-        optimizer = self._optimizer(model)
+        optimizer = self._optimizer(model)        
+        
+        epoch = steps = 0
+        start_time = time.time()
 
-        epoch = 1
         while True:
-            print(f'epoch: {epoch}/{self.max_epochs}')
+            print(
+                f'epoch: {epoch + 1}' if self.max_epochs is None else
+                f'epoch: {epoch + 1}/{self.max_epochs}'
+            )
             self.progress.reset()
 
             for step, batch in enumerate(self.batches):
@@ -97,16 +101,20 @@ class Trainer(object):
                 optimizer.step()
 
                 self.progress.update(len(batch))
-                self._log(epoch, step + 1, batch, loss, metrics)
+                self._log(epoch + 1, step + 1, batch, loss, metrics)
+                steps += 1
             
             self.progress.finish()
             self.progress.print_elapsed_time('sentences')
+            epoch += 1
             
             if self.checkpoints.check(epoch, model):
                 break
-            if epoch >= self.max_epochs:
+            if self.max_epochs is not None and epoch >= self.max_epochs:
                 break
-            epoch += 1
+
+        td = timedelta(seconds=round(time.time() - start_time))
+        print(f'training epochs: {epoch}, steps: {steps}/{self.batch_size}, elapsed time: {td}')
 
         best = self.checkpoints.best
         if best.score is not None:
@@ -174,7 +182,7 @@ class Validator(ABC):
              }
             record.update(metrics)
             self.logger.log(record)
-        
+
 class UPosFeatsAcc(Validator):
 
     def __init__(self, *args, **kwargs):

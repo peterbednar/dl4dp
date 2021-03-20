@@ -201,6 +201,8 @@ def train(model_type,
         model_name=model_type,
         validator=validator,
         logger='training',
+        max_epochs=None,
+        patience=3,
         **trainer_config
     )
 
