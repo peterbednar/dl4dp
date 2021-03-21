@@ -102,8 +102,9 @@ class Embeddings(nn.Module):
 class LSTM(nn.Module):
     def __init__(self, input_dim, hidden_dim, num_layers, dropout, bidirectional=True):
         super().__init__()
-        self.lstm = nn.LSTM(input_dim, hidden_dim, num_layers, dropout=dropout, bidirectional=bidirectional,
-                batch_first=True)
+        self.lstm = nn.LSTM(
+            input_dim, hidden_dim, num_layers, dropout=dropout, bidirectional=bidirectional, batch_first=True
+        )
 
     def forward(self, x, unpad=False):
         x = rnn.pack_sequence(x, enforce_sorted=False)
