@@ -1,6 +1,7 @@
 import math
 import heapq
 import time
+import os
 import re
 import requests
 import tarfile
@@ -12,7 +13,7 @@ from pathlib import Path
 import numpy as np
 
 
-_home_dir = Path.home() / '.dl4dp'
+_home_dir = Path(os.environ.get('DL4DP_HOME', Path.home() / '.dl4dp'))
 
 
 def home_dir():
@@ -22,6 +23,7 @@ def home_dir():
 
 
 def set_home_dir(path):
+    global _home_dir
     _home_dir = Path(path)
 
 
