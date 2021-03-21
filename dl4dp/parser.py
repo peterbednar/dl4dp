@@ -6,6 +6,7 @@ from .modules import loss_and_error, unbind_sequence
 from .modules import Embedding, Embeddings, MLP, Bilinear, Biaffine, LSTM
 from .utils import tarjan
 
+
 class BiaffineParser(nn.Module):
 
     def __init__(self,
@@ -82,21 +83,22 @@ class BiaffineParser(nn.Module):
 
         for i, k in enumerate(accumulate(lengths)):
             j = k - lengths[i]
-            indexes[0,j:k] = i
-            indexes[1,j:k] = torch.arange(1, lengths[i]+1)
+            indexes[0, j:k] = i
+            indexes[1, j:k] = torch.arange(1, lengths[i]+1)
             if self.training:
-                indexes[2,j:k] = torch.from_numpy(batch[i].head)
-                indexes[3,j:k] = torch.from_numpy(batch[i].deprel)
+                indexes[2, j:k] = torch.from_numpy(batch[i].head)
+                indexes[3, j:k] = torch.from_numpy(batch[i].deprel)
 
         indexes = indexes.to(device, non_blocking=True)
         return indexes, lengths
 
+
 class ArcBiaffine(nn.Module):
 
     def __init__(self,
-                encoder_dim,
-                mlp_dim,
-                mlp_dropout):
+                 encoder_dim,
+                 mlp_dim,
+                 mlp_dropout):
         super().__init__()
         self.h_mlp = MLP(encoder_dim, mlp_dim, mlp_dropout)
         self.d_mlp = MLP(encoder_dim, mlp_dim, mlp_dropout)
@@ -106,12 +108,12 @@ class ArcBiaffine(nn.Module):
         arc_h = self.h_mlp(h)
         arc_d = self.d_mlp(h)
         arc_scores = self.biaffine(arc_d, arc_h)
-        arc_scores = arc_scores[indexes[0,:], indexes[1,:], :]
+        arc_scores = arc_scores[indexes[0, :], indexes[1, :], :]
         return arc_scores
 
     def loss(self, h, indexes):
         arc_scores = self(h, indexes)
-        gold_arcs = indexes[2,:]
+        gold_arcs = indexes[2, :]
         return loss_and_error(arc_scores, gold_arcs)
 
     def parse(self, h, indexes, lengths):
@@ -128,40 +130,42 @@ class ArcBiaffine(nn.Module):
         arc_pred = arc_pred.to(indexes.device, non_blocking=True)
         return arc_pred
 
+
 class LabelBiaffine(nn.Module):
 
     def __init__(self,
-                encoder_dim,
-                labels_dim,
-                mlp_dim,
-                mlp_dropout):
+                 encoder_dim,
+                 labels_dim,
+                 mlp_dim,
+                 mlp_dropout):
         super().__init__()
         self.h_mlp = MLP(encoder_dim, mlp_dim, mlp_dropout)
         self.d_mlp = MLP(encoder_dim, mlp_dim, mlp_dropout)
         self.bilinear = Bilinear(mlp_dim, labels_dim, bias_x=True, bias_y=True)
 
     def forward(self, h, indexes, heads):
-        lab_h = h[indexes[0,:], heads, :]
-        lab_d = h[indexes[0,:], indexes[1,:], :]
+        lab_h = h[indexes[0, :], heads, :]
+        lab_d = h[indexes[0, :], indexes[1, :], :]
         lab_h = self.h_mlp(lab_h)
         lab_d = self.d_mlp(lab_d)
         lab_scores = self.bilinear(lab_d, lab_h)
         return lab_scores
 
     def loss(self, h, indexes):
-        lab_scores = self(h, indexes, indexes[2,:])
-        lab_gold = indexes[3,:]
+        lab_scores = self(h, indexes, indexes[2, :])
+        lab_gold = indexes[3, :]
         return loss_and_error(lab_scores, lab_gold)
 
     def parse(self, h, indexes, pred_arcs):
         lab_scores = self(h, indexes, pred_arcs)
         return lab_scores.max(1)[1]
 
+
 class WordLSTMEncoder(nn.Module):
 
     def __init__(self,
                  input_dim,
-                 lstm_hidden_dim=400, 
+                 lstm_hidden_dim=400,
                  lstm_num_layers=3,
                  lstm_dropout=0.33):
         super().__init__()

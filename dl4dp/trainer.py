@@ -11,12 +11,14 @@ from conllutils import pipe
 
 from .utils import progressbar, get_logger
 
+
 class Checkpoint(object):
 
     def __init__(self, epoch, score=None, path=None):
         self.epoch = epoch
         self.score = score
         self.path = path
+
 
 class CheckpointManager(object):
 
@@ -32,7 +34,7 @@ class CheckpointManager(object):
         self.history = []
         self.patience = patience
         self.min_delta = min_delta
-        self.no_progress = 0
+        self.no_improvement = 0
 
     def check(self, epoch, model):
         last = Checkpoint(epoch)
@@ -47,20 +49,21 @@ class CheckpointManager(object):
                 self.best = last
             else:
                 if score - self.best.score < self.min_delta:
-                    self.no_progress += 1
+                    self.no_improvement += 1
                 if self.best.score < score:
                     self.best = last
         else:
             self.best = last
-        
+
         if not self.check_best_only or self.best == last:
             last.path = self.build_dir / (self.model_name + '.pth' if self.check_best_only else f'_{epoch}.pth')
             torch.save(model, last.path)
 
-        if self.patience is not None and self.no_progress > self.patience:
+        if self.patience is not None and self.no_improvement > self.patience:
             return True
         else:
             return False
+
 
 class Trainer(object):
 
@@ -82,8 +85,8 @@ class Trainer(object):
         self.progress = progressbar(total_size)
 
     def train(self, model):
-        optimizer = self._optimizer(model)        
-        
+        optimizer = self._optimizer(model)
+
         epoch = steps = 0
         start_time = time.time()
 
@@ -103,11 +106,11 @@ class Trainer(object):
                 self.progress.update(len(batch))
                 self._log(epoch + 1, step + 1, batch, loss, metrics)
                 steps += 1
-            
+
             self.progress.finish()
             self.progress.print_elapsed_time('sentences')
             epoch += 1
-            
+
             if self.checkpoints.check(epoch, model):
                 break
             if self.max_epochs is not None and epoch >= self.max_epochs:
@@ -136,7 +139,8 @@ class Trainer(object):
                 'loss': loss.item()
             }
             record.update({f: m.item() for f, m in metrics.items()})
-            self.logger.log(record)            
+            self.logger.log(record)
+
 
 class Validator(ABC):
 
@@ -183,6 +187,7 @@ class Validator(ABC):
             record.update(metrics)
             self.logger.log(record)
 
+
 class UPosFeatsAcc(Validator):
 
     def __init__(self, *args, **kwargs):
@@ -205,12 +210,13 @@ class UPosFeatsAcc(Validator):
         upos_acc = counts.pop('upos')
         feats_acc = sum(counts.values()) / len(counts)
 
-        score = (upos_acc + feats_acc)/2 
+        score = (upos_acc + feats_acc) / 2
         metrics = {'UPosAcc': upos_acc, 'UFeatsAcc': feats_acc}
-        return score, metrics 
+        return score, metrics
 
     def _get_gold(self, field, batch):
         return torch.cat([torch.from_numpy(instance[field]) for instance in batch])
+
 
 class LAS(Validator):
 
@@ -244,7 +250,7 @@ class LAS(Validator):
 
         las = las_correct / total_words
         uas = uas_correct / total_words
-        em  = em_correct  / total_sentences
+        em = em_correct / total_sentences
 
         metrics = {'LAS': las, 'UAS': uas, 'EM': em}
         return las, metrics

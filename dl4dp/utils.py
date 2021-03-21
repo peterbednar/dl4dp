@@ -1,12 +1,129 @@
 import math
 import heapq
 import time
+import re
 import requests
+import tarfile
 from datetime import timedelta
 from collections import defaultdict
 from functools import total_ordering
 from csv import DictWriter
+from pathlib import Path
 import numpy as np
+
+
+_home_dir = Path.home() / '.dl4dp'
+
+
+def home_dir():
+    path = _home_dir
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def set_home_dir(path):
+    _home_dir = Path(path)
+
+
+def _get_dir(dir, treebank=None, create=False):
+    path = home_dir() / dir
+    if treebank is not None:
+        path /= treebank
+    if create:
+        path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def get_treebank_dir(treebank=None, create=False):
+    return _get_dir('treebanks', treebank, create)
+
+
+def get_build_dir(treebank, create=False):
+    return _get_dir('build', treebank, create)
+
+
+def get_model_dir(create=False):
+    return _get_dir('models', None, create)
+
+
+class ConfigError(Exception):
+    pass
+
+
+_FILE_NAME = re.compile(r'.*-(train|test|dev).conllu')
+
+
+def get_treebank_files(treebank, extract_ud=True):
+    tb_dir = get_treebank_dir(treebank)
+
+    if not tb_dir.exists() and extract_ud:
+        return extract_ud_treebank(treebank)
+
+    files = {}
+    for name in tb_dir.iterdir():
+        match = _FILE_NAME.match(str(name))
+        if match:
+            files[match.group(1)] = name
+
+    if not files:
+        raise ConfigError(f'no data found in treebank directory {tb_dir}')
+
+    return files
+
+
+_UD_FILE = 'ud-treebanks-v2.7.tgz'
+_UD_URL = 'https://lindat.mff.cuni.cz/repository/xmlui/bitstream/handle/11234/1-3424/' \
+          'ud-treebanks-v2.7.tgz?sequence=1&isAllowed=y'
+
+
+def _match_ud_treebank_name(treebank, name):
+    return re.compile(fr'.*\/{treebank}-ud-(train|test|dev).conllu').match(name)
+
+
+def extract_ud_treebank(treebank):
+    td_dir = get_treebank_dir(create=True)
+    archive = td_dir / _UD_FILE
+
+    if not archive.exists():
+        print('downloading ' + _UD_FILE)
+        get_url(_UD_URL, archive)
+
+    files = {}
+    print(f'extracting {treebank} from UD archive...')
+
+    with tarfile.open(archive, 'r', encoding='utf-8') as tar:
+        extract_members = {}
+        for member in tar.getmembers():
+            match = _match_ud_treebank_name(treebank, member.name)
+            if match:
+                extract_members[match.group(1)] = member
+
+        if not extract_members:
+            raise ConfigError(f'treebank {treebank} not found in the UD archive')
+
+        td_dir = get_treebank_dir(treebank, create=True)
+        for f, member in extract_members.items():
+            member.name = Path(member.name).name  # Extract only file name without path
+            tar.extract(member, td_dir)
+            files[f] = td_dir / member.name
+
+    print('extracting done')
+    return files
+
+
+def get_url(url, path, progress=True):
+    request = requests.get(url, stream=True)
+    with open(path, 'wb') as f:
+        if progress:
+            total_length = int(request.headers.get('content-length'))
+            pb = progressbar(total_length)
+        for chunk in request:
+            f.write(chunk)
+            if progress:
+                pb.update(len(chunk))
+        if progress:
+            pb.finish()
+
 
 def tarjan(scores, heads):
     nr = scores.shape[1]
@@ -84,21 +201,26 @@ def tarjan(scores, heads):
     for scc in rset:
         _invert_max_branching(min[scc], h, visited, heads)
 
+
 def _push(queue, elm):
     heapq.heappush(queue, elm)
+
 
 def _pop(queue):
     if len(queue) == 0:
         return None
     return heapq.heappop(queue)
 
+
 def _find_disjoint_sets(trees, elm):
     if trees[elm] != elm:
         trees[elm] = _find_disjoint_sets(trees, trees[elm])
     return trees[elm]
 
+
 def _union_disjoint_sets(trees, set1, set2):
     trees[set2] = set1
+
 
 def _invert_max_branching(node, h, visited, inverted):
     visited[node] = True
@@ -107,6 +229,7 @@ def _invert_max_branching(node, h, visited, inverted):
             continue
         inverted[v-1] = int(node)
         _invert_max_branching(v, h, visited, inverted)
+
 
 @total_ordering
 class _edge(object):
@@ -121,6 +244,7 @@ class _edge(object):
 
     def __lt__(self, other):
         return -self.weight < -other.weight
+
 
 class progressbar(object):
 
@@ -142,7 +266,7 @@ class progressbar(object):
         while prev < next:
             print(self.bar, end='', flush=True)
             prev += 1
-    
+
     def finish(self):
         print(self.end, end='', flush=True)
 
@@ -161,15 +285,19 @@ class progressbar(object):
         if total is not None:
             self.total = total
 
+
 _loggers = {}
+
 
 def get_logger(name):
     return _loggers[name]
+
 
 def register_logger(name, filename):
     if name in _loggers:
         _loggers[name].close()
     _loggers[name] = CsvLogger(filename)
+
 
 class CsvLogger(object):
 
@@ -190,16 +318,3 @@ class CsvLogger(object):
     def close(self):
         if self.stream:
             self.stream.close()
-
-def get_url(url, path, progress=True):
-    request = requests.get(url, stream=True)
-    with open(path, 'wb') as f:
-        if progress:
-            total_length = int(request.headers.get('content-length'))
-            pb = progressbar(total_length)
-        for chunk in request:
-            f.write(chunk)
-            if progress:
-                pb.update(len(chunk))
-        if progress:
-            pb.finish()

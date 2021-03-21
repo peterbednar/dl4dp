@@ -5,6 +5,7 @@ import torch.nn.utils.rnn as rnn
 from .modules import loss_and_error, unbind_sequence
 from .modules import Embedding, Embeddings, MLP, LSTM, Bilinear, _field_option
 
+
 class BiaffineTagger(nn.Module):
 
     def __init__(self,
@@ -24,8 +25,9 @@ class BiaffineTagger(nn.Module):
 
         self.embeddings = Embeddings('cat')
         self.embeddings['form'] = Embedding('form', input_dims, input_dropout)
-        self.embeddings['form:chars'] = CharLSTMEncoder('form:chars', input_dims, input_dropout,
-                char_lstm_num_layers, char_lstm_dropout)
+        self.embeddings['form:chars'] = CharLSTMEncoder(
+            'form:chars', input_dims, input_dropout, char_lstm_num_layers, char_lstm_dropout
+        )
 
         input_dim = self.embeddings.size()
         self.encoder = LSTM(input_dim, lstm_hidden_dim, lstm_num_layers, lstm_dropout, True)
@@ -34,7 +36,7 @@ class BiaffineTagger(nn.Module):
         upos_dim = output_dims['upos']
 
         self.tags = nn.ModuleDict()
-        self.tags['upos'] = Affine(encoder_dim, upos_dim, upos_mlp_dim, upos_mlp_dropout) 
+        self.tags['upos'] = Affine(encoder_dim, upos_dim, upos_mlp_dim, upos_mlp_dropout)
         for f, dim in output_dims['feats'].items():
             self.tags[f] = FeatsBiaffine(encoder_dim, dim, feats_mlp_dim, feats_mlp_dropout)
         self.upos_embedding = Embedding('upos', (upos_dim, feats_mlp_dim))
@@ -89,6 +91,7 @@ class BiaffineTagger(nn.Module):
         tag = self.tags[field]
         return tag.parse(h) if field == 'upos' else tag.parse(h, upos_embedding)
 
+
 class Affine(nn.Module):
 
     def __init__(self, input_dim, labels_dim, mlp_dim, mlp_dropout):
@@ -107,6 +110,7 @@ class Affine(nn.Module):
     def parse(self, h):
         return self(h).max(1)[1]
 
+
 class FeatsBiaffine(nn.Module):
 
     def __init__(self, input_dim, labels_dim, mlp_dim, mlp_dropout):
@@ -124,6 +128,7 @@ class FeatsBiaffine(nn.Module):
 
     def parse(self, h, upos_embedding):
         return self(h, upos_embedding).max(1)[1]
+
 
 class CharLSTMEncoder(nn.Module):
 

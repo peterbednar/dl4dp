@@ -1,4 +1,3 @@
-import re
 import copy
 import tarfile
 import argparse
@@ -12,48 +11,15 @@ from conllutils import pipe, create_inverse_index
 from .tagger import BiaffineTagger
 from .parser import BiaffineParser
 from .trainer import Trainer, UPosFeatsAcc, LAS
-from .utils import register_logger, get_url
+from .utils import set_home_dir, get_build_dir, get_model_dir, get_treebank_files, register_logger, ConfigError
 
-_home_dir = Path.home() / '.dl4dp'
 
-def home_dir():
-    path = _home_dir
-    path.mkdir(parents=True, exist_ok=True)
-    return path
-
-def set_home_dir(path):
-    _home_dir = Path(path)
-
-def _get_dir(dir, treebank=None, create=False):
-    path = home_dir() / dir
-    if treebank is not None:
-        path /= treebank
-    if create:
-        path.mkdir(parents=True, exist_ok=True)
-    return path
-
-def get_treebank_dir(treebank=None, create=False):
-    return _get_dir('treebanks', treebank, create)
-
-def get_build_dir(treebank, create=False):
-    return _get_dir('build', treebank, create)
-
-def get_model_dir(create=False):
-    return _get_dir('models', None, create)
-
-def get_package_name(treebank, version=None):
-    name = 'model' if treebank is None else treebank
-    if version is not None:
-        if isinstance(version, (tuple, list)):
-            version = '.'.join(str(v) for v in version)
-        name += '-' + version
-    return name + '.tar.gz'
-   
 def build_index(treebanks, p):
     print('building index...')
     index = pipe().read_conllu(treebanks['train']).pipe(p).create_index(missing_index=1)
     print('building index done')
     return index
+
 
 def load_treebank(files, p, index):
     treebank = {}
@@ -63,11 +29,13 @@ def load_treebank(files, p, index):
         treebank[name] = data
     return treebank
 
+
 def get_model(model_type, *args, **kwargs):
     if model_type == 'tagger':
         return BiaffineTagger(*args, **kwargs)
     if model_type == 'parser':
         return BiaffineParser(*args, **kwargs)
+
 
 def get_validator(model_type, treebank, *args, **kwargs):
     if treebank is None:
@@ -77,6 +45,7 @@ def get_validator(model_type, treebank, *args, **kwargs):
     if model_type == 'parser':
         return LAS(treebank, *args, **kwargs)
     return None
+
 
 def get_dims(dims, index):
 
@@ -104,72 +73,14 @@ def get_dims(dims, index):
 
     return index_dims
 
-_FILE_NAME = re.compile(r'.*-(train|test|dev).conllu')
 
-def get_treebank_files(treebank, extract_ud=True):
-    tb_dir = get_treebank_dir(treebank)
-
-    if not tb_dir.exists() and extract_ud:
-        return extract_ud_treebank(treebank)
-
-    files = {}
-    for name in tb_dir.iterdir():
-        match = _FILE_NAME.match(str(name))
-        if match:
-            files[match.group(1)] = name
-
-    if not files:
-        raise ConfigError(f'no data found in treebank directory {tb_dir}')
-
-    return files
-
-_UD_FILE = 'ud-treebanks-v2.7.tgz'
-_UD_URL = 'https://lindat.mff.cuni.cz/repository/xmlui/bitstream/handle/11234/1-3424/ud-treebanks-v2.7.tgz?sequence=1&isAllowed=y'
-
-def _match_ud_treebank_name(treebank, name):
-    return re.compile(fr'.*\/{treebank}-ud-(train|test|dev).conllu').match(name)
-
-def extract_ud_treebank(treebank):
-    td_dir = get_treebank_dir(create=True)
-    archive = td_dir / _UD_FILE
-
-    if not archive.exists():
-        print('downloading ' + _UD_FILE)
-        get_url(_UD_URL, archive)
-
-    files = {}
-    print(f'extracting {treebank} from UD archive...')
-
-    with tarfile.open(archive, 'r', encoding='utf-8') as tar:
-        extract_members = {}
-        for member in tar.getmembers():
-            match = _match_ud_treebank_name(treebank, member.name)
-            if match:
-                extract_members[match.group(1)] = member
-
-        if not extract_members:
-            raise ConfigError(f'treebank {treebank} not found in the UD archive')
-
-        td_dir = get_treebank_dir(treebank, create=True)
-        for f, member in extract_members.items():
-            member.name = Path(member.name).name  # Extract only file name without path
-            tar.extract(member, td_dir)
-            files[f] = td_dir / member.name
-    
-    print('extracting done')
-    return files
-
-def train(model_type,
-          treebank=None,
-          random_seed=0,
-          enable_gpu=True,
-          **kwargs):
+def train(model_type, treebank=None, random_seed=0, enable_gpu=True, **kwargs):
 
     np.random.seed(random_seed)
     torch.manual_seed(random_seed)
     torch.cuda.manual_seed(random_seed)
 
-    build_dir = get_build_dir(treebank)
+    build_dir = get_build_dir(treebank, create=True)
     files = get_treebank_files(treebank)
 
     register_logger('training', build_dir / f'{model_type}-training.csv')
@@ -177,10 +88,9 @@ def train(model_type,
 
     p = preprocess()
     index = build_index(files, p)
-    data = load_treebank(files, p, index)
-
-    build_dir.mkdir(parents=True, exist_ok=True)
     torch.save(index, build_dir / 'index.pth')
+
+    data = load_treebank(files, p, index)
 
     model_config = kwargs.get(model_type, {})
     embedding_dims = model_config.get('embedding_dims', {'form': 100, 'form:chars': (32, 50), 'upos_feats': 100})
@@ -201,8 +111,8 @@ def train(model_type,
         model_name=model_type,
         validator=validator,
         logger='training',
-        max_epochs=None,
-        patience=3,
+        max_epochs=1,
+        #  patience=3,
         **trainer_config
     )
 
@@ -215,7 +125,18 @@ def train(model_type,
         print('testing:')
         test(model)
 
-_DEFAULT_VERSION = (0,1,0)
+
+_DEFAULT_VERSION = (0, 1, 0)
+
+
+def get_package_name(treebank, version=None):
+    name = 'model' if treebank is None else treebank
+    if version is not None:
+        if isinstance(version, (tuple, list)):
+            version = '.'.join(str(v) for v in version)
+        name += '-' + version
+    return name + '.tar.gz'
+
 
 def create_model_package(treebank=None, files=None, version=None, update=False):
     build_dir = get_build_dir(treebank)
@@ -243,6 +164,7 @@ def create_model_package(treebank=None, files=None, version=None, update=False):
             tar.add(f, arcname=f.name)
     print('updating done' if update else 'installation done')
 
+
 def preprocess():
     p = pipe()
     p.only_words()
@@ -253,11 +175,13 @@ def preprocess():
     p.replace('form', r'[0-9]+|[0-9]+\.[0-9]+|[0-9]+[0-9,]+', '__number__')
     return p
 
+
 def pipeline(name, models='tagger,parser', batch_size=100):
     p = pipe()
     p = p.batch(batch_size)
     p = p.map(load_pipeline(name, models))
     return p
+
 
 def apply_model(batch, model, fields):
     preds = model.parse(batch, unbind=True, device='cpu')
@@ -266,6 +190,7 @@ def apply_model(batch, model, fields):
         for instance, array in zip(batch, pred):
             instance[f] = array.numpy()
     return batch
+
 
 def batch_pipeline(models, index):
     prep = preprocess()
@@ -298,12 +223,14 @@ def batch_pipeline(models, index):
 
     return _batch_pipeline
 
+
 def get_model_name(name):
     if isinstance(name, str):
         name = Path(name)
     if name.exists():
         return name
     return get_model_dir() / (name.name + '.tar.gz')
+
 
 def load_pipeline(name, models):
     name = get_model_name(name)
@@ -318,8 +245,6 @@ def load_pipeline(name, models):
             model.eval()
         return batch_pipeline(models, index)
 
-class ConfigError(Exception):
-    pass
 
 def get_config(args):
     config = {
@@ -335,6 +260,7 @@ def get_config(args):
 
     return config
 
+
 def get_argparser():
     p = argparse.ArgumentParser(prog='dl4dp')
     p.add_argument('--home', dest='home_dir')
@@ -342,7 +268,7 @@ def get_argparser():
     ps.required = True
 
     train = ps.add_parser('train')
-    train.add_argument('model_type', choices=('tagger','parser'))
+    train.add_argument('model_type', choices=('tagger', 'parser'))
     train.add_argument('-t', '--treebank')
     train.add_argument('-c', '--config')
 
@@ -352,10 +278,11 @@ def get_argparser():
     parse.add_argument('-m', '--model')
 
     package = ps.add_parser('package')
-    package.add_argument('package_opr', choices=('install','update'))
+    package.add_argument('package_opr', choices=('install', 'update'))
     package.add_argument('-t', '--treebank')
     package.add_argument('-v', '--version')
     return p
+
 
 def main():
     args = get_argparser().parse_args()
@@ -369,7 +296,7 @@ def main():
         elif args.cmd == 'package':
             opr = args.package_opr
             if opr == 'install' or opr == 'update':
-                create_model_package(args.treebank, update=opr=='update', version=args.version)
+                create_model_package(args.treebank, update=opr == 'update', version=args.version)
         elif args.cmd == 'parse':
             p = pipeline(args.model)
             pipe().read_conllu(args.input).pipe(p).flatten().write_conllu(args.output)
