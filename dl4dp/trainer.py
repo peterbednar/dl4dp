@@ -12,6 +12,78 @@ from conllutils import pipe
 from .utils import progressbar, get_logger
 
 
+class SessionListerner(ABC):
+
+    def begin_session(self, session):
+        pass
+
+    def end_session(self, session):
+        pass
+
+    def continue_session(self, session):
+        return True
+
+    def begin_epoch(self, session):
+        pass
+
+    def end_epoch(self, session):
+        pass
+
+    def begin_step(self, session, batch):
+        pass
+
+    def end_step(self, session, batch, loss, metrics):
+        pass
+
+
+class SessionLogger(SessionListerner):
+
+    def __init__(self, logger=None):
+        if isinstance(logger, str):
+            logger = get_logger(logger)
+        self.logger = logger
+
+    def begin_session(self, session):
+        self.start_time = time.time()
+        self.epoch = self.steps = 0
+        self.progress = progressbar(session.total_size)
+
+    def end_session(self, session):
+        td = timedelta(seconds=round(time.time() - self.start_time))
+        print(f'training epochs: {self.epoch}, steps: {self.steps}/{session.batch_size}, elapsed time: {td}')
+
+    def begin_epoch(self, session):
+        self.epoch += 1
+        self.step = 0
+        self.progress.reset()
+        print(
+            f'epoch: {self.epoch}' if session.max_epochs is None else
+            f'epoch: {self.epoch}/{session.max_epochs}'
+        )
+
+    def end_epoch(self, session):
+        self.progress.finish()
+        self.progress.print_elapsed_time('sentences')
+
+    def begin_step(self, session, batch):
+        self.step += 1
+        self.steps += 1
+
+    def end_step(self, session, batch, loss, metrics):
+        self.progress.update(len(batch))
+        if self.logger:
+            record = {
+                'epoch': self.epoch,
+                'step': self.step,
+                'elapsed_time': self.progress.elapsed_time().total_seconds(),
+                'batch_sentences': len(batch),
+                'batch_words': sum((instance.length for instance in batch)),
+                'loss': loss.item()
+            }
+            record.update({f: m.item() for f, m in metrics.items()})
+            self.logger.log(record)
+
+
 class Checkpoint(object):
 
     def __init__(self, epoch, score=None, path=None):
@@ -20,9 +92,9 @@ class Checkpoint(object):
         self.path = path
 
 
-class CheckpointManager(object):
+class CheckpointManager(SessionListerner):
 
-    def __init__(self, build_dir, model_name, validator=None, check_best_only=True, patience=None, min_delta=0.001, **kwargs):
+    def __init__(self, build_dir, model_name, validator=None, check_best_only=True, max_epochs=1, patience=None, min_delta=0.001):
         if isinstance(build_dir, str):
             build_dir = Path(build_dir)
         self.build_dir = build_dir
@@ -30,21 +102,38 @@ class CheckpointManager(object):
         self.model_name = model_name
         self.validator = validator
         self.check_best_only = check_best_only
-        self.best = None
-        self.history = []
+        self.max_epochs = max_epochs
         self.patience = patience
         self.min_delta = min_delta
+
+    def begin_session(self, session):
+        self.epoch = 0
+        self.best = None
+        self.history = []
         self.no_improvement = 0
 
-    def check(self, epoch, model):
-        last = Checkpoint(epoch)
+    def end_session(self, session):
+        if self.best.score is not None:
+            print(f'best epoch: {self.best.epoch}, score: {self.best.score:.4f}')
+
+    def continue_session(self, session):
+        if self.max_epochs is not None and self.epoch >= self.max_epochs:
+            return False
+        if self.patience is not None and self.no_improvement > self.patience:
+            return False
+        return True
+
+    def begin_epoch(self, session):
+        self.epoch += 1
+
+    def end_epoch(self, session):
+        last = Checkpoint(self.epoch)
         self.history.append(last)
 
         if self.validator:
-            print(f'validating epoch: {epoch}')
-            score, _ = self.validator(model)
+            print(f'validating epoch: {self.epoch}')
+            score, _ = self.validator(session.model)
             last.score = score
-
             if self.best is None:
                 self.best = last
             else:
@@ -56,13 +145,11 @@ class CheckpointManager(object):
             self.best = last
 
         if not self.check_best_only or self.best == last:
-            last.path = self.build_dir / (self.model_name + '.pth' if self.check_best_only else f'_{epoch}.pth')
-            torch.save(model, last.path)
+            last.path = self.build_dir / (self.model_name + '.pth' if self.check_best_only else f'_{self.epoch}.pth')
+            torch.save(session.model, last.path)
 
-        if self.patience is not None and self.no_improvement > self.patience:
-            return True
-        else:
-            return False
+    def get_best(self):
+        return self.best, self.history
 
 
 class Trainer(object):
@@ -70,76 +157,56 @@ class Trainer(object):
     def __init__(self, data, steps_per_epoch=None, max_epochs=1, batch_size=100, logger=None, **kwargs):
         if steps_per_epoch is None:
             steps_per_epoch = math.ceil(len(data) / batch_size)
+
         self.steps_per_epoch = steps_per_epoch
         self.max_epochs = max_epochs
         self.batch_size = batch_size
+        self.total_size = self.steps_per_epoch * self.batch_size
 
-        total_size = self.steps_per_epoch * self.batch_size
         self.data = data
-        self.batches = pipe(data).stream(total_size).shuffle().batch(self.batch_size)
+        self.batches = pipe(data).stream(self.total_size).shuffle().batch(self.batch_size)
 
-        self.checkpoints = CheckpointManager(**kwargs)
-        if isinstance(logger, str):
-            logger = get_logger(logger)
-        self.logger = logger
-        self.progress = progressbar(total_size)
+        self.checkpoints = CheckpointManager(max_epochs=max_epochs, **kwargs)
+        self.listeners = [
+            SessionLogger(logger),
+            self.checkpoints
+        ]
 
     def train(self, model):
         optimizer = self._optimizer(model)
-
-        epoch = steps = 0
-        start_time = time.time()
+        self.model = model
+        self._event("begin_session", self)
 
         while True:
-            print(
-                f'epoch: {epoch + 1}' if self.max_epochs is None else
-                f'epoch: {epoch + 1}/{self.max_epochs}'
-            )
-            self.progress.reset()
+            self._event("begin_epoch", self)
 
-            for step, batch in enumerate(self.batches):
+            for batch in self.batches:
+                self._event("begin_step", self, batch)
                 optimizer.zero_grad()
                 loss, metrics = model.loss(batch)
                 loss.backward()
                 optimizer.step()
+                self._event("end_step", self, batch, loss, metrics)
 
-                self.progress.update(len(batch))
-                self._log(epoch + 1, step + 1, batch, loss, metrics)
-                steps += 1
-
-            self.progress.finish()
-            self.progress.print_elapsed_time('sentences')
-            epoch += 1
-
-            if self.checkpoints.check(epoch, model):
-                break
-            if self.max_epochs is not None and epoch >= self.max_epochs:
+            self._event("end_epoch", self)
+            if not self._continue_session():
                 break
 
-        td = timedelta(seconds=round(time.time() - start_time))
-        print(f'training epochs: {epoch}, steps: {steps}/{self.batch_size}, elapsed time: {td}')
-
-        best = self.checkpoints.best
-        if best.score is not None:
-            print(f'best epoch: {best.epoch}, score: {best.score:.4f}')
-
-        return best, self.checkpoints.history
+        self._event("end_session", self)
+        return self.checkpoints.get_best()
 
     def _optimizer(self, model):
         return Adam(model.parameters(), betas=(0.9, 0.9))
 
-    def _log(self, epoch, step, batch, loss, metrics):
-        if self.logger:
-            record = {
-                'epoch': epoch,
-                'step': step,
-                'elapsed_time': self.progress.elapsed_time().total_seconds(),
-                'batch_sentences': len(batch),
-                'batch_words': sum((instance.length for instance in batch)),
-                'loss': loss.item()
-            }
-            record.update({f: m.item() for f, m in metrics.items()})
-            self.logger.log(record)
+    def _event(self, event, *args):
+        for listener in self.listeners:
+            getattr(listener, event)(*args)
+
+    def _continue_session(self):
+        for listener in self.listeners:
+            if not listener.continue_session(self):
+                return False
+        return True
 
 
 class Validator(ABC):
